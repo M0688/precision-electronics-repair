@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Precision Electronics Repair | Watford &amp; UK Mail-In</title>
+<meta name="description" content="Component-level electronics repair for phones, laptops, consoles, audio and small TVs. Drop-off by appointment in Watford, Hertfordshire, or UK-wide mail-in.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    --navy: #1B2A4A;
+    --navy-dark: #121d34;
+    --ink: #1f2733;
+    --muted: #5a6474;
+    --line: #e2e6ec;
+    --soft: #f4f6f9;
+    --white: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--white);
+    line-height: 1.6;
+  }
+  a { color: var(--navy); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* Header */
+  header { border-bottom: 1px solid var(--line); background: var(--white); position: sticky; top: 0; z-index: 10; }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+  header img { height: 52px; width: auto; display: block; }
+  nav a { margin-left: 24px; text-decoration: none; font-weight: 600; font-size: 15px; color: var(--ink); }
+  nav a:hover { color: var(--navy); text-decoration: underline; }
+  nav a.btn-sm { background: var(--navy); color: var(--white); padding: 9px 16px; border-radius: 6px; }
+  nav a.btn-sm:hover { background: var(--navy-dark); text-decoration: none; color: var(--white); }
+
+  /* Hero */
+  .hero { background: var(--navy); color: var(--white); padding: 80px 0 72px; }
+  .hero h1 { font-size: 44px; line-height: 1.15; margin: 0 0 18px; max-width: 760px; letter-spacing: -0.5px; }
+  .hero p { font-size: 19px; max-width: 640px; margin: 0 0 30px; color: #d6dcea; }
+  .btn { display: inline-block; background: var(--white); color: var(--navy); font-weight: 700; padding: 14px 26px; border-radius: 6px; text-decoration: none; }
+  .btn:hover { background: #e8ecf4; }
+  .btn-outline { background: transparent; color: var(--white); border: 2px solid rgba(255,255,255,.6); margin-left: 12px; padding: 12px 24px; }
+  .btn-outline:hover { background: rgba(255,255,255,.08); }
+  .trust { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 44px; font-size: 15px; color: #d6dcea; }
+  .trust strong { color: var(--white); display: block; font-size: 17px; }
+
+  /* Sections */
+  section { padding: 72px 0; }
+  section.alt { background: var(--soft); }
+  h2 { font-size: 32px; margin: 0 0 10px; color: var(--navy); letter-spacing: -0.3px; }
+  .lead { color: var(--muted); font-size: 17px; margin: 0 0 36px; max-width: 680px; }
+
+  /* Device grid */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card { background: var(--white); border: 1px solid var(--line); border-radius: 10px; padding: 24px; }
+  .card h3 { margin: 0 0 6px; font-size: 18px; color: var(--navy); }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  /* Prices */
+  table { width: 100%; border-collapse: collapse; background: var(--white); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 15px 20px; border-bottom: 1px solid var(--line); font-size: 16px; }
+  th { background: var(--navy); color: var(--white); font-weight: 600; }
+  td:last-child, th:last-child { text-align: right; white-space: nowrap; font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .note { font-size: 14px; color: var(--muted); margin-top: 14px; }
+
+  /* Steps */
+  .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; counter-reset: step; }
+  .step { background: var(--white); border: 1px solid var(--line); border-radius: 10px; padding: 22px 18px; position: relative; }
+  .step::before { counter-increment: step; content: counter(step); display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: var(--white); font-weight: 700; margin-bottom: 12px; }
+  .step h3 { margin: 0 0 6px; font-size: 16px; color: var(--navy); }
+  .step p { margin: 0; font-size: 14px; color: var(--muted); }
+
+  /* Promise */
+  .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .promise .card { border-top: 4px solid var(--navy); }
+
+  /* Exclusions */
+  .exclude { background: var(--white); border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 8px; padding: 20px 24px; margin-top: 28px; font-size: 15px; color: var(--muted); }
+  .exclude strong { color: var(--ink); }
+
+  /* Contact */
+  .contact { background: var(--navy); color: var(--white); text-align: center; }
+  .contact h2 { color: var(--white); }
+  .contact p { color: #d6dcea; font-size: 17px; max-width: 620px; margin: 0 auto 28px; }
+  .contact .email { overflow-wrap: anywhere; font-size: 22px; font-weight: 700; color: var(--white); }
+
+  footer { background: var(--navy-dark); color: #9aa6bd; font-size: 14px; padding: 26px 0; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+  /* Mobile */
+  @media (max-width: 860px) {
+    .grid, .promise { grid-template-columns: 1fr 1fr; }
+    .steps { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    header .wrap { height: 64px; }
+    header img { height: 42px; }
+    nav a { display: none; }
+    nav a.btn-sm { display: inline-block; margin-left: 0; }
+    .hero { padding: 56px 0 52px; }
+    .hero h1 { font-size: 32px; }
+    .hero p { font-size: 17px; }
+    .btn-outline { margin: 12px 0 0; }
+    .grid, .promise, .steps { grid-template-columns: 1fr; }
+    section { padding: 52px 0; }
+    h2 { font-size: 26px; }
+    th, td { padding: 12px 14px; font-size: 15px; }
+    .contact .email { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="#top" aria-label="Precision Electronics Repair home"><img src="logo.png" alt="Precision Electronics Repair"></a>
+    <nav>
+      <a href="#repairs">Repairs</a>
+      <a href="#prices">Prices</a>
+      <a href="#how">How it works</a>
+      <a href="#contact" class="btn-sm">Get a quote</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap">
+      <h1>Expert electronics repair, down to the component.</h1>
+      <p>Phones, laptops, consoles, audio and more, repaired at component level, not just part-swapped. Drop-off by appointment in Watford, or mail-in from anywhere in the UK.</p>
+      <a href="#contact" class="btn">Get a quote</a>
+      <a href="#prices" class="btn btn-outline">See prices</a>
+      <div class="trust">
+        <div><strong>Lifetime warranty</strong>on our workmanship</div>
+        <div><strong>No fix, no fee</strong>if we can't repair it</div>
+        <div><strong>Photo-documented</strong>every stage of your repair</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="repairs">
+    <div class="wrap">
+      <h2>What we repair</h2>
+      <p class="lead">If it has a circuit board, there's a good chance we can fix it. We diagnose the actual fault instead of just swapping parts.</p>
+      <div class="grid">
+        <div class="card"><h3>Phones &amp; tablets</h3><p>Charging ports, no power, liquid damage and board faults.</p></div>
+        <div class="card"><h3>Laptops &amp; computers</h3><p>No power, no boot, charging circuits and motherboard repair.</p></div>
+        <div class="card"><h3>Games consoles</h3><p>HDMI ports, power faults and controller repairs.</p></div>
+        <div class="card"><h3>Audio equipment</h3><p>Amplifiers, speakers and audio electronics.</p></div>
+        <div class="card"><h3>TVs up to 32"</h3><p>Power boards, main boards and no-picture faults.</p></div>
+        <div class="card"><h3>Circuit boards</h3><p>General board repair, microsoldering and BGA rework.</p></div>
+      </div>
+      <div class="exclude">
+        <strong>We don't currently repair:</strong> medical devices, vehicle safety systems (e.g. airbags, ABS), gas appliances or boiler controls, or any other safety-critical equipment.
+      </div>
+    </div>
+  </section>
+
+  <section id="prices" class="alt">
+    <div class="wrap">
+      <h2>Clear pricing</h2>
+      <p class="lead">No surprises. We diagnose first, then quote. No repair work starts until you've approved the price.</p>
+      <table>
+        <thead><tr><th>Service</th><th>Price</th></tr></thead>
+        <tbody>
+          <tr><td>Diagnostic (deducted from the repair price if you go ahead)</td><td>£30</td></tr>
+          <tr><td>Simple repair (ports, connectors)</td><td>£50–£70</td></tr>
+          <tr><td>PS5 HDMI port replacement</td><td>£70</td></tr>
+          <tr><td>Phone / console board repair</td><td>£60–£90</td></tr>
+          <tr><td>Laptop board repair</td><td>£80–£130</td></tr>
+          <tr><td>BGA / advanced repair</td><td>from £120</td></tr>
+          <tr><td>Small TV (up to 32")</td><td>from £50 + parts</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Parts are charged separately where needed. If we can't repair your item, you pay nothing. If you decline a repair we've quoted, the £30 diagnostic fee applies.</p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="lead">Simple, tracked and documented from start to finish.</p>
+      <div class="steps">
+        <div class="step"><h3>Get in touch</h3><p>Email us with your device and the fault. We'll reply with a job number and your secure booking form.</p></div>
+        <div class="step"><h3>Send or drop off</h3><p>Post it to us from anywhere in the UK, or drop off by appointment in Watford.</p></div>
+        <div class="step"><h3>Diagnosis &amp; quote</h3><p>We find the fault and send you a fixed price. Nothing happens without your approval.</p></div>
+        <div class="step"><h3>Repair &amp; test</h3><p>We carry out the repair, photograph each stage and fully test it.</p></div>
+        <div class="step"><h3>Back to you</h3><p>Returned securely, or ready to collect, with your lifetime workmanship warranty.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <h2>Our promise</h2>
+      <p class="lead">Repairs you can trust.</p>
+      <div class="promise">
+        <div class="card"><h3>Lifetime warranty</h3><p>Our workmanship is guaranteed for as long as you own the device. Replacement parts carry a 6-month warranty.</p></div>
+        <div class="card"><h3>No fix, no fee</h3><p>If we can't repair your item for any reason, all fees are waived.</p></div>
+        <div class="card"><h3>Full transparency</h3><p>Every repair is photographed and documented, so you can see exactly what we did.</p></div>
+      </div>
+      <p class="note">Warranty covers the specific repair we carried out, not the whole device. Your statutory rights under the Consumer Rights Act 2015 are not affected.</p>
+    </div>
+  </section>
+
+  <section id="contact" class="contact">
+    <div class="wrap">
+      <h2>Get a quote</h2>
+      <p>Tell us your device make and model and what's wrong with it. We'll get back to you with a job number and next steps.</p>
+      <a class="email" href="mailto:info@precisionelectronicsrepair.co.uk">info@precisionelectronicsrepair.co.uk</a>
+      <p style="margin:14px auto 0;"><a class="email" href="tel:+447522124273">07522 124273</a></p>
+      <p style="margin-top:22px;margin-bottom:0;">Watford, Hertfordshire · Drop-off by appointment · UK-wide mail-in</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Precision Electronics Repair</span>
+    <span>Watford, Hertfordshire · 07522 124273</span>
+  </div>
+</footer>
+
+</body>
+</html>
