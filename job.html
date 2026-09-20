@@ -66,6 +66,11 @@
   .notes .what { font-size: 14px; white-space: pre-wrap; }
 
   .quotebox { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .sendrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .send { display: inline-block; background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; text-decoration: none; }
+  .send:hover { background: var(--soft); }
+  .send.wa { border-color: #25D366; color: #128C4A; }
+  .linkbox { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; word-break: break-all; margin-top: 12px; }
   .quotebox .amt { font-size: 19px; font-weight: 700; color: var(--navy); }
 
   @media (max-width: 640px) {
@@ -129,18 +134,22 @@
         <div id="quoteMsg" class="msg"></div>
         <div id="quoteList"></div>
         <div class="row">
-          <div style="flex:0 0 140px">
-            <label for="qAmount">Amount £</label>
+          <div style="flex:0 0 160px">
+            <label for="qAmount">Total price £</label>
             <input type="number" id="qAmount" min="0" step="1" placeholder="120">
-          </div>
-          <div style="flex:1 1 300px">
-            <label for="qParts">Parts (optional)</label>
-            <input type="text" id="qParts" placeholder="e.g. HDMI port, £8">
           </div>
         </div>
         <label for="qWork">What the repair involves</label>
         <textarea id="qWork" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
         <button class="primary" id="quoteBtn">Send quote to customer</button>
+        <div id="qSend" style="display:none">
+          <div class="linkbox" id="qLink"></div>
+          <div class="sendrow">
+            <button class="send" id="qCopy">Copy link</button>
+            <a class="send wa" id="qWa" target="_blank" rel="noopener">Send on WhatsApp</a>
+            <a class="send" id="qSms">Send by text</a>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -172,6 +181,15 @@ function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&
 function when(ts) {
   return ts ? new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 }
+function ukNumber(raw) {
+  const digits = String(raw || '').replace(/[^0-9+]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('+')) return digits.slice(1);
+  if (digits.startsWith('44')) return digits;
+  if (digits.startsWith('0')) return '44' + digits.slice(1);
+  return digits;
+}
+
 function fact(label, value) {
   if (value === null || value === undefined || String(value).trim() === '') return '';
   return `<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`;
@@ -280,7 +298,7 @@ $('quoteBtn').addEventListener('click', async () => {
   $('quoteBtn').disabled = true; $('quoteBtn').textContent = 'Sending…';
 
   const { data, error } = await sb.rpc('create_quote', {
-    p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: $('qParts').value.trim()
+    p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: null
   });
   if (error) {
     $('quoteBtn').disabled = false; $('quoteBtn').textContent = 'Send quote to customer';
@@ -298,14 +316,36 @@ $('quoteBtn').addEventListener('click', async () => {
   const out = await res.json().catch(() => ({}));
 
   $('quoteBtn').disabled = false; $('quoteBtn').textContent = 'Send quote to customer';
-  $('qAmount').value = ''; $('qWork').value = ''; $('qParts').value = '';
 
-  if (out.ok) show($('quoteMsg'), 'Quote emailed to ' + out.to + '.', 'ok');
-  else show($('quoteMsg'), 'Quote saved, but the email failed: ' + (out.error || 'unknown error'), 'err');
+  // link and message for WhatsApp / text
+  const token = qrow.quote_token || qrow.token;
+  const link = 'https://precisionelectronicsrepair.co.uk/quote.html?q=' + quoteId + '&k=' + token;
+  const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
+  const msg = hi + 'your repair quote for ' + JOB + ' is ready: £' + amount.toFixed(2) + '. ' +
+              work + ' — approve or decline here: ' + link;
+  $('qLink').textContent = link;
+  const num = ukNumber(JOBROW.phone);
+  $('qWa').href = num ? 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg)
+                      : 'https://wa.me/?text=' + encodeURIComponent(msg);
+  if (num) { $('qSms').href = 'sms:+' + num + '?&body=' + encodeURIComponent(msg); $('qSms').style.display = ''; }
+  else { $('qSms').style.display = 'none'; }
+  $('qSend').style.display = 'block';
 
+  if (out.ok) show($('quoteMsg'), 'Quote emailed to ' + out.to + '. Send it on WhatsApp or by text below as well if you like.', 'ok');
+  else show($('quoteMsg'), 'Quote saved, but the email failed (' + (out.error || 'unknown error') + '). Use the buttons below instead.', 'err');
+
+  $('qAmount').value = ''; $('qWork').value = '';
   $('status').value = 'quoted';
   loadQuotes(JOBROW.id);
   loadNotes(JOBROW.id);
+});
+
+$('qCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('qLink').textContent);
+    $('qCopy').textContent = 'Copied';
+    setTimeout(() => { $('qCopy').textContent = 'Copy link'; }, 2000);
+  } catch (e) { show($('quoteMsg'), 'Could not copy — select the link and copy it.', 'err'); }
 });
 
 load();
