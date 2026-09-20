@@ -6,6 +6,12 @@
 <title>Workshop | Precision Electronics Repair</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PER Workshop">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root {
     --navy: #1B2A4A; --navy-dark: #121d34; --ink: #1f2733; --muted: #5a6474;
@@ -125,6 +131,13 @@
             <a class="send" id="smsBtn">Send by text</a>
           </div>
         </div>
+      </div>
+
+      <div class="card" id="pushCard">
+        <h2>Phone alerts</h2>
+        <div id="pushMsg" class="msg"></div>
+        <p class="sub" id="pushHelp" style="margin-bottom:14px"></p>
+        <button class="primary" id="pushBtn">Turn on alerts on this device</button>
       </div>
 
       <div class="card">
@@ -292,6 +305,69 @@ $('createBtn').addEventListener('click', async () => {
   loadJobs();
 });
 
+// ---------- phone alerts ----------
+const VAPID_PUBLIC = 'BC8_T1lb2mgEI_Km3p4TY7bwX4mEeRavbqLdPBIY7QT6VLMfe9QxK1gDcGPORJTW8BBFq6N-2dhXM9NvqP16SNk';
+
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+async function setupPushUI() {
+  const btn = $('pushBtn'), help = $('pushHelp');
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    btn.style.display = 'none';
+    help.textContent = 'This browser cannot show alerts. On iPhone, open this page in Safari, add it to your Home Screen, then open it from there.';
+    return;
+  }
+  if (isIOS && !isStandalone) {
+    btn.style.display = 'none';
+    help.innerHTML = 'To get alerts on your iPhone: tap <strong>Share</strong> → <strong>Add to Home Screen</strong>, then open the app from your Home Screen and come back here.';
+    return;
+  }
+
+  const reg = await navigator.serviceWorker.register('sw.js');
+  const existing = await reg.pushManager.getSubscription();
+  if (existing && Notification.permission === 'granted') {
+    btn.textContent = 'Send a test alert';
+    help.textContent = 'Alerts are on for this device. You will be notified when a customer submits a booking form.';
+    btn.onclick = async () => {
+      new Notification('Precision Electronics Repair', { body: 'Test alert — this is what a new booking looks like.', icon: 'icon-192.png' });
+    };
+    return;
+  }
+
+  help.textContent = 'Get a notification on this device when a customer submits a booking form.';
+  btn.onclick = async () => {
+    hide($('pushMsg'));
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return show($('pushMsg'), 'Alerts were blocked. Allow notifications for this site in your browser settings.', 'err');
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
+    });
+    const json = sub.toJSON();
+    const { data: sess } = await sb.auth.getSession();
+    const { error } = await sb.from('push_subscriptions').upsert({
+      email: sess?.session?.user?.email,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth,
+      device: navigator.userAgent.slice(0, 120)
+    }, { onConflict: 'endpoint' });
+    if (error) return show($('pushMsg'), error.message, 'err');
+    show($('pushMsg'), 'Alerts are on for this device.', 'ok');
+    setupPushUI();
+  };
+}
+
 // ---------- start ----------
 async function start() {
   const { data } = await sb.auth.getSession();
@@ -301,6 +377,7 @@ async function start() {
     $('app').style.display = 'block';
     $('login').style.display = 'none';
     loadJobs();
+    setupPushUI();
   } else {
     $('login').style.display = 'block';
   }
