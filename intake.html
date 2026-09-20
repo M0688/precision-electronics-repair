@@ -311,6 +311,16 @@ $('intakeForm').addEventListener('submit', async (ev) => {
   try {
     const result = await rpc('submit_intake', { p_job_number: JOB, p_key: KEY, p_payload: payload });
     let photoMsg = '';
+    // send the customer their copy (failure here must not lose the form)
+    fetch(SUPABASE_URL + '/functions/v1/send-intake-copy', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ job_number: JOB, key: KEY })
+    }).catch(() => {});
     try {
       const photos = await uploadPhotos();
       if (photos.attempted) {
