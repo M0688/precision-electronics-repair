@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Booking Form | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    --navy: #1B2A4A;
+    --navy-dark: #121d34;
+    --ink: #1f2733;
+    --muted: #5a6474;
+    --line: #d9dee6;
+    --soft: #f4f6f9;
+    --white: #ffffff;
+    --red: #b3261e;
+    --green: #1c6b3c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--ink); background: var(--soft); line-height: 1.6; }
+  a { color: var(--navy); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+  header { background: var(--white); border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; max-width: 1080px; }
+  header img { height: 52px; width: auto; display: block; }
+  header nav a { text-decoration: none; font-weight: 600; font-size: 15px; color: var(--ink); }
+
+  main { padding: 40px 0 72px; }
+  .panel { background: var(--white); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  h1 { font-size: 28px; color: var(--navy); margin: 0 0 6px; letter-spacing: -0.3px; }
+  .jobline { color: var(--muted); font-size: 15px; margin: 0 0 24px; }
+  .jobline strong { color: var(--navy); font-size: 17px; }
+
+  fieldset { border: 0; padding: 0; margin: 0 0 8px; }
+  legend { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 26px 0 12px; }
+  label { display: block; font-weight: 600; font-size: 15px; margin: 0 0 5px; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 14px; }
+  input[type=text], input[type=email], input[type=tel], input[type=number], textarea, select {
+    width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 16px; color: var(--ink); background: var(--white); margin-bottom: 18px;
+  }
+  textarea { min-height: 110px; resize: vertical; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--navy); outline-offset: 1px; border-color: var(--navy); }
+  input[type=file] { font-size: 15px; margin-bottom: 8px; }
+
+  .check { display: flex; gap: 12px; align-items: flex-start; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; margin-bottom: 12px; }
+  .check input { margin-top: 4px; width: 18px; height: 18px; flex: 0 0 auto; }
+  .check label { font-weight: 400; font-size: 15px; margin: 0; }
+
+  button { background: var(--navy); color: var(--white); border: 0; border-radius: 8px; font: inherit; font-weight: 700; font-size: 17px; padding: 15px 28px; width: 100%; cursor: pointer; margin-top: 10px; }
+  button:hover { background: var(--navy-dark); }
+  button:disabled { opacity: .55; cursor: default; }
+
+  .msg { border-radius: 8px; padding: 14px 16px; margin-bottom: 18px; font-size: 15px; display: none; }
+  .msg.err { background: #fdecea; border: 1px solid #f3c2bd; color: var(--red); }
+  .msg.info { background: #eef2f8; border: 1px solid #cdd8e8; color: var(--navy); }
+  .msg.show { display: block; }
+
+  .done { text-align: center; padding: 16px 0; }
+  .done h2 { color: var(--green); font-size: 24px; margin: 0 0 10px; }
+  .ref { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: inline-block; margin: 10px 0 4px; font-size: 15px; word-break: break-all; }
+
+  footer { background: var(--navy-dark); color: #9aa6bd; font-size: 14px; padding: 24px 0; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; max-width: 1080px; }
+  footer a { color: #cdd6e6; }
+
+  @media (max-width: 600px) {
+    header .wrap { height: 64px; }
+    header img { height: 42px; }
+    main { padding: 24px 0 52px; }
+    .panel { padding: 20px; border-radius: 10px; }
+    h1 { font-size: 23px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="index.html" aria-label="Precision Electronics Repair home"><img src="logo.png" alt="Precision Electronics Repair"></a>
+    <nav><a href="index.html">Home</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="panel">
+
+      <div id="loading" class="msg info show">Checking your booking link…</div>
+      <div id="error" class="msg err"></div>
+
+      <div id="formArea" style="display:none">
+        <h1>Repair booking form</h1>
+        <p class="jobline">Job number: <strong id="jobLabel"></strong></p>
+
+        <form id="intakeForm" novalidate>
+
+          <fieldset>
+            <legend>Your details</legend>
+            <label for="customer_name">Full name *</label>
+            <input type="text" id="customer_name" autocomplete="name" required>
+
+            <label for="email">Email address *<span class="hint"> — we'll send your confirmation here</span></label>
+            <input type="email" id="email" autocomplete="email" required>
+
+            <label for="phone">Phone number</label>
+            <input type="tel" id="phone" autocomplete="tel">
+
+            <label for="address">Return address <span class="hint">— where we post the item back</span></label>
+            <textarea id="address" autocomplete="street-address" style="min-height:80px"></textarea>
+          </fieldset>
+
+          <fieldset>
+            <legend>Your item</legend>
+            <label for="device_type">Type of item</label>
+            <select id="device_type">
+              <option value="">Please choose…</option>
+              <option>Phone or tablet</option>
+              <option>Laptop or computer</option>
+              <option>Games console or controller</option>
+              <option>Audio equipment</option>
+              <option>TV (up to 32")</option>
+              <option>Circuit board</option>
+              <option>Other</option>
+            </select>
+
+            <label for="make_model">Make and model</label>
+            <input type="text" id="make_model" placeholder="e.g. Sony PlayStation 5 Slim">
+
+            <label for="serial_imei">Serial or IMEI number <span class="hint">— if you have it</span></label>
+            <input type="text" id="serial_imei">
+
+            <label for="fault_description">What's wrong with it? *</label>
+            <textarea id="fault_description" required placeholder="Describe the fault in your own words."></textarea>
+
+            <label for="fault_history">When did it start? Anything happen beforehand?</label>
+            <textarea id="fault_history" style="min-height:80px" placeholder="Dropped, liquid, power surge, previous repair, etc."></textarea>
+
+            <label for="accessories">What are you sending with it?</label>
+            <input type="text" id="accessories" placeholder="e.g. power lead, controller, nothing else">
+
+            <label for="photos">Photos <span class="hint">— optional, helps us before it arrives</span></label>
+            <input type="file" id="photos" accept="image/*" multiple>
+          </fieldset>
+
+          <fieldset>
+            <legend>Costs</legend>
+            <label for="max_spend">Maximum you're happy to spend without us asking first <span class="hint">— leave blank to approve every quote yourself</span></label>
+            <input type="number" id="max_spend" min="0" step="1" placeholder="£">
+          </fieldset>
+
+          <fieldset>
+            <legend>Please confirm</legend>
+            <div class="check"><input type="checkbox" id="agree_diagnostic"><label for="agree_diagnostic">I understand the <strong>£30 diagnostic fee</strong>. It's deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can't be repaired.</label></div>
+            <div class="check"><input type="checkbox" id="agree_terms"><label for="agree_terms">I have read and accept the <a href="terms.html" target="_blank">terms of service</a>, including the warranty terms.</label></div>
+            <div class="check"><input type="checkbox" id="agree_uncollected"><label for="agree_uncollected">I understand that items left uncollected for 90 days after repeated contact may be sold at auction to recover costs, with any surplus returned to me.</label></div>
+            <div class="check"><input type="checkbox" id="agree_privacy"><label for="agree_privacy">I have read the <a href="privacy.html" target="_blank">privacy notice</a>, and I understand I should back up my data before sending my device.</label></div>
+
+            <label for="signature_name" style="margin-top:18px">Type your full name to sign *</label>
+            <input type="text" id="signature_name" required>
+          </fieldset>
+
+          <button type="submit" id="submitBtn">Submit booking form</button>
+        </form>
+      </div>
+
+      <div id="done" class="done" style="display:none">
+        <h2>Thank you</h2>
+        <p>Your booking form for <strong id="doneJob"></strong> has been received and locked. Please keep this reference:</p>
+        <div class="ref" id="doneRef"></div>
+        <p class="hint" id="photoNote"></p>
+        <p style="margin-top:22px">We'll be in touch by email with what to do next.</p>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Precision Electronics Repair</span>
+    <span><a href="privacy.html">Privacy notice</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+
+<script>
+const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';
+
+const params = new URLSearchParams(location.search);
+const JOB = (params.get('job') || '').trim().toUpperCase();
+const KEY = (params.get('k') || '').trim();
+
+const $ = id => document.getElementById(id);
+const loading = $('loading'), errorBox = $('error'), formArea = $('formArea');
+
+function fail(text) {
+  loading.classList.remove('show');
+  errorBox.textContent = text;
+  errorBox.classList.add('show');
+  formArea.style.display = 'none';
+}
+
+async function rpc(fn, body) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+  if (!res.ok) throw new Error((data && data.message) || 'Something went wrong. Please try again.');
+  return data;
+}
+
+async function start() {
+  if (!JOB || !KEY) {
+    return fail('This booking link is incomplete. Please use the exact link we emailed you, or get in touch and we will send a new one.');
+  }
+  try {
+    const result = await rpc('verify_job', { p_job_number: JOB, p_key: KEY });
+    if (!result || !result.valid) {
+      return fail('We could not find that booking link. Please check the link we emailed you, or contact us on 07522 124273.');
+    }
+    if (result.already_submitted) {
+      return fail('A booking form has already been submitted for job ' + result.job_number + '. If you need to change something, please email info@precisionelectronicsrepair.co.uk.');
+    }
+    $('jobLabel').textContent = result.job_number;
+    loading.classList.remove('show');
+    formArea.style.display = 'block';
+  } catch (e) {
+    fail('We could not load the form right now. Please try again shortly, or contact us on 07522 124273.');
+  }
+}
+
+async function uploadPhotos() {
+  const files = Array.from($('photos').files || []);
+  if (!files.length) return { attempted: 0, uploaded: 0 };
+  let uploaded = 0;
+  for (const file of files) {
+    if (file.size > 15 * 1024 * 1024) continue;
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${JOB}/${KEY}/${Date.now()}_${safe}`;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/intake-photos/${path}`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': file.type || 'application/octet-stream'
+        },
+        body: file
+      });
+      if (res.ok) {
+        uploaded++;
+        await rpc('register_photo', { p_job_number: JOB, p_key: KEY, p_path: path });
+      }
+    } catch (e) { /* carry on with the rest */ }
+  }
+  return { attempted: files.length, uploaded };
+}
+
+$('intakeForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  errorBox.classList.remove('show');
+
+  const payload = {
+    customer_name: $('customer_name').value.trim(),
+    email: $('email').value.trim(),
+    phone: $('phone').value.trim(),
+    address: $('address').value.trim(),
+    device_type: $('device_type').value,
+    make_model: $('make_model').value.trim(),
+    serial_imei: $('serial_imei').value.trim(),
+    fault_description: $('fault_description').value.trim(),
+    fault_history: $('fault_history').value.trim(),
+    accessories: $('accessories').value.trim(),
+    max_spend: $('max_spend').value.trim(),
+    agree_diagnostic: $('agree_diagnostic').checked,
+    agree_terms: $('agree_terms').checked,
+    agree_privacy: $('agree_privacy').checked,
+    agree_uncollected: $('agree_uncollected').checked,
+    signature_name: $('signature_name').value.trim()
+  };
+
+  if (!payload.customer_name || !payload.email || !payload.fault_description || !payload.signature_name) {
+    errorBox.textContent = 'Please fill in your name, email, the fault and your signature.';
+    errorBox.classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  if (!payload.agree_diagnostic || !payload.agree_terms || !payload.agree_privacy || !payload.agree_uncollected) {
+    errorBox.textContent = 'Please tick all four boxes to confirm you accept the terms.';
+    errorBox.classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
+  const btn = $('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const result = await rpc('submit_intake', { p_job_number: JOB, p_key: KEY, p_payload: payload });
+    let photoMsg = '';
+    try {
+      const photos = await uploadPhotos();
+      if (photos.attempted) {
+        photoMsg = photos.uploaded === photos.attempted
+          ? `${photos.uploaded} photo${photos.uploaded === 1 ? '' : 's'} uploaded.`
+          : `${photos.uploaded} of ${photos.attempted} photos uploaded. Please email any that are missing.`;
+      }
+    } catch (e) {
+      photoMsg = 'Your form was saved, but the photos did not upload. Please email them to us.';
+    }
+    formArea.style.display = 'none';
+    $('doneJob').textContent = JOB;
+    $('doneRef').textContent = (result && result.reference ? result.reference.slice(0, 16) : JOB);
+    $('photoNote').textContent = photoMsg;
+    $('done').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) {
+    errorBox.textContent = e.message || 'We could not save your form. Please try again.';
+    errorBox.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Submit booking form';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+});
+
+start();
+</script>
+
+</body>
+</html>
