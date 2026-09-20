@@ -1,0 +1,155 @@
+// Shared invoice PDF builder. Needs jsPDF (UMD) loaded first.
+// buildInvoicePdf(data) -> jsPDF document
+
+const BUSINESS = {
+  name: 'Precision Electronics Repair',
+  addr: ['262D Boundary Way', 'Watford', 'WD25 7SX'],
+  phone: '07522 124273',
+  email: 'info@precisionelectronicsrepair.co.uk',
+  site: 'precisionelectronicsrepair.co.uk',
+  bank: { name: 'Mitchell Morris', sort: '04-29-09', account: '59881100' }
+};
+
+const NAVY = [27, 42, 74];
+const MUTED = [90, 100, 116];
+
+function money(n) {
+  return '£' + Number(n).toFixed(2);
+}
+
+function ukDate(ts) {
+  return new Date(ts || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+export function buildInvoicePdf(d) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const L = 18, R = 192;
+  let y = 20;
+
+  // header band
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, 210, 32, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text(BUSINESS.name.toUpperCase(), L, 19);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(BUSINESS.site, R, 19, { align: 'right' });
+
+  y = 48;
+  doc.setTextColor(...NAVY);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text('INVOICE', L, y);
+
+  doc.setFontSize(10);
+  doc.setTextColor(...MUTED);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Invoice number', R - 45, y - 8);
+  doc.text('Date', R - 45, y - 2);
+  doc.text('Job', R - 45, y + 4);
+  doc.setTextColor(30, 39, 51);
+  doc.setFont('helvetica', 'bold');
+  doc.text(String(d.invoice_number), R, y - 8, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.text(ukDate(d.issued_at), R, y - 2, { align: 'right' });
+  doc.text(String(d.job_number), R, y + 4, { align: 'right' });
+
+  // addresses
+  y += 14;
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED);
+  doc.text('FROM', L, y);
+  doc.text('BILL TO', 110, y);
+  y += 5;
+  doc.setTextColor(30, 39, 51);
+  doc.setFontSize(10);
+
+  let yl = y, yr = y;
+  doc.setFont('helvetica', 'bold');
+  doc.text(BUSINESS.name, L, yl); yl += 5;
+  doc.setFont('helvetica', 'normal');
+  BUSINESS.addr.forEach(line => { doc.text(line, L, yl); yl += 5; });
+  doc.text(BUSINESS.phone, L, yl); yl += 5;
+  doc.text(BUSINESS.email, L, yl); yl += 5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(String(d.customer_name || ''), 110, yr); yr += 5;
+  doc.setFont('helvetica', 'normal');
+  String(d.customer_address || '').split('\n').filter(Boolean).forEach(line => {
+    doc.text(doc.splitTextToSize(line, 80), 110, yr); yr += 5;
+  });
+
+  y = Math.max(yl, yr) + 10;
+
+  // table
+  doc.setFillColor(...NAVY);
+  doc.rect(L, y, R - L, 9, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DESCRIPTION', L + 4, y + 6);
+  doc.text('AMOUNT', R - 4, y + 6, { align: 'right' });
+  y += 9;
+
+  doc.setTextColor(30, 39, 51);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  const lines = doc.splitTextToSize(String(d.description || ''), 120);
+  const rowH = Math.max(14, lines.length * 5 + 8);
+  doc.setDrawColor(226, 230, 236);
+  doc.rect(L, y, R - L, rowH);
+  doc.text(lines, L + 4, y + 7);
+  if (d.item) {
+    doc.setTextColor(...MUTED);
+    doc.setFontSize(9);
+    doc.text('Item: ' + d.item, L + 4, y + rowH - 4);
+    doc.setTextColor(30, 39, 51);
+    doc.setFontSize(10);
+  }
+  doc.text(money(d.amount), R - 4, y + 7, { align: 'right' });
+  y += rowH + 6;
+
+  // total
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(...NAVY);
+  doc.text('TOTAL DUE', R - 50, y + 2);
+  doc.setFontSize(16);
+  doc.text(money(d.amount), R, y + 2, { align: 'right' });
+  y += 12;
+
+  if (d.status === 'paid') {
+    doc.setTextColor(28, 107, 60);
+    doc.setFontSize(12);
+    doc.text('PAID' + (d.paid_at ? ' — ' + ukDate(d.paid_at) : ''), R, y, { align: 'right' });
+    y += 8;
+  }
+
+  // payment details
+  y += 6;
+  doc.setDrawColor(226, 230, 236);
+  doc.setFillColor(244, 246, 249);
+  doc.rect(L, y, R - L, 34, 'FD');
+  doc.setTextColor(...NAVY);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('How to pay', L + 4, y + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 39, 51);
+  doc.setFontSize(9.5);
+  doc.text(`Bank transfer — ${BUSINESS.bank.name} · Sort code ${BUSINESS.bank.sort} · Account ${BUSINESS.bank.account}`, L + 4, y + 16);
+  doc.text(`Please use ${d.invoice_number} as the payment reference.`, L + 4, y + 22);
+  doc.text('Cash accepted on collection.', L + 4, y + 28);
+  y += 44;
+
+  // footer
+  doc.setTextColor(...MUTED);
+  doc.setFontSize(8.5);
+  doc.text('Payment is due before the item is returned or collected.', L, y);
+  doc.text(`Workmanship warranty for as long as you own the device. Parts warranty 6 months. Terms: ${BUSINESS.site}/terms.html`, L, y + 5);
+
+  return doc;
+}

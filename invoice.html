@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your invoice | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root { --navy:#1B2A4A; --navy-dark:#121d34; --ink:#1f2733; --muted:#5a6474; --line:#d9dee6; --soft:#f4f6f9; --white:#fff; --red:#b3261e; --green:#1c6b3c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:var(--ink); background:var(--soft); line-height:1.6; }
+  a { color:var(--navy); }
+  .wrap { max-width:640px; margin:0 auto; padding:0 20px; }
+  header { background:var(--white); border-bottom:1px solid var(--line); }
+  header .wrap { display:flex; align-items:center; justify-content:space-between; height:72px; max-width:1080px; }
+  header img { height:52px; display:block; }
+  header nav a { text-decoration:none; font-weight:600; font-size:15px; color:var(--ink); }
+  main { padding:40px 0 72px; }
+  .panel { background:var(--white); border:1px solid var(--line); border-radius:12px; padding:28px; }
+  h1 { font-size:26px; color:var(--navy); margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:15px; margin:0 0 22px; }
+  .block { border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin-bottom:18px; }
+  .klabel { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
+  .total { border-top:1px solid var(--line); padding-top:14px; margin-top:14px; font-size:24px; font-weight:700; color:var(--navy); }
+  .paid { display:inline-block; background:#e7f2ec; color:var(--green); font-weight:700; font-size:13px; padding:5px 12px; border-radius:20px; }
+  .pay { background:var(--soft); border-radius:10px; padding:16px 18px; font-size:15px; margin-bottom:20px; }
+  button { background:var(--navy); color:#fff; border:0; border-radius:8px; font:inherit; font-weight:700; font-size:16px; padding:14px 24px; cursor:pointer; width:100%; }
+  button:hover { background:var(--navy-dark); }
+  .msg { border-radius:8px; padding:14px 16px; margin-bottom:18px; font-size:15px; display:none; }
+  .msg.show { display:block; }
+  .msg.err { background:#fdecea; border:1px solid #f3c2bd; color:var(--red); }
+  .msg.info { background:#eef2f8; border:1px solid #cdd8e8; color:var(--navy); }
+  footer { background:var(--navy-dark); color:#9aa6bd; font-size:14px; padding:24px 0; }
+  footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; max-width:1080px; }
+  footer a { color:#cdd6e6; }
+  @media (max-width:600px){ header .wrap{height:64px} header img{height:42px} .panel{padding:20px} h1{font-size:22px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="index.html"><img src="logo.png" alt="Precision Electronics Repair"></a>
+    <nav><a href="index.html">Home</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="panel">
+      <div id="loading" class="msg info show">Loading your invoice…</div>
+      <div id="error" class="msg err"></div>
+
+      <div id="area" style="display:none">
+        <h1 id="invNo"></h1>
+        <p class="sub" id="sub"></p>
+
+        <div class="block">
+          <div class="klabel">Work carried out</div>
+          <div id="desc" style="white-space:pre-wrap"></div>
+          <div class="total" id="amount"></div>
+          <div id="paidTag" style="margin-top:10px;display:none"><span class="paid">PAID</span></div>
+        </div>
+
+        <div class="pay" id="payBlock">
+          <strong style="color:var(--navy)">How to pay</strong><br>
+          Bank transfer — Mitchell Morris · Sort code 04-29-09 · Account 59881100<br>
+          Please use <strong id="payRef"></strong> as the reference.<br>
+          Cash accepted on collection.
+        </div>
+
+        <button id="dl">Download PDF invoice</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Precision Electronics Repair · 262D Boundary Way, Watford, WD25 7SX</span>
+    <span><a href="privacy.html">Privacy notice</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module">
+import { buildInvoicePdf } from './invoice-pdf.js';
+
+const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';
+
+const params = new URLSearchParams(location.search);
+const ID = (params.get('i') || '').trim();
+const TOKEN = (params.get('k') || '').trim();
+const $ = id => document.getElementById(id);
+let DATA = null;
+
+function fail(text) {
+  $('loading').classList.remove('show');
+  $('error').textContent = text;
+  $('error').classList.add('show');
+}
+
+async function start() {
+  if (!ID || !TOKEN) return fail('This invoice link is incomplete. Please use the exact link we emailed you.');
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/invoice_details', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_id: ID, p_token: TOKEN })
+    });
+    const d = await res.json();
+    if (!res.ok || !d || !d.valid) return fail('We could not find that invoice. Please check the link, or call 07522 124273.');
+    DATA = d;
+
+    $('invNo').textContent = 'Invoice ' + d.invoice_number;
+    $('sub').textContent = 'Job ' + d.job_number + (d.item ? ' · ' + d.item : '');
+    $('desc').textContent = d.description;
+    $('amount').textContent = 'Total due: £' + Number(d.amount).toFixed(2);
+    $('payRef').textContent = d.invoice_number;
+    if (d.status === 'paid') {
+      $('paidTag').style.display = 'block';
+      $('amount').textContent = 'Total: £' + Number(d.amount).toFixed(2);
+      $('payBlock').style.display = 'none';
+    }
+    $('loading').classList.remove('show');
+    $('area').style.display = 'block';
+  } catch (e) {
+    fail('We could not load your invoice right now. Please try again shortly, or call 07522 124273.');
+  }
+}
+
+$('dl').addEventListener('click', () => {
+  if (!DATA) return;
+  buildInvoicePdf(DATA).save(DATA.invoice_number + '.pdf');
+});
+
+start();
+</script>
+
+</body>
+</html>
