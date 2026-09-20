@@ -177,6 +177,19 @@
       </div>
 
       <div class="card">
+        <h2>Diagnostic assistant</h2>
+        <p class="sub" style="margin-bottom:12px">Uses the booking form and your bench notes. Treat it as a second opinion, not gospel.</p>
+        <div id="aiMsg" class="msg"></div>
+        <label for="aiQ">Your question <span style="font-weight:400;color:var(--muted)">— leave blank for "what should I check first?"</span></label>
+        <textarea id="aiQ" style="min-height:70px" placeholder="e.g. 3.3V rail is dead and there's a short to ground on the main filter cap — where do I go next?"></textarea>
+        <div class="sendrow" style="margin-top:0">
+          <button class="primary" id="aiBtn">Ask</button>
+          <button class="send" id="aiSave" style="display:none">Save answer to notes</button>
+        </div>
+        <div id="aiOut" style="display:none;white-space:pre-wrap;font-size:14px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:14px"></div>
+      </div>
+
+      <div class="card">
         <h2>Work notes</h2>
         <div id="noteMsg" class="msg"></div>
         <textarea id="noteText" placeholder="What you measured, what you found, what you did."></textarea>
@@ -391,6 +404,45 @@ $('iCopy').addEventListener('click', async () => {
     $('iCopy').textContent = 'Copied';
     setTimeout(() => { $('iCopy').textContent = 'Copy link'; }, 2000);
   } catch (e) { show($('invMsg'), 'Could not copy — select the link and copy it.', 'err'); }
+});
+
+let AIANSWER = '';
+
+$('aiBtn').addEventListener('click', async () => {
+  hide($('aiMsg'));
+  $('aiBtn').disabled = true; $('aiBtn').textContent = 'Thinking…';
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/ai-diagnose', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_number: JOB, question: $('aiQ').value.trim() })
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'No answer.');
+    AIANSWER = out.answer;
+    $('aiOut').textContent = out.answer;
+    $('aiOut').style.display = 'block';
+    $('aiSave').style.display = 'inline-block';
+  } catch (e) {
+    show($('aiMsg'), e.message, 'err');
+  }
+  $('aiBtn').disabled = false; $('aiBtn').textContent = 'Ask';
+});
+
+$('aiSave').addEventListener('click', async () => {
+  if (!AIANSWER) return;
+  const q = $('aiQ').value.trim();
+  const { data: sess } = await sb.auth.getSession();
+  const { error } = await sb.from('job_notes').insert({
+    job_id: JOBROW.id,
+    note: 'AI assistant' + (q ? ' — asked: ' + q : '') + '\n\n' + AIANSWER,
+    stage: JOBROW.status,
+    created_by: sess?.session?.user?.email
+  });
+  if (error) return show($('aiMsg'), error.message, 'err');
+  show($('aiMsg'), 'Saved to work notes.', 'ok');
+  loadNotes(JOBROW.id);
 });
 
 $('statusBtn').addEventListener('click', async () => {
