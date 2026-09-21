@@ -85,6 +85,31 @@ const STATUSES = [
 
 const PITCH = "Hi, I'm Mitchell from Precision Electronics Repair in Watford. We do board-level repair — microsoldering, BGA rework, charging ICs, no-power faults — for repair shops that don't do it in-house. You keep the customer, we do the bench work and send it back tested with photos. Happy to take a first board whenever you've got one that's stuck.";
 
+const EMAIL_SUBJECT = "Board-level repair for the jobs you turn away";
+
+const EMAIL_BODY = `Hello,
+
+I'm Mitchell, and I run Precision Electronics Repair in Watford. I do board-level work — microsoldering, BGA rework, charging ICs, no-power and no-boot faults — for repair shops that don't do it in-house.
+
+The idea is simple. When a board beats you, send it to me instead of turning the customer away. You keep the customer and add your own markup, I do the bench work and send it back tested with photographs of what was done.
+
+How it works:
+
+· Trade price is 25% off my published prices — they're all on precisionelectronicsrepair.co.uk
+· Diagnosis is free. If I haven't found the fault within two hours it comes back with a written account of everything I tested, and there's nothing to pay.
+· You'll have a diagnosis or a no-fix within three working days of it reaching my bench.
+· Royal Mail both ways. Return postage goes on the invoice at cost.
+
+No account to set up and no minimum. If there's a board sitting in a drawer you've given up on, send that one and see what you make of the work.
+
+Mitchell Morris
+Precision Electronics Repair
+07522 124273
+info@precisionelectronicsrepair.co.uk
+262D Boundary Way, Watford, WD25 7SX
+
+If you'd rather I didn't contact you again, just reply saying so and I won't.`;
+
 let ROWS = [];
 
 async function start() {
@@ -138,7 +163,7 @@ function render() {
         Added ${when(r.created_at)}
       </div>
       <div class="acts">
-        ${r.email ? `<a class="btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent('Board-level repair for your workshop')}&body=${encodeURIComponent(PITCH)}">Email pitch</a>` : ''}
+        ${r.email ? `<a class="btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(EMAIL_SUBJECT)}&body=${encodeURIComponent(EMAIL_BODY)}">Email pitch</a>` : ''}
         ${r.phone ? `<a class="btn-sm wa" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
         ${r.phone ? `<a class="btn-sm" href="tel:${esc(r.phone)}">Call</a>` : ''}
         <button class="btn-sm" data-note="${r.id}">Add note</button>
