@@ -16,6 +16,21 @@
   .lead select { width: auto; margin: 0; padding: 6px 10px; font-size: 13px; }
   .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .due { color: var(--red); font-weight: 600; }
+
+  /* colour down the left edge, by where the lead has got to */
+  .lead { border-left-width: 5px; }
+  .lead.s-to_contact { border-left-color: #c4ccd8; }
+  .lead.s-contacted  { border-left-color: #d9a441; background: #fffdf8; }
+  .lead.s-interested { border-left-color: #2f7bd1; background: #f7fbff; }
+  .lead.s-quoted     { border-left-color: #7a4fd1; background: #fbf9ff; }
+  .lead.s-won        { border-left-color: #1c6b3c; background: #f6fbf8; }
+  .lead.s-lost       { border-left-color: #b3261e; background: #fdf7f6; }
+  .lead.s-lost .co   { color: var(--muted); text-decoration: line-through; }
+  .lead.overdue      { box-shadow: inset 0 0 0 1px #f3c2bd; }
+
+  .key { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; font-size: 12px; color: var(--muted); }
+  .key span { display: flex; align-items: center; gap: 6px; }
+  .key i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 </style>
 </head>
 <body>
@@ -66,7 +81,15 @@
           </select>
         </div>
       </div>
-      <div class="stats" id="counts" style="margin-bottom:18px"></div>
+      <div class="stats" id="counts" style="margin-bottom:12px"></div>
+      <div class="key">
+        <span><i style="background:#c4ccd8"></i>To contact</span>
+        <span><i style="background:#d9a441"></i>Contacted</span>
+        <span><i style="background:#2f7bd1"></i>Interested</span>
+        <span><i style="background:#7a4fd1"></i>Quoted</span>
+        <span><i style="background:#1c6b3c"></i>Won</span>
+        <span><i style="background:#b3261e"></i>Lost</span>
+      </div>
       <div id="listArea"><p class="empty">Loading…</p></div>
     </div>
 
@@ -110,6 +133,14 @@ info@precisionelectronicsrepair.co.uk
 
 If you'd rather I didn't contact you again, just reply saying so and I won't.`;
 
+// What the follow-up should remind you to do, per stage
+const CHASE = {
+  to_contact: r => 'Send the pitch to ' + r.company,
+  contacted:  r => 'Chase ' + r.company + ' — pitch sent, no reply yet',
+  interested: r => 'Follow up ' + r.company + ' — they were interested, ask for a first board',
+  quoted:     r => 'Chase ' + r.company + ' for a decision on the quote'
+};
+
 let ROWS = [];
 
 async function start() {
@@ -146,7 +177,7 @@ function render() {
   const today = new Date().toISOString().slice(0, 10);
 
   $('listArea').innerHTML = rows.map(r => `
-    <div class="lead">
+    <div class="lead s-${esc(r.status)}${r.next_action && r.next_action <= today && !['won','lost'].includes(r.status) ? ' overdue' : ''}">
       <div class="top">
         <div>
           <div class="co">${esc(r.company)}</div>
@@ -159,7 +190,9 @@ function render() {
       </div>
       ${r.notes ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(r.notes)}</div>` : ''}
       <div class="muted" style="margin-top:8px">
-        ${r.next_action ? `Next action: <span class="${r.next_action <= today ? 'due' : ''}">${when(r.next_action)}</span> · ` : ''}
+        ${r.next_action && !['won','lost'].includes(r.status)
+            ? `${r.next_action <= today ? '<span class="due">Due now: ' + esc(CHASE[r.status] ? CHASE[r.status](r) : 'Follow up') + '</span>' : 'Next action ' + when(r.next_action) + ' — ' + esc(CHASE[r.status] ? CHASE[r.status](r) : 'Follow up')} · `
+            : ''}
         Added ${when(r.created_at)}
       </div>
       <div class="acts">
@@ -177,8 +210,28 @@ function render() {
 
 function wire() {
   $('listArea').querySelectorAll('[data-status]').forEach(sel => sel.addEventListener('change', async () => {
-    const { error } = await sb.from('leads').update({ status: sel.value, updated_at: new Date().toISOString() }).eq('id', sel.dataset.status);
+    hide($('msg'));
+    const row = ROWS.find(r => r.id === sel.dataset.status);
+    const status = sel.value;
+    const closed = status === 'won' || status === 'lost';
+    const due = closed ? null : new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+
+    const { error } = await sb.from('leads')
+      .update({ status, next_action: due, updated_at: new Date().toISOString() })
+      .eq('id', row.id);
     if (error) return show($('msg'), error.message, 'err');
+
+    // one open follow-up per lead — clear any earlier one first
+    await sb.from('follow_ups').delete().eq('lead_id', row.id).eq('done', false);
+
+    if (!closed) {
+      const title = (CHASE[status] || (r => 'Follow up ' + r.company))(row);
+      const { error: fe } = await sb.from('follow_ups').insert({ title, due_date: due, lead_id: row.id });
+      if (fe) return show($('msg'), fe.message, 'err');
+      show($('msg'), 'Follow-up set for ' + when(due) + ': ' + title, 'ok');
+    } else {
+      show($('msg'), row.company + ' marked ' + status + '. Follow-up cleared.', 'ok');
+    }
     load();
   }));
 
@@ -198,7 +251,9 @@ function wire() {
     const d = new Date(Date.now() + (parseInt(days, 10) || 7) * 864e5).toISOString().slice(0, 10);
     const row = ROWS.find(r => r.id === b.dataset.next);
     await sb.from('leads').update({ next_action: d, updated_at: new Date().toISOString() }).eq('id', row.id);
-    await sb.from('follow_ups').insert({ title: 'Chase ' + row.company, due_date: d, lead_id: row.id });
+    await sb.from('follow_ups').delete().eq('lead_id', row.id).eq('done', false);
+    const title = (CHASE[row.status] || (x => 'Chase ' + x.company))(row);
+    await sb.from('follow_ups').insert({ title, due_date: d, lead_id: row.id });
     show($('msg'), 'Follow-up set for ' + when(d) + '.', 'ok');
     load();
   }));
