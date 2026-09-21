@@ -98,6 +98,8 @@
   <a href="workshop.html" class="on">Jobs</a>
   <a href="contacts.html">Contacts</a>
   <a href="leads.html">Leads</a>
+  <a href="diagnose.html">Diagnostic</a>
+  <a href="knowledge.html">Knowledge</a>
   <a href="reports.html">Reports</a>
 </div></nav>
 
@@ -509,6 +511,12 @@ $('aiBtn').addEventListener('click', async () => {
     if (!out.ok) throw new Error(out.error || 'No answer.');
     AIANSWER = out.answer;
     $('aiOut').textContent = out.answer;
+    if (out.sources && out.sources.length) {
+      const note = document.createElement('div');
+      note.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)';
+      note.textContent = 'Used from your library: ' + out.sources.join(', ');
+      $('aiOut').appendChild(note);
+    }
     $('aiOut').style.display = 'block';
     $('aiSave').style.display = 'inline-block';
   } catch (e) {
