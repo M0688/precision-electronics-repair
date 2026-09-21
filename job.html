@@ -202,6 +202,35 @@
       </div>
 
       <div class="card">
+        <h2>Communication</h2>
+        <p class="sub" style="margin-bottom:12px">Everything the software sends is logged here by itself. Add anything worth remembering — a promise, a complaint, an agreed change.</p>
+        <div id="comMsg" class="msg"></div>
+        <div class="row">
+          <div style="flex:0 0 150px">
+            <label for="comChannel">Channel</label>
+            <select id="comChannel">
+              <option value="whatsapp">WhatsApp</option>
+              <option value="sms">Text</option>
+              <option value="call">Phone call</option>
+              <option value="email">Email</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div style="flex:0 0 170px">
+            <label for="comDir">Direction</label>
+            <select id="comDir">
+              <option value="in">From customer</option>
+              <option value="out">To customer</option>
+            </select>
+          </div>
+        </div>
+        <label for="comText">What was said</label>
+        <textarea id="comText" style="min-height:70px" placeholder="Asked when it'll be ready. Told him Thursday."></textarea>
+        <button class="primary" id="comBtn">Log it</button>
+        <ul class="notes" id="comList" style="margin-top:18px"></ul>
+      </div>
+
+      <div class="card">
         <h2>Work notes</h2>
         <div id="noteMsg" class="msg"></div>
         <textarea id="noteText" placeholder="What you measured, what you found, what you did."></textarea>
@@ -239,6 +268,15 @@ function ukNumber(raw) {
   if (digits.startsWith('44')) return digits;
   if (digits.startsWith('0')) return '44' + digits.slice(1);
   return digits;
+}
+
+// On a computer, hand the message to the WhatsApp desktop app; on a phone, wa.me opens it.
+const ON_PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const WA_TARGET = ON_PHONE ? '_blank' : '_self';
+function waLink(num, message) {
+  const text = encodeURIComponent(message || '');
+  if (ON_PHONE) return 'https://wa.me/' + (num || '') + '?text=' + text;
+  return 'whatsapp://send?' + (num ? 'phone=' + num + '&' : '') + 'text=' + text;
 }
 
 function fact(label, value) {
@@ -283,6 +321,7 @@ async function load() {
   loadNotes(data.id);
   loadQuotes(data.id);
   loadInvoices(data.id);
+  loadComms(data.id);
 }
 
 async function loadPhotos(jobId) {
@@ -302,6 +341,41 @@ async function loadNotes(jobId) {
     `<li><div class="when">${when(n.created_at)}${n.created_by ? ' · ' + esc(n.created_by) : ''}</div><div class="what">${esc(n.note)}</div></li>`
   ).join('') || '<li class="when">No notes yet.</li>';
 }
+
+const CHANNEL_LABEL = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text', call: 'Call', system: 'System', other: 'Note' };
+
+async function loadComms(jobId) {
+  const { data, error } = await sb.from('comms').select('*').eq('job_id', jobId).order('occurred_at', { ascending: false });
+  if (error) return show($('comMsg'), error.message, 'err');
+  $('comList').innerHTML = (data || []).map(c => {
+    const arrow = c.direction === 'in' ? '&larr;' : c.direction === 'out' ? '&rarr;' : '·';
+    const cls = c.direction === 'in' ? 'in' : c.direction === 'out' ? 'wait' : 'off';
+    return `<li>
+      <div class="when">${when(c.occurred_at)} · <span class="tag ${cls}" style="padding:2px 8px">${arrow} ${esc(CHANNEL_LABEL[c.channel] || c.channel)}</span>${c.auto ? '' : ' · logged by you'}</div>
+      <div class="what" style="font-weight:600">${esc(c.summary)}</div>
+      ${c.body ? `<div class="what" style="color:var(--muted)">${esc(c.body)}</div>` : ''}
+    </li>`;
+  }).join('') || '<li class="when">Nothing logged yet.</li>';
+}
+
+$('comBtn').addEventListener('click', async () => {
+  hide($('comMsg'));
+  const text = $('comText').value.trim();
+  if (!text) return show($('comMsg'), 'Write what was said first.', 'err');
+  const dir = $('comDir').value;
+  const chan = $('comChannel').value;
+  const { data: sess } = await sb.auth.getSession();
+  const head = (dir === 'in' ? 'From' : 'To') + ' customer on ' + (CHANNEL_LABEL[chan] || chan);
+  const { error } = await sb.from('comms').insert({
+    job_id: JOBROW.id, contact_id: JOBROW.contact_id || null,
+    direction: dir, channel: chan, summary: head, body: text,
+    logged_by: sess?.session?.user?.email, auto: false
+  });
+  if (error) return show($('comMsg'), error.message, 'err');
+  $('comText').value = '';
+  show($('comMsg'), 'Logged.', 'ok');
+  loadComms(JOBROW.id);
+});
 
 async function loadQuotes(jobId) {
   const { data } = await sb.from('quotes').select('*').eq('job_id', jobId).order('sent_at', { ascending: false });
@@ -343,7 +417,7 @@ async function loadInvoices(jobId) {
       });
       if (error) return show($('invMsg'), error.message, 'err');
       show($('invMsg'), 'Marked as paid.', 'ok');
-      loadInvoices(JOBROW.id); loadNotes(JOBROW.id);
+      loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id);
     });
   });
 }
@@ -395,8 +469,8 @@ $('invBtn').addEventListener('click', async () => {
               ' — bank transfer to Mitchell Morris, sort code 04-29-09, account 59881100, reference ' + row.invoice_no + '. Cash also accepted on collection.';
   $('iLink').textContent = link;
   const num = ukNumber(JOBROW.phone);
-  $('iWa').href = num ? 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg)
-                      : 'https://wa.me/?text=' + encodeURIComponent(msg);
+  $('iWa').href = waLink(num, msg);
+  $('iWa').target = WA_TARGET;
   if (num) { $('iSms').href = 'sms:+' + num + '?&body=' + encodeURIComponent(msg); $('iSms').style.display = ''; }
   else { $('iSms').style.display = 'none'; }
   $('iSend').style.display = 'block';
@@ -405,7 +479,7 @@ $('invBtn').addEventListener('click', async () => {
   else show($('invMsg'), row.invoice_no + ' created, but the email failed (' + (out.error || 'unknown error') + '). Send the link below instead.', 'err');
 
   $('iAmount').value = ''; $('iDesc').value = '';
-  loadInvoices(JOBROW.id); loadNotes(JOBROW.id);
+  loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id);
   $('invBtn').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
 });
 
@@ -518,8 +592,8 @@ $('quoteBtn').addEventListener('click', async () => {
               work + ' — approve or decline here: ' + link;
   $('qLink').textContent = link;
   const num = ukNumber(JOBROW.phone);
-  $('qWa').href = num ? 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg)
-                      : 'https://wa.me/?text=' + encodeURIComponent(msg);
+  $('qWa').href = waLink(num, msg);
+  $('qWa').target = WA_TARGET;
   if (num) { $('qSms').href = 'sms:+' + num + '?&body=' + encodeURIComponent(msg); $('qSms').style.display = ''; }
   else { $('qSms').style.display = 'none'; }
   $('qSend').style.display = 'block';
@@ -531,6 +605,7 @@ $('quoteBtn').addEventListener('click', async () => {
   $('status').value = 'quoted';
   loadQuotes(JOBROW.id);
   loadNotes(JOBROW.id);
+  loadComms(JOBROW.id);
 });
 
 $('qCopy').addEventListener('click', async () => {

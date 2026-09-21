@@ -82,6 +82,12 @@
       </div>
 
       <div class="card">
+        <h2>Communication</h2>
+        <p class="sub" style="margin-bottom:12px">Everything across all their jobs. Log new entries on the job itself.</p>
+        <ul class="notes" id="cComms"><li class="when">Loading…</li></ul>
+      </div>
+
+      <div class="card">
         <h2>Follow-ups</h2>
         <div id="fuMsg" class="msg"></div>
         <div class="row">
@@ -97,7 +103,7 @@
 </main>
 
 <script type="module">
-import { sb, $, show, hide, esc, when, money, waLink, chrome, requireSession } from './crm.js';
+import { sb, $, show, hide, esc, when, money, waLink, waTarget, chrome, requireSession } from './crm.js';
 
 chrome('contacts.html');
 const ID = new URLSearchParams(location.search).get('id');
@@ -185,10 +191,11 @@ async function loadContact() {
   $('cEmailBtn').href = data.email ? 'mailto:' + data.email : '#';
   $('cCallBtn').href = data.phone ? 'tel:' + data.phone : '#';
   $('cWaBtn').href = waLink(data.phone, `Hi${data.name ? ' ' + data.name.split(' ')[0] : ''}, `);
+  $('cWaBtn').target = waTarget;
   ['cEmailBtn','cCallBtn'].forEach(b => { if ($(b).getAttribute('href') === '#') $(b).style.display = 'none'; });
   if (!data.phone) $('cWaBtn').style.display = 'none';
 
-  loadJobs(); loadFollowUps();
+  loadJobs(); loadComms(); loadFollowUps();
   $('fuDate').value = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
 }
 
@@ -199,6 +206,23 @@ async function loadJobs() {
     <tr><td><a href="job.html?job=${j.job_number}" style="font-weight:700;text-decoration:none">${j.job_number}</a></td>
         <td>${esc(String(j.status).replace(/_/g, ' '))}</td>
         <td class="hide">${when(j.created_at)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+const CHANNEL_LABEL = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text', call: 'Call', system: 'System', other: 'Note' };
+const stamp = ts => ts ? new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+async function loadComms() {
+  const { data } = await sb.from('comm_feed').select('*').eq('contact_id', ID).order('occurred_at', { ascending: false }).limit(200);
+  if (!data || !data.length) { $('cComms').innerHTML = '<li class="when">Nothing logged yet.</li>'; return; }
+  $('cComms').innerHTML = data.map(c => {
+    const arrow = c.direction === 'in' ? '&larr;' : c.direction === 'out' ? '&rarr;' : '·';
+    const cls = c.direction === 'in' ? 'in' : c.direction === 'out' ? 'wait' : 'off';
+    return `<li>
+      <div class="when">${stamp(c.occurred_at)} · <span class="tag ${cls}" style="padding:2px 8px">${arrow} ${esc(CHANNEL_LABEL[c.channel] || c.channel)}</span>${c.job_number ? ` · <a href="job.html?job=${esc(c.job_number)}">${esc(c.job_number)}</a>` : ''}</div>
+      <div class="what" style="font-weight:600">${esc(c.summary)}</div>
+      ${c.body ? `<div class="what" style="color:var(--muted)">${esc(c.body)}</div>` : ''}
+    </li>`;
+  }).join('');
 }
 
 async function loadFollowUps() {

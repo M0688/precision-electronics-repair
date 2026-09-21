@@ -74,7 +74,7 @@
 </main>
 
 <script type="module">
-import { sb, $, show, hide, esc, when, waLink, chrome, requireSession } from './crm.js';
+import { sb, $, show, hide, esc, when, waLink, waTarget, chrome, requireSession } from './crm.js';
 
 chrome('leads.html');
 
@@ -139,7 +139,7 @@ function render() {
       </div>
       <div class="acts">
         ${r.email ? `<a class="btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent('Board-level repair for your workshop')}&body=${encodeURIComponent(PITCH)}">Email pitch</a>` : ''}
-        ${r.phone ? `<a class="btn-sm wa" target="_blank" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
+        ${r.phone ? `<a class="btn-sm wa" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
         ${r.phone ? `<a class="btn-sm" href="tel:${esc(r.phone)}">Call</a>` : ''}
         <button class="btn-sm" data-note="${r.id}">Add note</button>
         <button class="btn-sm" data-next="${r.id}">Set next action</button>

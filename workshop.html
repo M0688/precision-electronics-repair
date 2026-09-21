@@ -247,6 +247,15 @@ function ukNumber(raw) {
   return digits;
 }
 
+// On a computer, hand the message to the WhatsApp desktop app; on a phone, wa.me opens it.
+const ON_PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const WA_TARGET = ON_PHONE ? '_blank' : '_self';
+function waLink(num, message) {
+  const text = encodeURIComponent(message || '');
+  if (ON_PHONE) return 'https://wa.me/' + (num || '') + '?text=' + text;
+  return 'whatsapp://send?' + (num ? 'phone=' + num + '&' : '') + 'text=' + text;
+}
+
 $('copyBtn').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText($('newLink').textContent);
@@ -292,14 +301,14 @@ $('createBtn').addEventListener('click', async () => {
   $('newLink').textContent = job.link;
   const num = ukNumber(phone);
   const waBtn = $('waBtn'), smsBtn = $('smsBtn');
+  waBtn.href = waLink(num, msg);
+  waBtn.target = WA_TARGET;
+  waBtn.style.display = '';
   if (num) {
-    waBtn.href = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg);
     smsBtn.href = 'sms:+' + num + '?&body=' + encodeURIComponent(msg);
-    waBtn.style.display = ''; smsBtn.style.display = '';
+    smsBtn.style.display = '';
   } else {
-    waBtn.href = 'https://wa.me/?text=' + encodeURIComponent(msg);
     smsBtn.style.display = 'none';
-    waBtn.style.display = '';
   }
   $('sendArea').style.display = 'block';
 
