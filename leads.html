@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leads | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css">
+<style>
+  .lead { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
+  .lead .top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .lead .co { font-weight: 700; color: var(--navy); font-size: 15px; }
+  .lead select { width: auto; margin: 0; padding: 6px 10px; font-size: 13px; }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .due { color: var(--red); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>Add a prospect</h2>
+      <div class="row">
+        <div><label for="nCompany">Company *</label><input type="text" id="nCompany" placeholder="Watford Phone Repairs"></div>
+        <div><label for="nName">Contact name</label><input type="text" id="nName"></div>
+        <div><label for="nTown">Town</label><input type="text" id="nTown" placeholder="Watford"></div>
+      </div>
+      <div class="row">
+        <div><label for="nEmail">Email</label><input type="email" id="nEmail"></div>
+        <div><label for="nPhone">Phone</label><input type="text" id="nPhone"></div>
+        <div style="flex:0 0 200px"><label for="nType">Type</label>
+          <select id="nType">
+            <option>phone/laptop shop</option>
+            <option>console repair</option>
+            <option>computer repair</option>
+            <option>audio / hi-fi</option>
+            <option>TV repair</option>
+            <option>other</option>
+          </select>
+        </div>
+      </div>
+      <label for="nNotes">Notes</label>
+      <textarea id="nNotes" placeholder="Where you found them, who to ask for, what they said."></textarea>
+      <button class="primary" id="addBtn">Add prospect</button>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <div style="flex:2 1 240px"><input type="search" id="search" placeholder="Search company, town or contact" style="margin-bottom:0"></div>
+        <div style="flex:0 0 190px">
+          <select id="filter" style="margin-bottom:0">
+            <option value="open">Open leads</option>
+            <option value="">All</option>
+            <option value="to_contact">To contact</option>
+            <option value="contacted">Contacted</option>
+            <option value="interested">Interested</option>
+            <option value="quoted">Quoted</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="stats" id="counts" style="margin-bottom:18px"></div>
+      <div id="listArea"><p class="empty">Loading…</p></div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { sb, $, show, hide, esc, when, waLink, chrome, requireSession } from './crm.js';
+
+chrome('leads.html');
+
+const STATUSES = [
+  ['to_contact', 'To contact'], ['contacted', 'Contacted'], ['interested', 'Interested'],
+  ['quoted', 'Quoted'], ['won', 'Won'], ['lost', 'Lost']
+];
+
+const PITCH = "Hi, I'm Mitchell from Precision Electronics Repair in Watford. We do board-level repair — microsoldering, BGA rework, charging ICs, no-power faults — for repair shops that don't do it in-house. You keep the customer, we do the bench work and send it back tested with photos. Happy to take a first board whenever you've got one that's stuck.";
+
+let ROWS = [];
+
+async function start() {
+  const sess = await requireSession();
+  if (!sess) return;
+  load();
+}
+
+async function load() {
+  const { data, error } = await sb.from('leads').select('*').order('updated_at', { ascending: false });
+  if (error) return show($('msg'), error.message, 'err');
+  ROWS = data || [];
+  render();
+}
+
+function counts() {
+  const c = {};
+  STATUSES.forEach(([k]) => c[k] = ROWS.filter(r => r.status === k).length);
+  $('counts').innerHTML = STATUSES.map(([k, label]) =>
+    `<div class="stat"><div class="n">${c[k]}</div><div class="l">${label}</div></div>`).join('');
+}
+
+function render() {
+  counts();
+  const q = $('search').value.trim().toLowerCase();
+  const f = $('filter').value;
+  let rows = ROWS;
+  if (f === 'open') rows = rows.filter(r => !['won', 'lost'].includes(r.status));
+  else if (f) rows = rows.filter(r => r.status === f);
+  if (q) rows = rows.filter(r => [r.company, r.town, r.contact_name, r.email, r.phone].join(' ').toLowerCase().includes(q));
+
+  if (!rows.length) { $('listArea').innerHTML = '<p class="empty">Nothing here.</p>'; return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  $('listArea').innerHTML = rows.map(r => `
+    <div class="lead">
+      <div class="top">
+        <div>
+          <div class="co">${esc(r.company)}</div>
+          <div class="muted">${[r.contact_name, r.town, r.type].filter(Boolean).map(esc).join(' · ')}</div>
+          <div class="muted">${[r.email, r.phone].filter(Boolean).map(esc).join(' · ')}</div>
+        </div>
+        <select data-status="${r.id}">
+          ${STATUSES.map(([k, l]) => `<option value="${k}"${r.status === k ? ' selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      ${r.notes ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(r.notes)}</div>` : ''}
+      <div class="muted" style="margin-top:8px">
+        ${r.next_action ? `Next action: <span class="${r.next_action <= today ? 'due' : ''}">${when(r.next_action)}</span> · ` : ''}
+        Added ${when(r.created_at)}
+      </div>
+      <div class="acts">
+        ${r.email ? `<a class="btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent('Board-level repair for your workshop')}&body=${encodeURIComponent(PITCH)}">Email pitch</a>` : ''}
+        ${r.phone ? `<a class="btn-sm wa" target="_blank" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
+        ${r.phone ? `<a class="btn-sm" href="tel:${esc(r.phone)}">Call</a>` : ''}
+        <button class="btn-sm" data-note="${r.id}">Add note</button>
+        <button class="btn-sm" data-next="${r.id}">Set next action</button>
+        ${r.status === 'won' ? '' : `<button class="btn-sm" data-convert="${r.id}">Convert to job</button>`}
+      </div>
+    </div>`).join('');
+
+  wire();
+}
+
+function wire() {
+  $('listArea').querySelectorAll('[data-status]').forEach(sel => sel.addEventListener('change', async () => {
+    const { error } = await sb.from('leads').update({ status: sel.value, updated_at: new Date().toISOString() }).eq('id', sel.dataset.status);
+    if (error) return show($('msg'), error.message, 'err');
+    load();
+  }));
+
+  $('listArea').querySelectorAll('[data-note]').forEach(b => b.addEventListener('click', async () => {
+    const row = ROWS.find(r => r.id === b.dataset.note);
+    const add = prompt('Add a note for ' + row.company);
+    if (!add) return;
+    const stamp = new Date().toLocaleDateString('en-GB');
+    const notes = (row.notes ? row.notes + '\n' : '') + stamp + ': ' + add;
+    await sb.from('leads').update({ notes, updated_at: new Date().toISOString() }).eq('id', row.id);
+    load();
+  }));
+
+  $('listArea').querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', async () => {
+    const days = prompt('Chase in how many days?', '7');
+    if (days === null) return;
+    const d = new Date(Date.now() + (parseInt(days, 10) || 7) * 864e5).toISOString().slice(0, 10);
+    const row = ROWS.find(r => r.id === b.dataset.next);
+    await sb.from('leads').update({ next_action: d, updated_at: new Date().toISOString() }).eq('id', row.id);
+    await sb.from('follow_ups').insert({ title: 'Chase ' + row.company, due_date: d, lead_id: row.id });
+    show($('msg'), 'Follow-up set for ' + when(d) + '.', 'ok');
+    load();
+  }));
+
+  $('listArea').querySelectorAll('[data-convert]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Create a job and send them a booking link?')) return;
+    const { data, error } = await sb.rpc('convert_lead', { p_lead_id: b.dataset.convert });
+    if (error) return show($('msg'), error.message, 'err');
+    const job = Array.isArray(data) ? data[0] : data;
+    show($('msg'), job.job_number + ' created. Open Jobs to send the booking link.', 'ok');
+    load();
+  }));
+}
+
+$('search').addEventListener('input', render);
+$('filter').addEventListener('change', render);
+
+$('addBtn').addEventListener('click', async () => {
+  hide($('msg'));
+  const company = $('nCompany').value.trim();
+  if (!company) return show($('msg'), 'Enter the company name.', 'err');
+  const { error } = await sb.from('leads').insert({
+    company,
+    contact_name: $('nName').value.trim() || null,
+    town: $('nTown').value.trim() || null,
+    email: $('nEmail').value.trim() || null,
+    phone: $('nPhone').value.trim() || null,
+    type: $('nType').value,
+    notes: $('nNotes').value.trim() || null
+  });
+  if (error) return show($('msg'), error.message, 'err');
+  ['nCompany','nName','nTown','nEmail','nPhone','nNotes'].forEach(i => $(i).value = '');
+  show($('msg'), 'Prospect added.', 'ok');
+  load();
+});
+
+start();
+</script>
+
+</body>
+</html>

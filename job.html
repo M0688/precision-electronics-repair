@@ -72,6 +72,11 @@
   .send.wa { border-color: #25D366; color: #128C4A; }
   .linkbox { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; word-break: break-all; margin-top: 12px; }
   .quotebox .amt { font-size: 19px; font-weight: 700; color: var(--navy); }
+  nav.tabs { background: var(--navy-dark); }
+  nav.tabs .wrap { display: flex; gap: 4px; overflow-x: auto; }
+  nav.tabs a { color: #b9c4d8; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px 16px; white-space: nowrap; border-bottom: 3px solid transparent; }
+  nav.tabs a:hover { color: #fff; }
+  nav.tabs a.on { color: #fff; border-bottom-color: #fff; }
 
   @media (max-width: 640px) {
     .facts { grid-template-columns: 1fr; }
@@ -88,6 +93,13 @@
     <a href="workshop.html">&larr; All jobs</a>
   </div>
 </header>
+
+<nav class="tabs"><div class="wrap">
+  <a href="workshop.html" class="on">Jobs</a>
+  <a href="contacts.html">Contacts</a>
+  <a href="leads.html">Leads</a>
+  <a href="reports.html">Reports</a>
+</div></nav>
 
 <main>
   <div class="wrap">
@@ -246,7 +258,8 @@ async function load() {
 
   $('content').style.display = 'block';
   $('jobNo').textContent = data.job_number;
-  $('jobSub').textContent = [data.customer_name, data.make_model || data.device_type].filter(Boolean).join(' · ') || 'No booking form yet';
+  const bits = [data.customer_name, data.make_model || data.device_type].filter(Boolean).join(' · ') || 'No booking form yet';
+  $('jobSub').innerHTML = esc(bits) + (data.contact_id ? ` · <a href="contacts.html?id=${data.contact_id}">customer record</a>` : '');
   $('status').value = data.status;
 
   $('facts').innerHTML = data.has_intake ? [

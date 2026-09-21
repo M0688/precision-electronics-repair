@@ -67,6 +67,11 @@
   .send { display: inline-block; background: var(--white); border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; text-decoration: none; }
   .send:hover { background: var(--soft); }
   .send.wa { border-color: #25D366; color: #128C4A; }
+  nav.tabs { background: var(--navy-dark); }
+  nav.tabs .wrap { display: flex; gap: 4px; overflow-x: auto; }
+  nav.tabs a { color: #b9c4d8; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px 16px; white-space: nowrap; border-bottom: 3px solid transparent; }
+  nav.tabs a:hover { color: #fff; }
+  nav.tabs a.on { color: #fff; border-bottom-color: #fff; }
   #login { max-width: 420px; margin: 60px auto; }
   @media (max-width: 700px) {
     th.hide, td.hide { display: none; }
@@ -86,6 +91,13 @@
     </div>
   </div>
 </header>
+
+<nav class="tabs" id="tabs" style="display:none"><div class="wrap">
+  <a href="workshop.html" class="on">Jobs</a>
+  <a href="contacts.html">Contacts</a>
+  <a href="leads.html">Leads</a>
+  <a href="reports.html">Reports</a>
+</div></nav>
 
 <main>
   <div class="wrap">
@@ -138,6 +150,17 @@
         <div id="pushMsg" class="msg"></div>
         <p class="sub" id="pushHelp" style="margin-bottom:14px"></p>
         <button class="primary" id="pushBtn">Turn on alerts on this device</button>
+      </div>
+
+      <div class="card" id="fuCard">
+        <h2>To do</h2>
+        <div id="fuMsg" class="msg"></div>
+        <div class="row">
+          <div><label for="fuTitle">What needs doing</label><input type="text" id="fuTitle" placeholder="Chase Watford Phone Repairs about the PS5 board"></div>
+          <div style="flex:0 0 180px"><label for="fuDate">When</label><input type="date" id="fuDate" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px"></div>
+          <div style="flex:0 0 auto"><button class="primary" id="fuBtn" style="margin-bottom:14px">Add</button></div>
+        </div>
+        <div id="fuList"></div>
       </div>
 
       <div class="card">
@@ -252,7 +275,7 @@ $('createBtn').addEventListener('click', async () => {
   $('createBtn').disabled = true;
   $('createBtn').textContent = 'Working…';
 
-  const { data, error } = await sb.rpc('create_job', { p_customer_name: name, p_customer_email: email });
+  const { data, error } = await sb.rpc('create_job', { p_customer_name: name, p_customer_email: email || null, p_customer_phone: phone || null, p_company: null });
   if (error) {
     $('createBtn').disabled = false;
     $('createBtn').textContent = 'Create job & get link';
@@ -303,6 +326,38 @@ $('createBtn').addEventListener('click', async () => {
   $('createBtn').textContent = 'Create job & get link';
   $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
   loadJobs();
+});
+
+// ---------- to do ----------
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''; }
+
+async function loadFollowUps() {
+  const { data, error } = await sb.from('follow_ups').select('*').eq('done', false).order('due_date').limit(25);
+  if (error) { $('fuList').innerHTML = ''; return; }
+  if (!data.length) { $('fuList').innerHTML = '<p class="empty">Nothing outstanding.</p>'; return; }
+  const today = new Date().toISOString().slice(0, 10);
+  $('fuList').innerHTML = `<table><tbody>${data.map(f => `
+    <tr>
+      <td>${f.title.replace(/</g, '&lt;')}</td>
+      <td style="white-space:nowrap" class="${f.due_date <= today ? '' : ''}">
+        <span style="color:${f.due_date <= today ? 'var(--red)' : 'var(--muted)'};font-weight:${f.due_date <= today ? '600' : '400'}">${fmtDate(f.due_date)}</span>
+      </td>
+      <td style="text-align:right"><button class="send" data-done="${f.id}">Done</button></td>
+    </tr>`).join('')}</tbody></table>`;
+  $('fuList').querySelectorAll('[data-done]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('follow_ups').update({ done: true, done_at: new Date().toISOString() }).eq('id', b.dataset.done);
+    loadFollowUps();
+  }));
+}
+
+$('fuBtn').addEventListener('click', async () => {
+  hide($('fuMsg'));
+  const title = $('fuTitle').value.trim();
+  if (!title) return show($('fuMsg'), 'What needs doing?', 'err');
+  const { error } = await sb.from('follow_ups').insert({ title, due_date: $('fuDate').value || new Date().toISOString().slice(0, 10) });
+  if (error) return show($('fuMsg'), error.message, 'err');
+  $('fuTitle').value = '';
+  loadFollowUps();
 });
 
 // ---------- phone alerts ----------
@@ -376,7 +431,10 @@ async function start() {
     $('who').style.display = 'flex';
     $('app').style.display = 'block';
     $('login').style.display = 'none';
+    $('tabs').style.display = 'block';
+    $('fuDate').value = new Date().toISOString().slice(0, 10);
     loadJobs();
+    loadFollowUps();
     setupPushUI();
   } else {
     $('login').style.display = 'block';

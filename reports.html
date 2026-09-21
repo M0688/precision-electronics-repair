@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css">
+<style>
+  .bars { display: flex; align-items: flex-end; gap: 10px; height: 160px; margin: 8px 0 4px; }
+  .bar { flex: 1 1 0; background: var(--navy); border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }
+  .bar span { position: absolute; top: -20px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); }
+  .barlabels { display: flex; gap: 10px; }
+  .barlabels div { flex: 1 1 0; text-align: center; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>Where things stand</h2>
+      <div class="stats" id="summary"><p class="empty">Loading…</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Revenue by month <span class="muted" style="font-weight:400">— paid invoices</span></h2>
+      <div id="chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Month by month</h2>
+      <div id="monthly"><p class="empty">Loading…</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Your plan's KPIs</h2>
+      <div id="kpis"><p class="empty">Loading…</p></div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { sb, $, show, esc, money, chrome, requireSession } from './crm.js';
+
+chrome('reports.html');
+
+async function start() {
+  const sess = await requireSession();
+  if (!sess) return;
+  loadSummary();
+  loadMonthly();
+}
+
+async function loadSummary() {
+  const { data, error } = await sb.from('report_summary').select('*').maybeSingle();
+  if (error) return show($('msg'), error.message, 'err');
+  const s = data || {};
+
+  const stats = [
+    ['Jobs in total', s.jobs_total ?? 0],
+    ['Open jobs', s.jobs_open ?? 0],
+    ['Revenue banked', money(s.revenue_total)],
+    ['Owed to you', money(s.owed)],
+    ['Average job', money(s.avg_job)],
+    ['Contacts', s.contacts ?? 0],
+    ['Repeat customers', s.repeat_customers ?? 0],
+    ['Open leads', s.leads_open ?? 0],
+    ['Follow-ups due', s.followups_due ?? 0]
+  ];
+  $('summary').innerHTML = stats.map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+
+  const accept = s.quotes_sent ? Math.round((s.quotes_approved / s.quotes_sent) * 100) : null;
+  const repeatRate = s.contacts ? Math.round((s.repeat_customers / s.contacts) * 100) : null;
+
+  $('kpis').innerHTML = `<table><tbody>
+    <tr><td>Quote acceptance</td><td>${accept === null ? '<span class="muted">No quotes yet</span>' : accept + '% (' + s.quotes_approved + ' of ' + s.quotes_sent + ')'}</td></tr>
+    <tr><td>Average job value</td><td>${money(s.avg_job)}</td></tr>
+    <tr><td>Repeat customer rate</td><td>${repeatRate === null ? '<span class="muted">No contacts yet</span>' : repeatRate + '%'}</td></tr>
+    <tr><td>Unpaid invoices</td><td>${money(s.owed)}</td></tr>
+  </tbody></table>
+  <p class="muted" style="margin-top:12px">Your plan says to review pricing and repair categories after the first 20 paid jobs.</p>`;
+}
+
+async function loadMonthly() {
+  const { data, error } = await sb.from('report_monthly').select('*').limit(12);
+  if (error) return show($('msg'), error.message, 'err');
+  const rows = (data || []);
+
+  if (!rows.length) {
+    $('monthly').innerHTML = '<p class="empty">No jobs yet.</p>';
+    $('chart').innerHTML = '<p class="empty">Nothing to chart yet.</p>';
+    return;
+  }
+
+  $('monthly').innerHTML = `<table>
+    <thead><tr><th>Month</th><th>Jobs</th><th>Returned</th><th>Unrepairable</th><th>Revenue</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td>${esc(r.month)}</td><td>${r.jobs}</td><td>${r.completed}</td><td>${r.unrepairable}</td><td>${money(r.revenue)}</td>
+    </tr>`).join('')}</tbody></table>`;
+
+  const chartRows = rows.slice(0, 6).reverse();
+  const max = Math.max(...chartRows.map(r => Number(r.revenue) || 0), 1);
+  $('chart').innerHTML = `
+    <div class="bars">${chartRows.map(r => {
+      const h = Math.round((Number(r.revenue) || 0) / max * 100);
+      return `<div class="bar" style="height:${Math.max(h, 2)}%"><span>${money(r.revenue)}</span></div>`;
+    }).join('')}</div>
+    <div class="barlabels">${chartRows.map(r => `<div>${esc(r.month.slice(5))}/${esc(r.month.slice(2, 4))}</div>`).join('')}</div>`;
+}
+
+start();
+</script>
+
+</body>
+</html>
