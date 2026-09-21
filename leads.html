@@ -31,6 +31,15 @@
   .key { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; font-size: 12px; color: var(--muted); }
   .key span { display: flex; align-items: center; gap: 6px; }
   .key i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  .log { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+  .log .row { gap: 10px; }
+  .log select, .log textarea { margin-bottom: 8px; }
+  .log textarea { min-height: 56px; }
+  .entries { list-style: none; margin: 10px 0 0; padding: 0; }
+  .entries li { border-left: 3px solid var(--line); padding: 2px 0 10px 12px; margin-bottom: 8px; }
+  .entries .when { color: var(--muted); font-size: 12px; }
+  .entries .what { font-size: 14px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -196,19 +205,97 @@ function render() {
         Added ${when(r.created_at)}
       </div>
       <div class="acts">
-        ${r.email ? `<a class="btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(EMAIL_SUBJECT)}&body=${encodeURIComponent(EMAIL_BODY)}">Email pitch</a>` : ''}
-        ${r.phone ? `<a class="btn-sm wa" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
+        ${r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(EMAIL_SUBJECT)}&body=${encodeURIComponent(EMAIL_BODY)}">Email pitch</a>` : ''}
+        ${r.phone ? `<a class="btn-sm wa" data-pitch="${r.id}" data-chan="whatsapp" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
         ${r.phone ? `<a class="btn-sm" href="tel:${esc(r.phone)}">Call</a>` : ''}
+        <button class="btn-sm" data-log="${r.id}">Conversation log</button>
         <button class="btn-sm" data-note="${r.id}">Add note</button>
         <button class="btn-sm" data-next="${r.id}">Set next action</button>
         ${r.status === 'won' ? '' : `<button class="btn-sm" data-convert="${r.id}">Convert to job</button>`}
+      </div>
+      <div class="log" id="log-${r.id}" style="display:none">
+        <div class="row">
+          <div style="flex:0 0 140px">
+            <select data-chan="${r.id}">
+              <option value="call">Phone call</option>
+              <option value="email">Email</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="sms">Text</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div style="flex:0 0 160px">
+            <select data-dir="${r.id}">
+              <option value="out">I contacted them</option>
+              <option value="in">They contacted me</option>
+            </select>
+          </div>
+        </div>
+        <textarea data-text="${r.id}" placeholder="Spoke to Dave. Said they send board jobs to London, takes 2 weeks. Will try me next time."></textarea>
+        <button class="btn-sm" data-save="${r.id}">Save to log</button>
+        <ul class="entries" id="entries-${r.id}"></ul>
       </div>
     </div>`).join('');
 
   wire();
 }
 
+const CHAN = { call: 'Call', email: 'Email', whatsapp: 'WhatsApp', sms: 'Text', system: 'System', other: 'Note' };
+const stamp = ts => new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+async function logEntry(leadId, channel, direction, summary, body) {
+  const { data: sess } = await sb.auth.getSession();
+  const { error } = await sb.from('comms').insert({
+    lead_id: leadId, direction, channel, summary, body: body || null,
+    logged_by: sess?.session?.user?.email, auto: false
+  });
+  if (error) show($('msg'), error.message, 'err');
+  return !error;
+}
+
+async function loadEntries(leadId) {
+  const el = $('entries-' + leadId);
+  if (!el) return;
+  const { data, error } = await sb.from('comms').select('*').eq('lead_id', leadId).order('occurred_at', { ascending: false });
+  if (error) return show($('msg'), error.message, 'err');
+  el.innerHTML = (data || []).map(c => `
+    <li>
+      <div class="when">${stamp(c.occurred_at)} · ${c.direction === 'in' ? '&larr; from them' : '&rarr; to them'} · ${esc(CHAN[c.channel] || c.channel)}</div>
+      <div class="what" style="font-weight:600">${esc(c.summary)}</div>
+      ${c.body ? `<div class="what" style="color:var(--muted)">${esc(c.body)}</div>` : ''}
+    </li>`).join('') || '<li class="when">Nothing logged with this shop yet.</li>';
+}
+
 function wire() {
+  $('listArea').querySelectorAll('[data-log]').forEach(b => b.addEventListener('click', () => {
+    const panel = $('log-' + b.dataset.log);
+    const open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : 'block';
+    if (!open) loadEntries(b.dataset.log);
+  }));
+
+  $('listArea').querySelectorAll('[data-save]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.save;
+    const text = $('listArea').querySelector(`[data-text="${id}"]`).value.trim();
+    if (!text) return show($('msg'), 'Write what was said first.', 'err');
+    const chan = $('listArea').querySelector(`[data-chan="${id}"]`).value;
+    const dir = $('listArea').querySelector(`[data-dir="${id}"]`).value;
+    const row = ROWS.find(r => r.id === id);
+    const head = (dir === 'in' ? 'From ' : 'To ') + row.company + ' on ' + (CHAN[chan] || chan);
+    if (await logEntry(id, chan, dir, head, text)) {
+      $('listArea').querySelector(`[data-text="${id}"]`).value = '';
+      loadEntries(id);
+    }
+  }));
+
+  // clicking a pitch button records itself
+  $('listArea').querySelectorAll('[data-pitch]').forEach(a => a.addEventListener('click', async () => {
+    const row = ROWS.find(r => r.id === a.dataset.pitch);
+    const chan = a.dataset.chan;
+    await logEntry(row.id, chan, 'out', 'Pitch sent to ' + row.company + ' by ' + (CHAN[chan] || chan));
+    loadEntries(row.id);
+  }));
+
   $('listArea').querySelectorAll('[data-status]').forEach(sel => sel.addEventListener('change', async () => {
     hide($('msg'));
     const row = ROWS.find(r => r.id === sel.dataset.status);
