@@ -29,9 +29,17 @@ export function ukNumber(raw) {
   return digits;
 }
 
+// On a computer, hand the message to the WhatsApp desktop app.
+// On a phone, wa.me opens the app anyway.
+export const onPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+export const waTarget = onPhone ? '_blank' : '_self';
+
 export function waLink(phone, message) {
   const num = ukNumber(phone);
-  return 'https://wa.me/' + (num || '') + '?text=' + encodeURIComponent(message || '');
+  const text = encodeURIComponent(message || '');
+  if (onPhone) return 'https://wa.me/' + (num || '') + '?text=' + text;
+  return 'whatsapp://send?' + (num ? 'phone=' + num + '&' : '') + 'text=' + text;
 }
 
 // Header + tabs, shared by every page
