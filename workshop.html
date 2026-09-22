@@ -224,6 +224,15 @@ function fmt(ts) {
   return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Your wording, not the customer's — the tracking page phrases these for them.
+const STATUS_TEXT = {
+  awaiting_intake: 'Awaiting form', intake_received: 'Form received', in_post: 'In post',
+  arrived: 'Arrived', in_diagnosis: 'In diagnosis', quoted: 'Quote sent',
+  approved: 'Approved', declined: 'Declined', in_repair: 'In repair',
+  testing: 'Testing', ready: 'Ready', invoiced: 'Invoiced', paid: 'Paid',
+  returned: 'Returned', unrepairable: 'Unrepairable'
+};
+
 // Amber while something is waiting on someone, green once it's settled,
 // grey once the job is closed off.
 const STATUS_TONE = {
@@ -249,7 +258,7 @@ async function loadJobs() {
       <td class="jobno"><a href="job.html?job=${j.job_number}" style="text-decoration:none">${j.job_number}</a></td>
       <td>${j.customer_name || '<span style="color:#5a6474">—</span>'}${j.customer_email ? `<br><span style="color:#5a6474;font-size:13px">${j.customer_email}</span>` : ''}</td>
       <td class="hide">${j.make_model || ''}${j.fault_description ? `<br><span style="color:#5a6474;font-size:13px">${j.fault_description.slice(0, 60)}${j.fault_description.length > 60 ? '…' : ''}</span>` : ''}</td>
-      <td><span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(j.status_label || j.status || '').replace(/</g, '&lt;')}</span></td>
+      <td><span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(STATUS_TEXT[j.status] || j.status_label || j.status || '').replace(/</g, '&lt;')}</span></td>
       <td class="hide">${fmt(j.submitted_at || j.created_at)}</td>
     </tr>`).join('');
   $('jobsArea').innerHTML = `<table>
