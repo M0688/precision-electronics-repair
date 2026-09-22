@@ -31,6 +31,10 @@
   .warn ul { margin: 6px 0 0; padding-left: 18px; }
   .warn li { margin-bottom: 2px; }
   .detail { border-left: 3px solid var(--line); padding: 2px 0 10px 12px; margin-bottom: 8px; font-size: 14px; }
+  .searchrow { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 0; }
+  .lst { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 14px; background: #fff; }
+  .lst h3 { margin: 0 0 10px; font-size: 15px; color: var(--navy); }
+  .lst table { width: 100%; }
   .srcs { font-size: 12px; color: var(--muted); margin-top: 12px; }
   .srcs a { color: var(--muted); }
 
@@ -98,9 +102,11 @@
         <div style="flex:0 0 130px"><label for="cMarkup">Markup %</label>
           <input type="number" id="cMarkup" min="0" step="5" value="30"></div>
         <div style="flex:0 0 auto"><button class="primary" id="cBtn" style="margin-bottom:14px">Check it</button></div>
+        <div style="flex:0 0 auto"><button class="btn-sm" id="lBtn" style="margin-bottom:14px">Find one for sale</button></div>
       </div>
 
       <div class="verdict" id="cVerdict"></div>
+      <div id="lOut"></div>
     </div>
 
     <!-- ---------- add by hand ---------- -->
@@ -294,6 +300,66 @@ function renderVerdict(out) {
     load(); loadSummary();
   });
 }
+
+/* ---------- find one for sale ---------- */
+
+function searchLinks() {
+  const item = [$('cModel').value.trim(), $('cStorage').value.trim(), $('cPart').value.trim()]
+    .filter(Boolean).join(' ');
+  if (!item) return '';
+  const q = encodeURIComponent(item);
+  const qf = encodeURIComponent(item + ' faulty spares repair');
+  return `<div class="searchrow">
+    <a class="btn-sm" target="_blank" rel="noopener" href="https://www.ebay.co.uk/sch/i.html?_nkw=${qf}">eBay — faulty</a>
+    <a class="btn-sm" target="_blank" rel="noopener" href="https://www.ebay.co.uk/sch/i.html?_nkw=${q}&LH_Sold=1&LH_Complete=1">eBay — what they actually sold for</a>
+    <a class="btn-sm" target="_blank" rel="noopener" href="https://www.facebook.com/marketplace/search/?query=${qf}">Marketplace</a>
+    <a class="btn-sm" target="_blank" rel="noopener" href="https://www.gumtree.com/search?q=${qf}">Gumtree</a>
+  </div>`;
+}
+
+$('lBtn').addEventListener('click', async () => {
+  hide($('msg'));
+  const makeModel = $('cModel').value.trim();
+  if (!makeModel) return show($('msg'), 'Tell it what the item is first.', 'err');
+
+  $('lBtn').disabled = true;
+  $('lBtn').textContent = 'Searching…';
+  $('lOut').innerHTML = `<div class="lst"><h3>Search these yourself — these links always work</h3>${searchLinks()}</div>`;
+
+  const out = await call('stock-value', {
+    action: 'listings',
+    make_model: makeModel,
+    part_number: $('cPart').value.trim(),
+    storage: $('cStorage').value.trim(),
+    looking_for: $('cCondition').value === 'working' ? 'working units' : 'faulty, spares or repair, untested, or job lots'
+  });
+
+  $('lBtn').disabled = false;
+  $('lBtn').textContent = 'Find one for sale';
+
+  if (!out.ok) {
+    $('lOut').innerHTML += `<div class="lst"><h3>The search didn't work</h3><p class="muted" style="margin:0">${esc(out.error || 'No answer.')}</p></div>`;
+    return;
+  }
+
+  const rows = out.listings || [];
+  $('lOut').innerHTML =
+    `<div class="lst"><h3>Search these yourself — these links always work</h3>${searchLinks()}</div>` +
+    `<div class="lst">
+      <h3>What it turned up${rows.length ? ` — ${rows.length}` : ''}</h3>
+      ${rows.length ? `<table><thead><tr><th>Item</th><th class="hide">Condition</th><th class="hide">Where</th><th style="text-align:right">Price</th></tr></thead>
+        <tbody>${rows.map(l => `<tr>
+          <td>${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title)}</a>` : esc(l.title)}
+              ${l.note ? `<div class="muted">${esc(l.note)}</div>` : ''}</td>
+          <td class="hide">${esc(l.condition)}</td>
+          <td class="hide">${esc(l.where)}</td>
+          <td style="text-align:right" class="money">${l.price ? money(l.price) : '—'}</td>
+        </tr>`).join('')}</tbody></table>`
+        : '<p class="empty" style="padding:8px 0">Nothing found. Use the links above — live listings often don\'t show up in search results.</p>'}
+      ${out.note ? `<p class="muted" style="margin:10px 0 0">${esc(out.note)}</p>` : ''}
+      <p class="muted" style="margin:8px 0 0">Search results lag behind live listings, and prices go stale. Click through before you get excited.</p>
+    </div>`;
+});
 
 /* ---------- add by hand ---------- */
 
