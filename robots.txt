@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Customer and workshop pages — nothing here belongs in search results
+Disallow: /intake.html
+Disallow: /quote.html
+Disallow: /invoice.html
+Disallow: /workshop.html
+Disallow: /job.html
+Disallow: /contacts.html
+Disallow: /leads.html
+Disallow: /diagnose.html
+Disallow: /knowledge.html
+Disallow: /reports.html
+
+Sitemap: https://precisionelectronicsrepair.co.uk/sitemap.xml
