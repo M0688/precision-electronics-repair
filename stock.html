@@ -27,6 +27,9 @@
   .fig .n { font-size: 19px; font-weight: 700; color: var(--navy); line-height: 1.2; }
   .fig .l { font-size: 12px; color: var(--muted); }
 
+  .warn { background: #fdecea; border: 1px solid #f3c2bd; border-radius: 8px; padding: 12px 14px; margin-top: 14px; font-size: 13.5px; color: #7d1d17; }
+  .warn ul { margin: 6px 0 0; padding-left: 18px; }
+  .warn li { margin-bottom: 2px; }
   .detail { border-left: 3px solid var(--line); padding: 2px 0 10px 12px; margin-bottom: 8px; font-size: 14px; }
   .srcs { font-size: 12px; color: var(--muted); margin-top: 12px; }
   .srcs a { color: var(--muted); }
@@ -70,6 +73,11 @@
           <input type="text" id="cModel" placeholder="PlayStation 5 disc edition"></div>
         <div style="flex:0 0 130px"><label for="cStorage">Storage</label>
           <input type="text" id="cStorage" placeholder="825GB"></div>
+      </div>
+
+      <div class="row">
+        <div style="flex:2 1 240px"><label for="cPart">Part or model number <span style="font-weight:400;color:var(--muted)">&mdash; read it off the board or the label</span></label>
+          <input type="text" id="cPart" placeholder="CFI-1216A  ·  9666666680  ·  A2482"></div>
         <div style="flex:0 0 150px"><label for="cCondition">Condition</label>
           <select id="cCondition">
             <option value="faulty">Faulty</option>
@@ -191,6 +199,7 @@ $('cBtn').addEventListener('click', async () => {
 
   const out = await call('stock-value', {
     make_model: makeModel,
+    part_number: $('cPart').value.trim(),
     storage: $('cStorage').value.trim(),
     condition: $('cCondition').value,
     fault: $('cFault').value.trim(),
@@ -215,6 +224,7 @@ function renderVerdict(out) {
     buy:  ['buy',  'Worth buying'],
     thin: ['thin', 'Tight — but not a loss'],
     loss: ['loss', "Don't buy it at that price"],
+    unverified: ['thin', "Can't vouch for this one"],
     reference_only: ['info', 'Prices found'],
     no_price: ['info', 'No reliable price found']
   };
@@ -227,6 +237,8 @@ function renderVerdict(out) {
     detail = `You'd make about £${m.profit} (${m.margin_pct}%), under the ${Math.round(m.markup*100)}% you want. Pay no more than £${m.max_buy_price} to hit it.`;
   } else if (out.verdict === 'loss') {
     detail = `You'd lose about £${Math.abs(m.profit)}. Your ceiling on this one is £${m.max_buy_price} including parts.`;
+  } else if (out.verdict === 'unverified') {
+    detail = `The numbers would say buy, but the identification isn't solid enough to trust them. Get the part number off it and run this again.`;
   } else if (out.verdict === 'reference_only') {
     detail = `Put in what they're asking and what parts will cost to get a straight yes or no.`;
   } else {
@@ -234,7 +246,7 @@ function renderVerdict(out) {
   }
 
   const figs = [
-    ['Sells for', v.working_typical ? money(v.working_typical) : '—'],
+    [m.priced_off === 'bottom of range' ? 'Priced off (low end)' : 'Sells for', v.working_typical ? money(v.working_typical) : '—'],
     ['Range', v.working_low && v.working_high ? `${money(v.working_low)}–${money(v.working_high)}` : '—'],
     ['Broken, it fetches', v.faulty_typical ? money(v.faulty_typical) : '—'],
     ['eBay takes', m.fees ? money(m.fees) : '—'],
@@ -247,6 +259,12 @@ function renderVerdict(out) {
     <div class="call">${esc(headline)}</div>
     <div style="font-size:14px">${esc(detail)}</div>
     <div class="figs">${figs.map(([l, n]) => `<div class="fig"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>
+    ${!v.pinned_down ? `<div class="warn">
+      <strong>Treat these figures with suspicion.</strong>
+      <ul>${(v.problems || []).map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+      ${v.need_to_know ? `<div style="margin-top:6px"><strong>Go and find:</strong> ${esc(v.need_to_know)}</div>` : ''}
+      <div style="margin-top:6px">The maths below is off the <em>bottom</em> of the range it found, not the middle, so it errs low on purpose.</div>
+    </div>` : ''}
     <div style="margin-top:14px">
       <div class="detail"><strong>${esc(v.identified)}</strong> · ${esc(v.category)} · demand ${esc(v.demand || 'unknown')} · confidence ${esc(v.confidence)}</div>
       ${v.basis ? `<div class="detail">${esc(v.basis)}</div>` : ''}
