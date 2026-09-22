@@ -35,6 +35,22 @@
   .jobline strong { color: var(--navy); font-size: 17px; }
 
   fieldset { border: 0; padding: 0; margin: 0 0 8px; }
+
+  details.itemblock { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; background: #fbfcfd; }
+  details.itemblock summary {
+    cursor: pointer; padding: 14px 16px; font-weight: 700; color: var(--navy);
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; list-style: none;
+  }
+  details.itemblock summary::-webkit-details-marker { display: none; }
+  details.itemblock summary::before {
+    content: "▸"; color: var(--muted); font-weight: 400; transition: transform .15s; display: inline-block;
+  }
+  details.itemblock[open] summary::before { transform: rotate(90deg); }
+  details.itemblock summary:hover { background: #f4f6f9; border-radius: 10px; }
+  details.itemblock .itemsum { font-weight: 400; color: var(--muted); font-size: 14px; }
+  details.itemblock .itembody { padding: 4px 16px 6px; border-top: 1px solid var(--line); }
+  details.itemblock .itembody label { margin-top: 14px; }
+
   legend { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 26px 0 12px; }
   label { display: block; font-weight: 600; font-size: 15px; margin: 0 0 5px; }
   .hint { font-weight: 400; color: var(--muted); font-size: 14px; }
@@ -134,13 +150,7 @@
           </fieldset>
 
           <fieldset>
-            <legend>Anything else we should know</legend>
-            <label for="fault_history">When did it start? Anything happen beforehand?</label>
-            <textarea id="fault_history" style="min-height:80px" placeholder="Dropped, liquid, power surge, previous repair, etc."></textarea>
-
-            <label for="accessories">What are you sending with it?</label>
-            <input type="text" id="accessories" placeholder="e.g. power lead, controller, nothing else">
-
+            <legend>Photos</legend>
             <label for="photos">Photos <span class="hint">— optional, helps us before it arrives</span></label>
             <input type="file" id="photos" accept="image/*" multiple>
           </fieldset>
@@ -227,45 +237,111 @@ function renderItems() {
   const box = $('items');
   const kept = readItems();
 
+  const attr = v => String(v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const txt = v => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
   let html = '';
   for (let n = 1; n <= wanted; n++) {
     const v = kept[n - 1] || {};
     const one = wanted === 1;
+    // With one item everything is open; with several, each folds away so the
+    // form doesn't become a wall of boxes.
     html += `
-      <div class="itemblock" ${one ? '' : 'style="border:1px solid #d9dee6;border-radius:10px;padding:16px 18px;margin-bottom:16px;background:#fbfcfd"'}>
-        ${one ? '' : `<p style="margin:0 0 14px;font-weight:700;color:#1B2A4A">Item ${n}</p>`}
+      <details class="itemblock" ${one || n === 1 ? 'open' : ''}>
+        <summary>
+          <span class="itemname" id="itemname_${n}">${one ? 'The item' : 'Item ' + n}</span>
+          <span class="itemsum" id="itemsum_${n}"></span>
+        </summary>
+        <div class="itembody">
+          <label for="device_type_${n}">Type of item</label>
+          <select id="device_type_${n}">
+            <option value="">Please choose…</option>
+            ${DEVICE_TYPES.map(t => `<option${v.device_type === t ? ' selected' : ''}>${t}</option>`).join('')}
+          </select>
 
-        <label for="device_type_${n}">Type of item</label>
-        <select id="device_type_${n}">
-          <option value="">Please choose…</option>
-          ${DEVICE_TYPES.map(t => `<option${v.device_type === t ? ' selected' : ''}>${t}</option>`).join('')}
-        </select>
+          <label for="make_model_${n}">Make and model</label>
+          <input type="text" id="make_model_${n}" placeholder="e.g. Sony PlayStation 5 Slim" value="${attr(v.make_model)}">
 
-        <label for="make_model_${n}">Make and model</label>
-        <input type="text" id="make_model_${n}" placeholder="e.g. Sony PlayStation 5 Slim" value="${(v.make_model || '').replace(/"/g, '&quot;')}">
+          <label for="serial_imei_${n}">Serial or IMEI number <span class="hint">— if you have it</span></label>
+          <input type="text" id="serial_imei_${n}" value="${attr(v.serial_imei)}">
 
-        <label for="serial_imei_${n}">Serial or IMEI number <span class="hint">— if you have it</span></label>
-        <input type="text" id="serial_imei_${n}" value="${(v.serial_imei || '').replace(/"/g, '&quot;')}">
+          <label for="fault_description_${n}">What's wrong with it? *</label>
+          <textarea id="fault_description_${n}" required placeholder="Describe the fault in your own words.">${txt(v.fault_description)}</textarea>
 
-        <label for="fault_description_${n}">What's wrong with it? *</label>
-        <textarea id="fault_description_${n}" required placeholder="Describe the fault in your own words.">${v.fault_description || ''}</textarea>
-      </div>`;
+          <label for="fault_history_${n}">When did it start? Anything happen beforehand?</label>
+          <textarea id="fault_history_${n}" style="min-height:80px" placeholder="Dropped, liquid, power surge, previous repair, etc.">${txt(v.fault_history)}</textarea>
+
+          <label for="accessories_${n}">What are you sending with this one?</label>
+          <input type="text" id="accessories_${n}" placeholder="e.g. power lead, controller, nothing else" value="${attr(v.accessories)}">
+        </div>
+      </details>`;
   }
   box.innerHTML = html;
+
+  // The folded-up heading shows what the item is, so you can tell them apart.
+  for (let n = 1; n <= wanted; n++) {
+    const refresh = () => {
+      const name = ($(`make_model_${n}`).value || '').trim() || ($(`device_type_${n}`).value || '').trim();
+      const fault = ($(`fault_description_${n}`).value || '').trim();
+      $(`itemname_${n}`).textContent = name || (wanted === 1 ? 'The item' : 'Item ' + n);
+      $(`itemsum_${n}`).textContent = fault ? fault.slice(0, 48) + (fault.length > 48 ? '…' : '') : '';
+    };
+    ['make_model', 'device_type', 'fault_description'].forEach(f =>
+      $(`${f}_${n}`).addEventListener('input', refresh));
+    $(`device_type_${n}`).addEventListener('change', refresh);
+    refresh();
+  }
+
+  setDiagWording();
 }
 
 function readItems() {
   const out = [];
   document.querySelectorAll('#items .itemblock').forEach((_, i) => {
     const n = i + 1;
+    const val = id => (($(id) || {}).value || '').trim();
     out.push({
-      device_type: ($(`device_type_${n}`) || {}).value || '',
-      make_model: (($(`make_model_${n}`) || {}).value || '').trim(),
-      serial_imei: (($(`serial_imei_${n}`) || {}).value || '').trim(),
-      fault_description: (($(`fault_description_${n}`) || {}).value || '').trim()
+      device_type: val(`device_type_${n}`),
+      make_model: val(`make_model_${n}`),
+      serial_imei: val(`serial_imei_${n}`),
+      fault_description: val(`fault_description_${n}`),
+      fault_history: val(`fault_history_${n}`),
+      accessories: val(`accessories_${n}`)
     });
   });
   return out;
+}
+
+// With one item we can say flatly that there's no fee. With several we can't —
+// one of them might still need diagnosing — so say what actually happens.
+function setDiagWording() {
+  const many = (parseInt($('item_count').value, 10) || 1) > 1;
+
+  if (!NO_DIAG_FEE) {
+    $('diagRow').style.display = '';
+    $('noDiagNote').style.display = 'none';
+    $('agree_diagnostic').closest('.check').querySelector('label').innerHTML = many
+      ? 'I understand the <strong>£30 diagnostic fee</strong>, charged per item where the fault has to be found. It\'s deducted from that item\'s repair price if I go ahead, applies if I decline a quoted repair, and is waived if an item can\'t be repaired. You will tell me which items carry a fee before charging anything.'
+      : 'I understand the <strong>£30 diagnostic fee</strong>. It\'s deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can\'t be repaired.';
+    return;
+  }
+
+  if (many) {
+    // He said the faults were obvious, but the customer has listed several
+    // items and one of them may still need looking into.
+    $('diagRow').style.display = '';
+    $('noDiagNote').style.display = 'block';
+    $('noDiagNote').innerHTML = '<strong>No diagnostic fee where the fault is already clear.</strong> ' +
+      'You\'ve listed more than one item, and we can\'t promise that in advance for every one of them. ' +
+      'If any item turns out to need diagnosing, we\'ll tell you which, and you can say no before anything is charged.';
+    $('agree_diagnostic').closest('.check').querySelector('label').innerHTML =
+      'I understand that if any item needs diagnosing, a <strong>£30 diagnostic fee</strong> applies to that item — and that you will tell me which before charging anything.';
+  } else {
+    $('diagRow').style.display = 'none';
+    $('noDiagNote').style.display = 'block';
+    $('noDiagNote').innerHTML = '<strong>No diagnostic fee on this job.</strong> The fault is already clear, ' +
+      'so there\'s nothing to diagnose. You\'ll get a price for the repair and nothing happens until you approve it.';
+  }
 }
 
 $('item_count').addEventListener('change', renderItems);
@@ -306,12 +382,9 @@ async function start() {
       formArea.insertBefore(note, formArea.firstChild);
     }
 
-    // Obvious faults need no diagnosis, so there is nothing to agree to.
+    // Obvious faults need no diagnosis. renderItems settles the wording,
+    // because it depends on how many items they're sending.
     NO_DIAG_FEE = result.diag_fee_applies === false;
-    if (NO_DIAG_FEE) {
-      $('diagRow').style.display = 'none';
-      $('noDiagNote').style.display = 'block';
-    }
 
     renderItems();
     loading.classList.remove('show');
@@ -360,9 +433,7 @@ $('intakeForm').addEventListener('submit', async (ev) => {
     phone: $('phone').value.trim(),
     address: $('address').value.trim(),
     items,
-    fault_history: $('fault_history').value.trim(),
-    accessories: $('accessories').value.trim(),
-    agree_diagnostic: NO_DIAG_FEE ? true : $('agree_diagnostic').checked,
+    agree_diagnostic: $('diagRow').style.display === 'none' ? true : $('agree_diagnostic').checked,
     agree_terms: $('agree_terms').checked,
     agree_privacy: $('agree_privacy').checked,
     agree_uncollected: $('agree_uncollected').checked,

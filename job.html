@@ -128,6 +128,8 @@
               <option value="in_repair">In repair</option>
               <option value="testing">Testing</option>
               <option value="ready">Ready</option>
+              <option value="invoiced">Invoiced</option>
+              <option value="paid">Paid</option>
               <option value="returned">Returned</option>
               <option value="unrepairable">Unrepairable</option>
             </select>
@@ -160,6 +162,10 @@
         <div id="quoteMsg" class="msg"></div>
         <div id="quoteList"></div>
         <div class="row">
+          <div style="flex:1 1 240px">
+            <label for="qItem">What are you pricing?</label>
+            <select id="qItem"><option value="">The whole job</option></select>
+          </div>
           <div style="flex:0 0 220px">
             <label for="qKind">This is</label>
             <select id="qKind">
@@ -194,15 +200,18 @@
         <h2>Invoice</h2>
         <div id="invMsg" class="msg"></div>
         <div id="invList"></div>
-        <div class="row">
-          <div style="flex:0 0 160px">
-            <label for="iAmount">Total price £</label>
-            <input type="number" id="iAmount" min="0" step="1" placeholder="120">
-          </div>
+
+        <label>Lines on this invoice</label>
+        <p class="sub" id="iDescNote" style="margin:0 0 10px"></p>
+        <div id="iLines"></div>
+        <div class="sendrow" style="margin:0 0 16px">
+          <button class="send" id="iAddLine" type="button">Add a line</button>
+          <span id="iTotal" style="align-self:center;font-weight:700;color:var(--navy)"></span>
         </div>
-        <label for="iDesc">What the invoice is for</label>
-        <textarea id="iDesc" placeholder="Board-level repair: replaced failed charging IC, rebuilt damaged pads, tested under load."></textarea>
-        <p class="sub" id="iDescNote" style="margin:-8px 0 14px"></p>
+
+        <label for="iDesc">Note on the invoice <span style="font-weight:400;color:var(--muted)">— optional</span></label>
+        <textarea id="iDesc" style="min-height:60px" placeholder="Anything the customer should read alongside the lines."></textarea>
+
         <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
         <div id="iSend" style="display:none">
           <div class="linkbox" id="iLink"></div>
@@ -307,6 +316,7 @@ const $ = id => document.getElementById(id);
 const JOB = (new URLSearchParams(location.search).get('job') || '').trim().toUpperCase();
 let JOBROW = null;
 let QUOTES = [];
+let ITEMS = [];
 
 function show(el, text, kind) { el.textContent = text; el.className = 'msg show ' + kind; }
 function hide(el) { el.className = 'msg'; }
@@ -381,7 +391,6 @@ async function load() {
   ].join('');
 
   $('trackLink').href = 'track.html?job=' + encodeURIComponent(data.job_number) + '&k=' + encodeURIComponent(data.access_key);
-  loadItems(data.id);
 
   setQuoteKind(data.status);
   $('qKind').addEventListener('change', () => setQuoteKind(null));
@@ -427,15 +436,46 @@ async function loadItems(jobId) {
   }
   if (!rows.length) return;
 
+  ITEMS = rows;
   $('itemsTitle').textContent = rows.length === 1 ? 'The item' : rows.length + ' items';
   $('itemsList').innerHTML = rows.map(it => {
     const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position;
+    const priced = QUOTES.filter(q => q.item_id === it.id);
+    const approved = priced.find(q => q.status === 'approved');
     return `<div class="quotebox">
-      <div style="font-weight:700;color:var(--navy)">${rows.length > 1 ? it.position + '. ' : ''}${esc(head)}</div>
+      <div style="font-weight:700;color:var(--navy)">${rows.length > 1 ? it.position + '. ' : ''}${esc(head)}
+        ${approved ? `<span class="tag in" style="margin-left:8px">Approved £${Number(approved.amount).toFixed(2)}</span>`
+          : priced.length ? '<span class="tag wait" style="margin-left:8px">Priced, awaiting answer</span>'
+          : '<span class="tag off" style="margin-left:8px">Not priced yet</span>'}</div>
       ${it.serial_imei ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Serial / IMEI: ${esc(it.serial_imei)}</div>` : ''}
       ${it.fault_description ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(it.fault_description)}</div>` : ''}
+      ${it.fault_history ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">History: ${esc(it.fault_history)}</div>` : ''}
+      ${it.accessories ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Sent with it: ${esc(it.accessories)}</div>` : ''}
+      ${it.id ? `<label class="feetoggle" style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:400;font-size:13px;color:var(--muted)">
+        <input type="checkbox" data-fee="${it.id}" ${it.diag_fee_applies === false ? '' : 'checked'} style="width:16px;height:16px;margin:0">
+        Diagnostic fee applies to this item
+      </label>` : ''}
     </div>`;
   }).join('');
+
+  $('itemsList').querySelectorAll('[data-fee]').forEach(box => {
+    box.addEventListener('change', async () => {
+      const { error } = await sb.from('intake_items')
+        .update({ diag_fee_applies: box.checked }).eq('id', box.dataset.fee);
+      if (error) { box.checked = !box.checked; return show($('msg'), error.message, 'err'); }
+      loadItems(JOBROW.id);
+    });
+  });
+
+  // The quote card can now price one item at a time.
+  const pick = $('qItem');
+  const keep = pick.value;
+  pick.innerHTML = '<option value="">The whole job</option>' + rows.filter(it => it.id).map(it => {
+    const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position;
+    return `<option value="${it.id}">${rows.length > 1 ? it.position + '. ' : ''}${esc(head)}</option>`;
+  }).join('');
+  if (keep) pick.value = keep;
+
   $('itemsCard').style.display = 'block';
 }
 
@@ -516,34 +556,82 @@ async function loadQuotes(jobId) {
       ${q.response_note ? `<div style="font-size:13px;margin-top:6px">Customer said: ${esc(q.response_note)}</div>` : ''}
     </div>`;
   }).join('');
+  loadItems(jobId);
   fillInvoiceDescription();
 }
 
 // The invoice description starts from what the job already says, so you are
 // not retyping it. Approved work wins; otherwise the item and reported fault.
 function fillInvoiceDescription() {
-  const box = $('iDesc');
-  if (!box || box.value.trim() || !JOBROW) return;
+  if (!JOBROW || LINES.length) return;
 
-  const approved = QUOTES.find(q => q.status === 'approved');
-  const item = JOBROW.make_model || JOBROW.device_type || '';
-  const lines = [];
+  // Every approved price becomes a line. Several items, one invoice.
+  const approved = QUOTES.filter(q => q.status === 'approved');
 
-  if (item) lines.push(item);
-  if (approved) {
-    lines.push(approved.work_summary);
-    if (approved.parts_note) lines.push('Parts: ' + approved.parts_note);
-  } else if (JOBROW.fault_description) {
-    lines.push('Fault reported: ' + JOBROW.fault_description);
+  if (approved.length) {
+    LINES = approved.map(q => {
+      const it = ITEMS.find(i => i.id === q.item_id);
+      const head = it ? ([it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position) : '';
+      const bits = [head, q.work_summary].filter(Boolean);
+      if (q.parts_note) bits.push('Parts: ' + q.parts_note);
+      return { description: bits.join(' — '), amount: Number(q.amount), item_id: q.item_id || null, quote_id: q.id };
+    });
+    $('iDescNote').textContent = approved.length === 1
+      ? 'Taken from the approved quote. Edit anything that changed.'
+      : approved.length + ' approved prices, one invoice. Edit anything that changed.';
+  } else {
+    const item = JOBROW.make_model || JOBROW.device_type || '';
+    const bits = [item, JOBROW.fault_description ? 'Fault reported: ' + JOBROW.fault_description : ''].filter(Boolean);
+    LINES = [{ description: bits.join(' — ') || 'Repair work', amount: 0, item_id: null, quote_id: null }];
+    $('iDescNote').textContent = 'Nothing approved yet, so this is from the job details. Fill in the price before you send.';
   }
-
-  if (!lines.length) return;
-  box.value = lines.join('\n');
-  if (approved && !$('iAmount').value) $('iAmount').value = Number(approved.amount).toFixed(2);
-  $('iDescNote').textContent = approved
-    ? 'Filled in from the approved quote. Edit it if the work changed.'
-    : 'Filled in from the job details. Edit it before you send.';
+  drawLines();
 }
+
+// ---------- invoice lines ----------
+let LINES = [];
+
+function drawLines() {
+  $('iLines').innerHTML = LINES.map((l, n) => `
+    <div class="row" style="align-items:flex-start;margin-bottom:4px">
+      <div style="flex:1 1 260px">
+        <textarea data-ldesc="${n}" style="min-height:58px" placeholder="What this line is for">${esc(l.description)}</textarea>
+      </div>
+      <div style="flex:0 0 120px">
+        <input type="number" data-lamt="${n}" min="0" step="0.01" placeholder="0.00" value="${l.amount ? Number(l.amount).toFixed(2) : ''}">
+      </div>
+      <div style="flex:0 0 auto">
+        <button class="send" type="button" data-ldel="${n}" style="margin-bottom:14px"${LINES.length === 1 ? ' disabled' : ''}>Remove</button>
+      </div>
+    </div>`).join('');
+
+  $('iLines').querySelectorAll('[data-ldesc]').forEach(el => el.addEventListener('input', () => {
+    LINES[+el.dataset.ldesc].description = el.value;
+  }));
+  $('iLines').querySelectorAll('[data-lamt]').forEach(el => el.addEventListener('input', () => {
+    LINES[+el.dataset.lamt].amount = parseFloat(el.value) || 0;
+    showTotal();
+  }));
+  $('iLines').querySelectorAll('[data-ldel]').forEach(el => el.addEventListener('click', () => {
+    LINES.splice(+el.dataset.ldel, 1);
+    drawLines();
+  }));
+  showTotal();
+}
+
+function linesTotal() {
+  return LINES.reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
+}
+
+function showTotal() {
+  const t = linesTotal();
+  $('iTotal').textContent = t > 0 ? 'Invoice total: £' + t.toFixed(2) : '';
+}
+
+$('iAddLine').addEventListener('click', () => {
+  LINES.push({ description: '', amount: 0, item_id: null, quote_id: null });
+  drawLines();
+});
 
 let LASTPDF = null;
 let INVOICES = [];
@@ -554,9 +642,13 @@ async function sendReceipt(invoiceId) {
     const { data: rows, error } = await sb.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
     if (error || !rows) return { ok: false, error: 'Could not read the invoice back.' };
 
+    const { data: lineRows } = await sb.from('invoice_lines')
+      .select('description,amount').eq('invoice_id', invoiceId).order('position');
+
     const doc = buildReceiptPdf({
       invoice_number: rows.invoice_number,
       receipt_number: rows.receipt_number,
+      lines: lineRows || [],
       job_number: JOB,
       issued_at: rows.issued_at,
       paid_at: rows.paid_at,
@@ -616,6 +708,9 @@ async function loadInvoices(jobId) {
       });
       if (error) { btn.disabled = false; btn.textContent = label; return show($('invMsg'), error.message, 'err'); }
 
+      const paidRow = Array.isArray(res) ? res[0] : res;
+      if (paidRow && paidRow.job_settled) $('status').value = 'paid';
+
       const out = await sendReceipt(btn.dataset.paid);
       show($('invMsg'), out.ok
         ? 'Marked as paid. Receipt ' + out.receipt_number + ' emailed to ' + out.to + '.'
@@ -642,15 +737,24 @@ async function loadInvoices(jobId) {
 
 $('invBtn').addEventListener('click', async () => {
   hide($('invMsg'));
-  const amount = parseFloat($('iAmount').value);
+
+  const lines = LINES
+    .map(l => ({ ...l, description: String(l.description || '').trim(), amount: Number(l.amount) || 0 }))
+    .filter(l => l.description || l.amount);
+
+  if (!lines.length) return show($('invMsg'), 'Add at least one line.', 'err');
+  const blank = lines.findIndex(l => !l.description);
+  if (blank !== -1) return show($('invMsg'), 'Line ' + (blank + 1) + ' has no description.', 'err');
+  const free = lines.findIndex(l => l.amount <= 0);
+  if (free !== -1) return show($('invMsg'), 'Line ' + (free + 1) + ' has no price.', 'err');
+
+  const amount = lines.reduce((s, l) => s + l.amount, 0);
   const desc = $('iDesc').value.trim();
-  if (!amount || amount <= 0) return show($('invMsg'), 'Enter the amount.', 'err');
-  if (!desc) return show($('invMsg'), 'Describe what the invoice is for.', 'err');
 
   $('invBtn').disabled = true; $('invBtn').textContent = 'Working…';
 
   const { data, error } = await sb.rpc('create_invoice', {
-    p_job_number: JOB, p_amount: amount, p_description: desc
+    p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: lines
   });
   if (error) {
     $('invBtn').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
@@ -663,6 +767,7 @@ $('invBtn').addEventListener('click', async () => {
     job_number: JOB,
     amount,
     description: desc,
+    lines,
     issued_at: new Date().toISOString(),
     status: 'unpaid',
     customer_name: JOBROW.customer_name,
@@ -696,8 +801,10 @@ $('invBtn').addEventListener('click', async () => {
   if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF attached.', 'ok');
   else show($('invMsg'), row.invoice_no + ' created, but the email failed (' + (out.error || 'unknown error') + '). Send the link below instead.', 'err');
 
-  $('iAmount').value = ''; $('iDesc').value = '';
-  loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id);
+  $('iDesc').value = '';
+  LINES = [];
+  $('status').value = 'invoiced';
+  loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id); loadQuotes(JOBROW.id);
   $('invBtn').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
 });
 
@@ -891,7 +998,8 @@ $('quoteBtn').addEventListener('click', async () => {
   $('quoteBtn').disabled = true; $('quoteBtn').textContent = 'Sending…';
 
   const { data, error } = await sb.rpc('create_quote', {
-    p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: null, p_kind: wanted
+    p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: null,
+    p_kind: wanted, p_item_id: $('qItem').value || null
   });
   if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
   const qrow = Array.isArray(data) ? data[0] : data;

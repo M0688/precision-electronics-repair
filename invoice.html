@@ -59,6 +59,7 @@
 
         <div class="block">
           <div class="klabel">Work carried out</div>
+          <div id="lines"></div>
           <div id="desc" style="white-space:pre-wrap"></div>
           <div class="total" id="amount"></div>
           <div id="paidTag" style="margin-top:10px;display:none"><span class="paid">PAID</span></div>
@@ -117,7 +118,19 @@ async function start() {
 
     $('invNo').textContent = 'Invoice ' + d.invoice_number;
     $('sub').textContent = 'Job ' + d.job_number + (d.item ? ' · ' + d.item : '');
-    $('desc').textContent = d.description;
+    // Several items on one invoice get a line each.
+    const rows = d.lines || [];
+    if (rows.length) {
+      $('lines').innerHTML = rows.map(l => `
+        <div style="display:flex;gap:14px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
+          <div style="white-space:pre-wrap">${String(l.description || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+          <div style="white-space:nowrap;font-weight:600">£${Number(l.amount).toFixed(2)}</div>
+        </div>`).join('');
+      $('desc').style.marginTop = '12px';
+    }
+    $('desc').textContent = rows.length
+      ? (d.description && d.description !== 'Repair work — see the itemised list.' ? d.description : '')
+      : d.description;
     $('amount').textContent = 'Total due: £' + Number(d.amount).toFixed(2);
     $('payRef').textContent = d.invoice_number;
     if (d.status === 'paid') {

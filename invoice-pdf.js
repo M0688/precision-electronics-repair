@@ -103,20 +103,31 @@ export function buildInvoicePdf(d) {
   doc.setTextColor(30, 39, 51);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  const lines = doc.splitTextToSize(String(d.description || ''), 120);
-  const rowH = Math.max(14, lines.length * 5 + 8);
   doc.setDrawColor(226, 230, 236);
-  doc.rect(L, y, R - L, rowH);
-  doc.text(lines, L + 4, y + 7);
-  if (d.item) {
-    doc.setTextColor(...MUTED);
-    doc.setFontSize(9);
-    doc.text('Item: ' + d.item, L + 4, y + rowH - 4);
-    doc.setTextColor(30, 39, 51);
-    doc.setFontSize(10);
-  }
-  doc.text(money(d.amount), R - 4, y + 7, { align: 'right' });
-  y += rowH + 6;
+
+  // One row per line when the job had several items priced separately.
+  const rows = Array.isArray(d.lines) && d.lines.length
+    ? d.lines
+    : [{ description: d.description || '', amount: d.amount }];
+
+  rows.forEach((r, n) => {
+    const text = doc.splitTextToSize(String(r.description || ''), 120);
+    const last = n === rows.length - 1;
+    const showItem = last && d.item && rows.length === 1;
+    const rowH = Math.max(14, text.length * 5 + 8 + (showItem ? 4 : 0));
+    doc.rect(L, y, R - L, rowH);
+    doc.text(text, L + 4, y + 7);
+    if (showItem) {
+      doc.setTextColor(...MUTED);
+      doc.setFontSize(9);
+      doc.text('Item: ' + d.item, L + 4, y + rowH - 4);
+      doc.setTextColor(30, 39, 51);
+      doc.setFontSize(10);
+    }
+    doc.text(money(r.amount), R - 4, y + 7, { align: 'right' });
+    y += rowH;
+  });
+  y += 6;
 
   // total
   doc.setFont('helvetica', 'bold');

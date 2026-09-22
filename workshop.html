@@ -52,6 +52,7 @@
   .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
   .tag.wait { background: #fff4e0; color: var(--amber); }
   .tag.in { background: #e7f2ec; color: var(--green); }
+  .tag.off { background: #eef0f4; color: var(--muted); }
 
   .msg { border-radius: 8px; padding: 12px 15px; margin-bottom: 16px; font-size: 14px; display: none; }
   .msg.show { display: block; }
@@ -223,6 +224,16 @@ function fmt(ts) {
   return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Amber while something is waiting on someone, green once it's settled,
+// grey once the job is closed off.
+const STATUS_TONE = {
+  awaiting_intake: 'wait', intake_received: 'wait', in_post: 'wait',
+  arrived: 'in', in_diagnosis: 'in', quoted: 'wait', approved: 'in',
+  declined: 'off', in_repair: 'in', testing: 'in', ready: 'in',
+  invoiced: 'wait', paid: 'in', returned: 'off',
+  unrepairable: 'off'
+};
+
 async function loadJobs() {
   const { data, error } = await sb.from('job_list').select('*').order('created_at', { ascending: false });
   if (error) {
@@ -238,9 +249,7 @@ async function loadJobs() {
       <td class="jobno"><a href="job.html?job=${j.job_number}" style="text-decoration:none">${j.job_number}</a></td>
       <td>${j.customer_name || '<span style="color:#5a6474">—</span>'}${j.customer_email ? `<br><span style="color:#5a6474;font-size:13px">${j.customer_email}</span>` : ''}</td>
       <td class="hide">${j.make_model || ''}${j.fault_description ? `<br><span style="color:#5a6474;font-size:13px">${j.fault_description.slice(0, 60)}${j.fault_description.length > 60 ? '…' : ''}</span>` : ''}</td>
-      <td>${j.has_intake
-            ? '<span class="tag in">Form received</span>'
-            : '<span class="tag wait">Awaiting form</span>'}</td>
+      <td><span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(j.status_label || j.status || '').replace(/</g, '&lt;')}</span></td>
       <td class="hide">${fmt(j.submitted_at || j.created_at)}</td>
     </tr>`).join('');
   $('jobsArea').innerHTML = `<table>
