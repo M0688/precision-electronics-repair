@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css">
+<style>
+  .verdict { border-radius: 10px; padding: 18px 20px; margin-top: 16px; display: none; }
+  .verdict.show { display: block; }
+  .verdict.buy   { background: #e7f2ec; border: 1px solid #bcdcca; }
+  .verdict.thin  { background: #fff4e0; border: 1px solid #f0d9a8; }
+  .verdict.loss  { background: #fdecea; border: 1px solid #f3c2bd; }
+  .verdict.info  { background: var(--soft); border: 1px solid var(--line); }
+  .verdict .call { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+  .verdict.buy  .call { color: var(--green); }
+  .verdict.thin .call { color: var(--amber); }
+  .verdict.loss .call { color: var(--red); }
+  .verdict.info .call { color: var(--navy); }
+
+  .figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 14px 0 0; }
+  .fig { background: rgba(255,255,255,.7); border-radius: 8px; padding: 10px 12px; }
+  .fig .n { font-size: 19px; font-weight: 700; color: var(--navy); line-height: 1.2; }
+  .fig .l { font-size: 12px; color: var(--muted); }
+
+  .detail { border-left: 3px solid var(--line); padding: 2px 0 10px 12px; margin-bottom: 8px; font-size: 14px; }
+  .srcs { font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .srcs a { color: var(--muted); }
+
+  .item { border: 1px solid var(--line); border-left-width: 5px; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
+  .item .top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .item .ref { font-weight: 700; color: var(--navy); }
+  .item select { width: auto; margin: 0; padding: 6px 10px; font-size: 13px; }
+  .item.s-bought    { border-left-color: #c4ccd8; }
+  .item.s-in_repair { border-left-color: #d9a441; }
+  .item.s-testing   { border-left-color: #7a4fd1; }
+  .item.s-ready     { border-left-color: #2f7bd1; }
+  .item.s-listed    { border-left-color: #0f8a8a; }
+  .item.s-sold      { border-left-color: #1c6b3c; background: #f8fbf9; }
+  .item.s-scrapped  { border-left-color: #b3261e; }
+  .item.s-returned  { border-left-color: #b3261e; }
+  .money { font-variant-numeric: tabular-nums; }
+  .pos { color: var(--green); font-weight: 700; }
+  .neg { color: var(--red); font-weight: 700; }
+  .panel { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; display: none; }
+  .panel.open { display: block; }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .ai { white-space: pre-wrap; font-size: 14px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-top: 10px; display: none; }
+  .ai.show { display: block; }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <!-- ---------- calculator ---------- -->
+    <div class="card">
+      <h2>Is it worth buying?</h2>
+      <p class="sub">Looks up what it's selling for in the UK right now, then works out the most you can pay
+      and still clear your margin. Check the figures before you act on them &mdash; it's reading listings, not a price list.</p>
+
+      <div class="row">
+        <div style="flex:2 1 240px"><label for="cModel">What is it *</label>
+          <input type="text" id="cModel" placeholder="PlayStation 5 disc edition"></div>
+        <div style="flex:0 0 130px"><label for="cStorage">Storage</label>
+          <input type="text" id="cStorage" placeholder="825GB"></div>
+        <div style="flex:0 0 150px"><label for="cCondition">Condition</label>
+          <select id="cCondition">
+            <option value="faulty">Faulty</option>
+            <option value="working">Working</option>
+            <option value="spares or repair">Spares or repair</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="cFault">What's wrong with it</label>
+      <input type="text" id="cFault" placeholder="No display over HDMI, otherwise boots fine">
+
+      <div class="row">
+        <div style="flex:0 0 150px"><label for="cBuy">They want &pound;</label>
+          <input type="number" id="cBuy" min="0" step="1" placeholder="60"></div>
+        <div style="flex:0 0 150px"><label for="cParts">Parts will cost &pound;</label>
+          <input type="number" id="cParts" min="0" step="1" placeholder="25"></div>
+        <div style="flex:0 0 130px"><label for="cMarkup">Markup %</label>
+          <input type="number" id="cMarkup" min="0" step="5" value="30"></div>
+        <div style="flex:0 0 auto"><button class="primary" id="cBtn" style="margin-bottom:14px">Check it</button></div>
+      </div>
+
+      <div class="verdict" id="cVerdict"></div>
+    </div>
+
+    <!-- ---------- add by hand ---------- -->
+    <div class="card">
+      <h2>Log a purchase</h2>
+      <div class="row">
+        <div style="flex:2 1 220px"><label for="nModel">What is it *</label><input type="text" id="nModel" placeholder="PlayStation 4 Pro 1TB"></div>
+        <div style="flex:0 0 150px"><label for="nType">Type</label>
+          <select id="nType">
+            <option value="console">Console</option>
+            <option value="phone">Phone</option>
+            <option value="laptop">Laptop</option>
+            <option value="controller">Controller</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div style="flex:0 0 130px"><label for="nPrice">Paid &pound;</label><input type="number" id="nPrice" min="0" step="1"></div>
+        <div style="flex:0 0 170px"><label for="nSource">Where from</label><input type="text" id="nSource" placeholder="Facebook Marketplace"></div>
+      </div>
+      <label for="nFault">Fault</label>
+      <input type="text" id="nFault" placeholder="Dead, no power light">
+      <button class="primary" id="addBtn">Add to stock</button>
+    </div>
+
+    <!-- ---------- the numbers ---------- -->
+    <div class="card">
+      <h2>Where you stand</h2>
+      <div class="stats" id="summary"><p class="empty">Loading…</p></div>
+    </div>
+
+    <!-- ---------- stock list ---------- -->
+    <div class="card">
+      <h2>Stock</h2>
+      <div class="row" style="margin-bottom:10px">
+        <div style="flex:2 1 240px"><input type="search" id="search" placeholder="Search model, fault or reference" style="margin-bottom:0"></div>
+        <div style="flex:0 0 190px">
+          <select id="filter" style="margin-bottom:0">
+            <option value="open">In stock</option>
+            <option value="">Everything</option>
+            <option value="bought">Bought</option>
+            <option value="in_repair">In repair</option>
+            <option value="testing">Testing</option>
+            <option value="ready">Ready</option>
+            <option value="listed">Listed</option>
+            <option value="sold">Sold</option>
+            <option value="scrapped">Scrapped</option>
+          </select>
+        </div>
+      </div>
+      <div id="listArea"><p class="empty">Loading…</p></div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { sb, SUPABASE_URL, SUPABASE_KEY, $, show, hide, esc, when, money, chrome, requireSession } from './crm.js';
+
+chrome('stock.html');
+
+const STATUSES = [
+  ['bought','Bought'], ['in_repair','In repair'], ['testing','Testing'], ['ready','Ready'],
+  ['listed','Listed'], ['sold','Sold'], ['scrapped','Scrapped'], ['returned','Returned']
+];
+
+let ROWS = [];
+let LASTCHECK = null;
+
+async function start() {
+  const sess = await requireSession();
+  if (!sess) return;
+  load();
+  loadSummary();
+}
+
+async function call(fn, payload) {
+  const { data: sess } = await sb.auth.getSession();
+  const res = await fetch(SUPABASE_URL + '/functions/v1/' + fn, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return await res.json().catch(() => ({ ok: false, error: 'The server did not answer.' }));
+}
+
+/* ---------- calculator ---------- */
+
+$('cBtn').addEventListener('click', async () => {
+  hide($('msg'));
+  const makeModel = $('cModel').value.trim();
+  if (!makeModel) return show($('msg'), 'Tell it what the item is.', 'err');
+
+  $('cBtn').disabled = true;
+  $('cBtn').textContent = 'Looking…';
+  $('cVerdict').className = 'verdict';
+
+  const out = await call('stock-value', {
+    make_model: makeModel,
+    storage: $('cStorage').value.trim(),
+    condition: $('cCondition').value,
+    fault: $('cFault').value.trim(),
+    buy_price: parseFloat($('cBuy').value) || 0,
+    parts_estimate: parseFloat($('cParts').value) || 0,
+    markup: (parseFloat($('cMarkup').value) || 30) / 100
+  });
+
+  $('cBtn').disabled = false;
+  $('cBtn').textContent = 'Check it';
+
+  if (!out.ok) return show($('msg'), out.error || 'That did not work.', 'err');
+  LASTCHECK = out;
+  renderVerdict(out);
+});
+
+function renderVerdict(out) {
+  const v = out.valuation, m = out.maths;
+  const el = $('cVerdict');
+
+  const calls = {
+    buy:  ['buy',  'Worth buying'],
+    thin: ['thin', 'Tight — but not a loss'],
+    loss: ['loss', "Don't buy it at that price"],
+    reference_only: ['info', 'Prices found'],
+    no_price: ['info', 'No reliable price found']
+  };
+  const [cls, headline] = calls[out.verdict] || calls.no_price;
+
+  let detail = '';
+  if (out.verdict === 'buy') {
+    detail = `At £${m.your_buy_price} plus £${m.your_parts} in parts you'd clear about £${m.profit} — that's ${m.margin_pct}% on your money.`;
+  } else if (out.verdict === 'thin') {
+    detail = `You'd make about £${m.profit} (${m.margin_pct}%), under the ${Math.round(m.markup*100)}% you want. Pay no more than £${m.max_buy_price} to hit it.`;
+  } else if (out.verdict === 'loss') {
+    detail = `You'd lose about £${Math.abs(m.profit)}. Your ceiling on this one is £${m.max_buy_price} including parts.`;
+  } else if (out.verdict === 'reference_only') {
+    detail = `Put in what they're asking and what parts will cost to get a straight yes or no.`;
+  } else {
+    detail = `The search didn't turn up solid UK prices for this. Check it yourself before committing.`;
+  }
+
+  const figs = [
+    ['Sells for', v.working_typical ? money(v.working_typical) : '—'],
+    ['Range', v.working_low && v.working_high ? `${money(v.working_low)}–${money(v.working_high)}` : '—'],
+    ['Broken, it fetches', v.faulty_typical ? money(v.faulty_typical) : '—'],
+    ['eBay takes', m.fees ? money(m.fees) : '—'],
+    ['Max spend, all in', m.max_total_spend ? money(m.max_total_spend) : '—'],
+    ['Max to pay for it', m.max_buy_price ? money(m.max_buy_price) : '—']
+  ];
+
+  el.className = 'verdict show ' + cls;
+  el.innerHTML = `
+    <div class="call">${esc(headline)}</div>
+    <div style="font-size:14px">${esc(detail)}</div>
+    <div class="figs">${figs.map(([l, n]) => `<div class="fig"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>
+    <div style="margin-top:14px">
+      <div class="detail"><strong>${esc(v.identified)}</strong> · ${esc(v.category)} · demand ${esc(v.demand || 'unknown')} · confidence ${esc(v.confidence)}</div>
+      ${v.basis ? `<div class="detail">${esc(v.basis)}</div>` : ''}
+      ${v.common_faults ? `<div class="detail"><strong>Known faults:</strong> ${esc(v.common_faults)}</div>` : ''}
+      ${v.watch_out_for ? `<div class="detail"><strong>Watch out:</strong> ${esc(v.watch_out_for)}</div>` : ''}
+    </div>
+    <div class="acts">
+      <button class="btn-sm" id="cLog">Log this purchase</button>
+    </div>
+    ${out.sources && out.sources.length ? `<div class="srcs">Checked: ${out.sources.slice(0,6).map(s => `<a href="${esc(s.uri)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join(' · ')}</div>` : ''}`;
+
+  $('cLog').addEventListener('click', async () => {
+    const { data, error } = await sb.rpc('create_stock_item', {
+      p_make_model: v.identified || $('cModel').value.trim(),
+      p_device_type: v.category === 'accessory' ? 'controller' : v.category,
+      p_fault: $('cFault').value.trim() || null,
+      p_purchase_price: parseFloat($('cBuy').value) || 0,
+      p_source: null,
+      p_condition: $('cCondition').value,
+      p_storage: $('cStorage').value.trim() || null,
+      p_serial: null,
+      p_target_price: v.working_typical || null
+    });
+    if (error) return show($('msg'), error.message, 'err');
+    const row = Array.isArray(data) ? data[0] : data;
+    show($('msg'), row.ref + ' added to stock.', 'ok');
+    load(); loadSummary();
+  });
+}
+
+/* ---------- add by hand ---------- */
+
+$('addBtn').addEventListener('click', async () => {
+  hide($('msg'));
+  const model = $('nModel').value.trim();
+  if (!model) return show($('msg'), 'What is it?', 'err');
+  const { data, error } = await sb.rpc('create_stock_item', {
+    p_make_model: model,
+    p_device_type: $('nType').value,
+    p_fault: $('nFault').value.trim() || null,
+    p_purchase_price: parseFloat($('nPrice').value) || 0,
+    p_source: $('nSource').value.trim() || null,
+    p_condition: 'faulty',
+    p_storage: null, p_serial: null, p_target_price: null
+  });
+  if (error) return show($('msg'), error.message, 'err');
+  const row = Array.isArray(data) ? data[0] : data;
+  ['nModel','nPrice','nSource','nFault'].forEach(i => $(i).value = '');
+  show($('msg'), row.ref + ' added.', 'ok');
+  load(); loadSummary();
+});
+
+/* ---------- summary ---------- */
+
+async function loadSummary() {
+  const { data, error } = await sb.from('stock_summary').select('*').maybeSingle();
+  if (error) return show($('msg'), error.message, 'err');
+  const s = data || {};
+  const stats = [
+    ['In stock', s.in_stock ?? 0],
+    ['Money tied up', money(s.tied_up)],
+    ['Sold', s.sold_count ?? 0],
+    ['Revenue', money(s.sold_revenue)],
+    ['Profit', money(s.total_profit)],
+    ['Average margin', (s.avg_margin_pct ?? 0) + '%'],
+    ['Average days held', s.avg_days_held ?? 0],
+    ['Scrapped', s.scrapped ?? 0]
+  ];
+  $('summary').innerHTML = stats.map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+}
+
+/* ---------- list ---------- */
+
+async function load() {
+  const { data, error } = await sb.from('stock_list').select('*').order('purchased_at', { ascending: false });
+  if (error) return show($('msg'), error.message, 'err');
+  ROWS = data || [];
+  render();
+}
+
+function render() {
+  const q = $('search').value.trim().toLowerCase();
+  const f = $('filter').value;
+  let rows = ROWS;
+  if (f === 'open') rows = rows.filter(r => !['sold','scrapped','returned'].includes(r.status));
+  else if (f) rows = rows.filter(r => r.status === f);
+  if (q) rows = rows.filter(r => [r.ref, r.make_model, r.fault, r.source].join(' ').toLowerCase().includes(q));
+
+  if (!rows.length) { $('listArea').innerHTML = '<p class="empty">Nothing here.</p>'; return; }
+
+  $('listArea').innerHTML = rows.map(r => `
+    <div class="item s-${esc(r.status)}">
+      <div class="top">
+        <div>
+          <div><span class="ref">${esc(r.ref)}</span> &nbsp;<strong>${esc(r.make_model)}</strong>${r.storage ? ' ' + esc(r.storage) : ''}</div>
+          ${r.fault ? `<div class="muted">${esc(r.fault)}</div>` : ''}
+          <div class="muted money">
+            Paid ${money(r.purchase_price)}${Number(r.costs) ? ' + ' + money(r.costs) + ' parts' : ''}
+            = ${money(r.total_cost)}
+            ${r.target_price ? ` · target ${money(r.target_price)}` : ''}
+            ${r.sold_price != null ? ` · sold ${money(r.sold_price)} · <span class="${r.profit >= 0 ? 'pos' : 'neg'}">${r.profit >= 0 ? '+' : ''}${money(r.profit)} (${r.margin_pct}%)</span>` : ''}
+          </div>
+          <div class="muted">Bought ${when(r.purchased_at)}${r.source ? ' · ' + esc(r.source) : ''}${r.days_held != null ? ' · held ' + r.days_held + ' days' : ''}</div>
+        </div>
+        <select data-status="${r.id}">
+          ${STATUSES.map(([k, l]) => `<option value="${k}"${r.status === k ? ' selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="acts">
+        <button class="btn-sm" data-open="${r.id}">Open</button>
+        ${['sold','scrapped'].includes(r.status) ? '' : `<button class="btn-sm" data-sold="${r.id}">Mark sold</button>`}
+      </div>
+
+      <div class="panel" id="p-${r.id}">
+        <div class="row">
+          <div style="flex:2 1 200px"><input type="text" data-cd="${r.id}" placeholder="What you bought — HDMI port, thermal paste" style="margin-bottom:0"></div>
+          <div style="flex:0 0 110px"><input type="number" data-ca="${r.id}" placeholder="£" step="0.01" style="margin-bottom:0"></div>
+          <div style="flex:0 0 auto"><button class="btn-sm" data-addcost="${r.id}">Add cost</button></div>
+        </div>
+        <div id="costs-${r.id}" style="margin-top:10px"></div>
+
+        <label style="margin-top:14px" for="note-${r.id}">Bench notes</label>
+        <textarea id="note-${r.id}" data-note="${r.id}" style="min-height:60px" placeholder="What you found, what you did."></textarea>
+        <div class="acts" style="margin-top:0">
+          <button class="btn-sm" data-savenote="${r.id}">Add note</button>
+          <button class="btn-sm" data-ai="${r.id}">Ask the diagnostic assistant</button>
+        </div>
+        <div class="ai" id="ai-${r.id}"></div>
+        <div id="notes-${r.id}" style="margin-top:12px"></div>
+      </div>
+    </div>`).join('');
+
+  wire();
+}
+
+function wire() {
+  const area = $('listArea');
+
+  area.querySelectorAll('[data-status]').forEach(sel => sel.addEventListener('change', async () => {
+    const { error } = await sb.from('stock_items').update({ status: sel.value }).eq('id', sel.dataset.status);
+    if (error) return show($('msg'), error.message, 'err');
+    load(); loadSummary();
+  }));
+
+  area.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
+    const p = $('p-' + b.dataset.open);
+    const open = p.classList.toggle('open');
+    b.textContent = open ? 'Close' : 'Open';
+    if (open) { loadCosts(b.dataset.open); loadNotes(b.dataset.open); }
+  }));
+
+  area.querySelectorAll('[data-addcost]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.addcost;
+    const desc = area.querySelector(`[data-cd="${id}"]`).value.trim();
+    const amt = parseFloat(area.querySelector(`[data-ca="${id}"]`).value);
+    if (!desc || !amt) return show($('msg'), 'Need both a description and an amount.', 'err');
+    const { error } = await sb.from('stock_costs').insert({ stock_id: id, description: desc, amount: amt });
+    if (error) return show($('msg'), error.message, 'err');
+    area.querySelector(`[data-cd="${id}"]`).value = '';
+    area.querySelector(`[data-ca="${id}"]`).value = '';
+    loadCosts(id); load(); loadSummary();
+  }));
+
+  area.querySelectorAll('[data-savenote]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.savenote;
+    const note = $('note-' + id).value.trim();
+    if (!note) return show($('msg'), 'Write something first.', 'err');
+    const row = ROWS.find(r => r.id === id);
+    const { data: sess } = await sb.auth.getSession();
+    const { error } = await sb.from('stock_notes').insert({
+      stock_id: id, note, stage: row.status, created_by: sess?.session?.user?.email
+    });
+    if (error) return show($('msg'), error.message, 'err');
+    $('note-' + id).value = '';
+    loadNotes(id);
+  }));
+
+  area.querySelectorAll('[data-ai]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.ai;
+    const row = ROWS.find(r => r.id === id);
+    const out = $('ai-' + id);
+    b.disabled = true; b.textContent = 'Thinking…';
+    out.className = 'ai show';
+    out.textContent = 'Working on it…';
+
+    const { data: notes } = await sb.from('stock_notes').select('note').eq('stock_id', id).order('created_at');
+    const bench = (notes || []).map(n => n.note).filter(n => !n.startsWith('Status changed to'));
+    const typed = $('note-' + id).value.trim();
+
+    const question =
+      `Item: ${row.make_model}${row.storage ? ' ' + row.storage : ''}\n` +
+      (row.fault ? `Fault as described by the seller: ${row.fault}\n` : '') +
+      (bench.length ? `\nBench notes so far:\n- ${bench.join('\n- ')}\n` : '') +
+      (typed ? `\n${typed}` : '\nWhat should I check first, and in what order?');
+
+    const res = await call('ai-diagnose', { job_number: null, question });
+    b.disabled = false; b.textContent = 'Ask the diagnostic assistant';
+    if (!res.ok) { out.textContent = res.error || 'No answer.'; return; }
+    out.textContent = res.answer + (res.sources && res.sources.length ? '\n\nUsed from your library: ' + res.sources.join(', ') : '');
+  }));
+
+  area.querySelectorAll('[data-sold]').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.sold;
+    const row = ROWS.find(r => r.id === id);
+    const price = prompt(`What did ${row.ref} sell for? (£)`, row.target_price || '');
+    if (price === null) return;
+    const p = parseFloat(price);
+    if (!p) return show($('msg'), 'Need a number.', 'err');
+    const via = prompt('Sold where?', 'eBay') || null;
+
+    // eBay business fees, so the profit figure is the real one
+    let fees = 0;
+    if ((via || '').toLowerCase().includes('ebay')) {
+      const rate = row.device_type === 'controller' ? 0.099 : 0.069;
+      fees = Math.round((p * (rate + 0.0035) + 0.40) * 100) / 100;
+    }
+    const { error } = await sb.from('stock_items').update({
+      status: 'sold', sold_price: p, sold_at: new Date().toISOString().slice(0, 10),
+      sold_via: via, sale_fees: fees
+    }).eq('id', id);
+    if (error) return show($('msg'), error.message, 'err');
+    show($('msg'), `${row.ref} marked sold${fees ? ` — £${fees.toFixed(2)} of eBay fees taken off the profit` : ''}.`, 'ok');
+    load(); loadSummary();
+  }));
+}
+
+async function loadCosts(id) {
+  const { data } = await sb.from('stock_costs').select('*').eq('stock_id', id).order('spent_at');
+  const el = $('costs-' + id);
+  if (!el) return;
+  if (!data || !data.length) { el.innerHTML = '<p class="empty" style="padding:6px 0">No parts logged.</p>'; return; }
+  el.innerHTML = `<table><tbody>${data.map(c => `
+    <tr><td>${esc(c.description)}</td><td class="muted">${when(c.spent_at)}</td>
+        <td style="text-align:right" class="money">${money(c.amount)}</td>
+        <td style="text-align:right;width:1%"><button class="btn-sm" data-delcost="${c.id}">Remove</button></td></tr>`).join('')}
+    </tbody></table>`;
+  el.querySelectorAll('[data-delcost]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('stock_costs').delete().eq('id', b.dataset.delcost);
+    loadCosts(id); load(); loadSummary();
+  }));
+}
+
+async function loadNotes(id) {
+  const { data } = await sb.from('stock_notes').select('*').eq('stock_id', id).order('created_at', { ascending: false });
+  const el = $('notes-' + id);
+  if (!el) return;
+  el.innerHTML = (data || []).map(n => `
+    <div class="detail">
+      <div class="muted" style="font-size:12px">${new Date(n.created_at).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
+      <div style="white-space:pre-wrap">${esc(n.note)}</div>
+    </div>`).join('') || '<p class="empty" style="padding:6px 0">No notes yet.</p>';
+}
+
+$('search').addEventListener('input', render);
+$('filter').addEventListener('change', render);
+
+start();
+</script>
+
+</body>
+</html>
