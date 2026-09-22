@@ -96,6 +96,7 @@
 
 <nav class="tabs"><div class="wrap">
   <a href="workshop.html" class="on">Jobs</a>
+  <a href="todo.html">To do</a>
   <a href="contacts.html">Contacts</a>
   <a href="leads.html">Leads</a>
   <a href="stock.html">Stock</a>
@@ -145,10 +146,18 @@
       </div>
 
       <div class="card">
-        <h2>Quote</h2>
+        <h2>Price the job</h2>
+        <p class="sub" id="qKindNote" style="margin-bottom:14px"></p>
         <div id="quoteMsg" class="msg"></div>
         <div id="quoteList"></div>
         <div class="row">
+          <div style="flex:0 0 220px">
+            <label for="qKind">This is</label>
+            <select id="qKind">
+              <option value="estimate">An estimate — not seen it yet</option>
+              <option value="quote">A quote — inspected it</option>
+            </select>
+          </div>
           <div style="flex:0 0 160px">
             <label for="qAmount">Total price £</label>
             <input type="number" id="qAmount" min="0" step="1" placeholder="120">
@@ -156,7 +165,7 @@
         </div>
         <label for="qWork">What the repair involves</label>
         <textarea id="qWork" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
-        <button class="primary" id="quoteBtn">Send quote to customer</button>
+        <button class="primary" id="quoteBtn">Send to customer</button>
         <div id="qSend" style="display:none">
           <div class="linkbox" id="qLink"></div>
           <div class="sendrow">
@@ -179,6 +188,7 @@
         </div>
         <label for="iDesc">What the invoice is for</label>
         <textarea id="iDesc" placeholder="Board-level repair: replaced failed charging IC, rebuilt damaged pads, tested under load."></textarea>
+        <p class="sub" id="iDescNote" style="margin:-8px 0 14px"></p>
         <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
         <div id="iSend" style="display:none">
           <div class="linkbox" id="iLink"></div>
@@ -282,6 +292,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const JOB = (new URLSearchParams(location.search).get('job') || '').trim().toUpperCase();
 let JOBROW = null;
+let QUOTES = [];
 
 function show(el, text, kind) { el.textContent = text; el.className = 'msg show ' + kind; }
 function hide(el) { el.className = 'msg'; }
@@ -339,17 +350,36 @@ async function load() {
     fact('Fault reported', data.fault_description),
     fact('History', data.fault_history),
     fact('Sent with item', data.accessories),
-    fact('Approved spend', data.max_spend ? '£' + data.max_spend : ''),
     fact('Signed', data.signature_name),
     fact('Submitted', when(data.submitted_at)),
     fact('Reference', data.record_hash ? String(data.record_hash).slice(0, 16) : '')
   ].join('') : '<dt>Status</dt><dd>The customer has not submitted their booking form yet.</dd>';
+
+  setQuoteKind(data.status);
+  $('qKind').addEventListener('change', () => setQuoteKind(null));
 
   loadPhotos(data.id);
   loadNotes(data.id);
   loadQuotes(data.id);
   loadInvoices(data.id);
   loadComms(data.id);
+}
+
+// Before the item is here, anything you price is an estimate.
+const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'in_post'];
+
+const KIND_NOTE = {
+  estimate: 'An estimate is a price given before you have seen the item. The customer is told plainly that the price may change once it is inspected, and that you will come back to them for approval before doing anything that costs more.',
+  quote: 'A quote is a price given after you have inspected the item. The customer is told it holds unless something new turns up, in which case you will ask again before going further.'
+};
+
+function setQuoteKind(status) {
+  if (status !== null) {
+    $('qKind').value = BEFORE_ARRIVAL.includes(status) ? 'estimate' : 'quote';
+  }
+  const kind = $('qKind').value;
+  $('qKindNote').textContent = KIND_NOTE[kind];
+  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate to customer' : 'Send quote to customer';
 }
 
 async function loadPhotos(jobId) {
@@ -407,17 +437,46 @@ $('comBtn').addEventListener('click', async () => {
 
 async function loadQuotes(jobId) {
   const { data } = await sb.from('quotes').select('*').eq('job_id', jobId).order('sent_at', { ascending: false });
-  $('quoteList').innerHTML = (data || []).map(q => {
+  QUOTES = data || [];
+  $('quoteList').innerHTML = QUOTES.map(q => {
     const cls = q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
     const label = q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
+    const kind = (q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote';
     return `<div class="quotebox">
-      <div class="amt">£${Number(q.amount).toFixed(2)} <span class="tag ${cls}" style="margin-left:8px">${label}</span></div>
+      <div class="amt">${kind} · £${Number(q.amount).toFixed(2)} <span class="tag ${cls}" style="margin-left:8px">${label}</span></div>
       <div style="font-size:14px;margin-top:6px;white-space:pre-wrap">${esc(q.work_summary)}</div>
       ${q.parts_note ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">Parts: ${esc(q.parts_note)}</div>` : ''}
       <div class="when" style="color:var(--muted);font-size:12px;margin-top:8px">Sent ${when(q.sent_at)}${q.responded_at ? ' · answered ' + when(q.responded_at) : ''}</div>
       ${q.response_note ? `<div style="font-size:13px;margin-top:6px">Customer said: ${esc(q.response_note)}</div>` : ''}
     </div>`;
   }).join('');
+  fillInvoiceDescription();
+}
+
+// The invoice description starts from what the job already says, so you are
+// not retyping it. Approved work wins; otherwise the item and reported fault.
+function fillInvoiceDescription() {
+  const box = $('iDesc');
+  if (!box || box.value.trim() || !JOBROW) return;
+
+  const approved = QUOTES.find(q => q.status === 'approved');
+  const item = JOBROW.make_model || JOBROW.device_type || '';
+  const lines = [];
+
+  if (item) lines.push(item);
+  if (approved) {
+    lines.push(approved.work_summary);
+    if (approved.parts_note) lines.push('Parts: ' + approved.parts_note);
+  } else if (JOBROW.fault_description) {
+    lines.push('Fault reported: ' + JOBROW.fault_description);
+  }
+
+  if (!lines.length) return;
+  box.value = lines.join('\n');
+  if (approved && !$('iAmount').value) $('iAmount').value = Number(approved.amount).toFixed(2);
+  $('iDescNote').textContent = approved
+    ? 'Filled in from the approved quote. Edit it if the work changed.'
+    : 'Filled in from the job details. Edit it before you send.';
 }
 
 let LASTPDF = null;
@@ -671,17 +730,19 @@ $('quoteBtn').addEventListener('click', async () => {
   if (!work) return show($('quoteMsg'), 'Describe the work.', 'err');
   if (!JOBROW.customer_email) return show($('quoteMsg'), 'This job has no customer email address.', 'err');
 
+  const wanted = $('qKind').value;
+  const done = () => { $('quoteBtn').disabled = false; setQuoteKind(null); };
+
   $('quoteBtn').disabled = true; $('quoteBtn').textContent = 'Sending…';
 
   const { data, error } = await sb.rpc('create_quote', {
-    p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: null
+    p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: null, p_kind: wanted
   });
-  if (error) {
-    $('quoteBtn').disabled = false; $('quoteBtn').textContent = 'Send quote to customer';
-    return show($('quoteMsg'), error.message, 'err');
-  }
+  if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
   const qrow = Array.isArray(data) ? data[0] : data;
   const quoteId = qrow.quote_id || qrow.id;
+  const kind = qrow.quote_kind || wanted;
+  const Word = kind === 'estimate' ? 'Estimate' : 'Quote';
 
   const { data: sess } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote', {
@@ -691,14 +752,17 @@ $('quoteBtn').addEventListener('click', async () => {
   });
   const out = await res.json().catch(() => ({}));
 
-  $('quoteBtn').disabled = false; $('quoteBtn').textContent = 'Send quote to customer';
+  done();
 
   // link and message for WhatsApp / text
   const token = qrow.quote_token || qrow.token;
   const link = 'https://precisionelectronicsrepair.co.uk/quote.html?q=' + quoteId + '&k=' + token;
   const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
-  const msg = hi + 'your repair quote for ' + JOB + ' is ready: £' + amount.toFixed(2) + '. ' +
-              work + ' — approve or decline here: ' + link;
+  const msg = kind === 'estimate'
+    ? hi + 'here is an estimate for ' + JOB + ': £' + amount.toFixed(2) + '. ' + work +
+      ' — this is based on what you have told me, so the price may change once I have the item on the bench. If it does, I will come back to you for approval before doing anything. Accept or decline here: ' + link
+    : hi + 'your repair quote for ' + JOB + ' is ready: £' + amount.toFixed(2) + '. ' +
+      work + ' — approve or decline here: ' + link;
   $('qLink').textContent = link;
   const num = ukNumber(JOBROW.phone);
   $('qWa').href = waLink(num, msg);
@@ -707,11 +771,11 @@ $('quoteBtn').addEventListener('click', async () => {
   else { $('qSms').style.display = 'none'; }
   $('qSend').style.display = 'block';
 
-  if (out.ok) show($('quoteMsg'), 'Quote emailed to ' + out.to + '. Send it on WhatsApp or by text below as well if you like.', 'ok');
-  else show($('quoteMsg'), 'Quote saved, but the email failed (' + (out.error || 'unknown error') + '). Use the buttons below instead.', 'err');
+  if (out.ok) show($('quoteMsg'), Word + ' emailed to ' + out.to + '. Send it on WhatsApp or by text below as well if you like.', 'ok');
+  else show($('quoteMsg'), Word + ' saved, but the email failed (' + (out.error || 'unknown error') + '). Use the buttons below instead.', 'err');
 
   $('qAmount').value = ''; $('qWork').value = '';
-  $('status').value = 'quoted';
+  if (kind === 'quote') $('status').value = 'quoted';
   loadQuotes(JOBROW.id);
   loadNotes(JOBROW.id);
   loadComms(JOBROW.id);

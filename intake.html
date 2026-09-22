@@ -147,12 +147,6 @@
           </fieldset>
 
           <fieldset>
-            <legend>Costs</legend>
-            <label for="max_spend">Maximum you're happy to spend without us asking first <span class="hint">— leave blank to approve every quote yourself</span></label>
-            <input type="number" id="max_spend" min="0" step="1" placeholder="£">
-          </fieldset>
-
-          <fieldset>
             <legend>Please confirm</legend>
             <div class="check"><input type="checkbox" id="agree_diagnostic"><label for="agree_diagnostic">I understand the <strong>£30 diagnostic fee</strong>. It's deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can't be repaired.</label></div>
             <div class="check"><input type="checkbox" id="agree_terms"><label for="agree_terms">I have read and accept the <a href="terms.html" target="_blank">terms of service</a>, including the warranty terms.</label></div>
@@ -234,6 +228,27 @@ async function start() {
       return fail('A booking form has already been submitted for job ' + result.job_number + '. If you need to change something, please email info@precisionelectronicsrepair.co.uk.');
     }
     $('jobLabel').textContent = result.job_number;
+
+    // fill in what we already have, so nobody types it twice
+    const known = {
+      customer_name: result.customer_name,
+      email: result.customer_email,
+      phone: result.customer_phone,
+      address: result.address
+    };
+    let prefilled = 0;
+    for (const [id, value] of Object.entries(known)) {
+      const el = $(id);
+      if (el && value && !el.value) { el.value = value; prefilled++; }
+    }
+    if (prefilled) {
+      const note = document.createElement('p');
+      note.className = 'hint';
+      note.style.cssText = 'margin:0 0 18px;padding:10px 14px;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;color:#1c6b3c';
+      note.textContent = 'We have filled in the details we already hold. Please correct anything that is wrong.';
+      formArea.insertBefore(note, formArea.firstChild);
+    }
+
     loading.classList.remove('show');
     formArea.style.display = 'block';
   } catch (e) {
@@ -283,7 +298,6 @@ $('intakeForm').addEventListener('submit', async (ev) => {
     fault_description: $('fault_description').value.trim(),
     fault_history: $('fault_history').value.trim(),
     accessories: $('accessories').value.trim(),
-    max_spend: $('max_spend').value.trim(),
     agree_diagnostic: $('agree_diagnostic').checked,
     agree_terms: $('agree_terms').checked,
     agree_privacy: $('agree_privacy').checked,

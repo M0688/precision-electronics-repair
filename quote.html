@@ -60,11 +60,18 @@
       <div id="error" class="msg err"></div>
 
       <div id="quoteArea" style="display:none">
-        <h1>Your repair quote</h1>
+        <h1 id="headline">Your repair quote</h1>
         <p class="jobline">Job <strong id="jobNo"></strong> · <span id="item"></span></p>
 
+        <div class="msg info show" id="estimateNote" style="display:none">
+          <strong>This is an estimate, not a fixed quote.</strong> It is based on what you have
+          described, before we have seen the item. Once it is on the bench we may find the fault is
+          different, or that it needs more work. If the price changes we will tell you and ask you
+          to approve it again — we will never carry out work you have not agreed to.
+        </div>
+
         <div class="block">
-          <div class="klabel">Proposed work</div>
+          <div class="klabel" id="workLabel">Proposed work</div>
           <div id="work" style="white-space:pre-wrap"></div>
           <div id="partsWrap" style="display:none;margin-top:14px">
             <div class="klabel">Parts</div>
@@ -73,7 +80,7 @@
           <div class="total" id="amount"></div>
         </div>
 
-        <p class="small">No further work happens until you decide. If you decline, our £30 diagnostic fee applies and we'll return your item.</p>
+        <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee applies and we'll return your item.</p>
 
         <label for="note" style="font-weight:600;font-size:14px;display:block;margin:16px 0 6px">Anything you'd like to add? (optional)</label>
         <textarea id="note" placeholder="Questions, or anything we should know."></textarea>
@@ -129,20 +136,26 @@ async function rpc(fn, body) {
   return data;
 }
 
-function finish(kind, jobNo) {
+function finish(state, jobNo) {
   $('quoteArea').style.display = 'none';
   $('done').style.display = 'block';
-  if (kind === 'approved') {
-    $('doneTitle').textContent = 'Thank you — approved';
-    $('doneText').textContent = 'We\'ll start work on ' + jobNo + ' and let you know as soon as it\'s tested and ready.';
+  const est = KIND === 'estimate';
+  if (state === 'approved') {
+    $('doneTitle').textContent = est ? 'Thank you — estimate accepted' : 'Thank you — approved';
+    $('doneText').textContent = est
+      ? 'Send your item in for ' + jobNo + ' and we\'ll inspect it. If the price changes we\'ll come back to you before doing any work.'
+      : 'We\'ll start work on ' + jobNo + ' and let you know as soon as it\'s tested and ready.';
   } else {
-    $('doneTitle').textContent = 'Quote declined';
-    $('doneText').textContent = 'No problem. We\'ll return your item for ' + jobNo + ' and be in touch about the £30 diagnostic fee.';
+    $('doneTitle').textContent = est ? 'Estimate declined' : 'Quote declined';
+    $('doneText').textContent = est
+      ? 'No problem — nothing further is owed. Get in touch any time if you change your mind.'
+      : 'No problem. We\'ll return your item for ' + jobNo + ' and be in touch about the £30 diagnostic fee.';
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 let JOBNO = '';
+let KIND = 'quote';
 
 async function start() {
   if (!QID || !TOKEN) return fail('This quote link is incomplete. Please use the exact link we emailed you.');
@@ -150,14 +163,23 @@ async function start() {
     const q = await rpc('quote_details', { p_id: QID, p_token: TOKEN });
     if (!q || !q.valid) return fail('We could not find that quote. Please check the link we emailed you, or call 07522 124273.');
     JOBNO = q.job_number;
+    KIND = q.kind === 'estimate' ? 'estimate' : 'quote';
     if (q.status !== 'sent') {
       $('loading').classList.remove('show');
       return finish(q.status, q.job_number);
     }
+    if (KIND === 'estimate') {
+      document.title = 'Your repair estimate | Precision Electronics Repair';
+      $('headline').textContent = 'Your repair estimate';
+      $('estimateNote').style.display = 'block';
+      $('workLabel').textContent = 'Likely work';
+      $('feeLine').textContent = 'Nothing is charged at this stage. If you accept, send the item in and we will inspect it before any work starts.';
+      $('approveBtn').textContent = 'Accept this estimate';
+    }
     $('jobNo').textContent = q.job_number;
-    $('item').textContent = q.item || 'your item';
+    $('item').textContent = q.item || q.fault || 'your item';
     $('work').textContent = q.work_summary;
-    $('amount').textContent = 'Total: £' + Number(q.amount).toFixed(2);
+    $('amount').textContent = (KIND === 'estimate' ? 'Estimated total: £' : 'Total: £') + Number(q.amount).toFixed(2);
     if (q.parts_note) { $('parts').textContent = q.parts_note; $('partsWrap').style.display = 'block'; }
     $('loading').classList.remove('show');
     $('quoteArea').style.display = 'block';
@@ -186,7 +208,10 @@ async function respond(answer) {
 
 $('approveBtn').addEventListener('click', () => respond('approved'));
 $('declineBtn').addEventListener('click', () => {
-  if (confirm('Decline this quote? The £30 diagnostic fee will apply and we will return your item.')) respond('declined');
+  const ask = KIND === 'estimate'
+    ? 'Decline this estimate? Nothing is charged.'
+    : 'Decline this quote? The £30 diagnostic fee will apply and we will return your item.';
+  if (confirm(ask)) respond('declined');
 });
 
 start();

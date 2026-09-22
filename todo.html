@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>To do | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css">
+<style>
+  .group { margin-bottom: 26px; }
+  .group h3 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 10px; font-weight: 700;
+  }
+  .group.late h3 { color: var(--red); }
+  .item {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 8px; background: #fff;
+  }
+  .item.late { border-left: 3px solid var(--red); }
+  .item .title { flex: 1; font-size: 15px; }
+  .item .due { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .item.late .due { color: var(--red); font-weight: 600; }
+  .item a.ref { font-size: 13px; white-space: nowrap; }
+  .item.finished .title { text-decoration: line-through; color: var(--muted); }
+  .counts { display: flex; gap: 18px; margin-bottom: 18px; flex-wrap: wrap; }
+  .counts div { font-size: 14px; color: var(--muted); }
+  .counts strong { display: block; font-size: 26px; color: var(--navy); font-weight: 700; }
+  .counts .late strong { color: var(--red); }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+
+    <div class="card">
+      <h1 style="margin:0 0 6px">To do</h1>
+      <p class="sub">Anything you've told the system to chase, plus follow-ups it creates for you
+      when a lead goes quiet.</p>
+
+      <div class="counts" id="counts"></div>
+
+      <div id="fuMsg" class="msg"></div>
+      <div class="row">
+        <div><label for="fuTitle">What needs doing</label><input type="text" id="fuTitle" placeholder="Chase Watford Phone Repairs about the PS5 board"></div>
+        <div style="flex:0 0 180px"><label for="fuDate">When</label><input type="date" id="fuDate" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px"></div>
+        <div style="flex:0 0 auto"><button class="primary" id="fuBtn" style="margin-bottom:14px">Add</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Outstanding</h2>
+      <div id="open"><p class="empty">Loading…</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Done recently</h2>
+      <div id="closed"><p class="empty">Loading…</p></div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { sb, $, show, hide, esc, chrome, requireSession } from './crm.js';
+
+chrome('todo.html');
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
+function fmtDate(d) {
+  if (!d) return '';
+  if (d === TODAY) return 'Today';
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+// A to-do can be attached to a job, a lead or a customer. Link straight to it.
+function refLink(f) {
+  if (f.job_id) return `<a class="ref" href="job.html?id=${f.job_id}">Job</a>`;
+  if (f.lead_id) return `<a class="ref" href="leads.html?id=${f.lead_id}">Lead</a>`;
+  if (f.contact_id) return `<a class="ref" href="contacts.html?id=${f.contact_id}">Customer</a>`;
+  return '';
+}
+
+function itemHtml(f, late) {
+  return `<div class="item${late ? ' late' : ''}">
+    <div class="title">${esc(f.title)}</div>
+    ${refLink(f)}
+    <div class="due">${fmtDate(f.due_date)}</div>
+    <button class="send" data-done="${f.id}">Done</button>
+  </div>`;
+}
+
+function groupHtml(label, rows, late) {
+  if (!rows.length) return '';
+  return `<div class="group${late ? ' late' : ''}">
+    <h3>${label}</h3>
+    ${rows.map(f => itemHtml(f, late)).join('')}
+  </div>`;
+}
+
+async function loadOpen() {
+  const { data, error } = await sb.from('follow_ups')
+    .select('*').eq('done', false).order('due_date').limit(200);
+  if (error) return show($('fuMsg'), error.message, 'err');
+
+  const rows = data || [];
+  const overdue = rows.filter(f => f.due_date < TODAY);
+  const today   = rows.filter(f => f.due_date === TODAY);
+  const later   = rows.filter(f => f.due_date > TODAY);
+
+  $('counts').innerHTML = `
+    <div class="late"><strong>${overdue.length}</strong>overdue</div>
+    <div><strong>${today.length}</strong>due today</div>
+    <div><strong>${later.length}</strong>coming up</div>`;
+
+  $('open').innerHTML = rows.length
+    ? groupHtml('Overdue', overdue, true) + groupHtml('Today', today, false) + groupHtml('Coming up', later, false)
+    : '<p class="empty">Nothing outstanding.</p>';
+
+  wire($('open'), true);
+}
+
+async function loadClosed() {
+  const { data } = await sb.from('follow_ups')
+    .select('*').eq('done', true).order('done_at', { ascending: false }).limit(15);
+  const rows = data || [];
+  $('closed').innerHTML = rows.length
+    ? rows.map(f => `<div class="item finished">
+        <div class="title">${esc(f.title)}</div>
+        ${refLink(f)}
+        <div class="due">${fmtDate(f.due_date)}</div>
+        <button class="send" data-undo="${f.id}">Undo</button>
+      </div>`).join('')
+    : '<p class="empty">Nothing ticked off yet.</p>';
+  wire($('closed'), false);
+}
+
+function wire(root, done) {
+  root.querySelectorAll(done ? '[data-done]' : '[data-undo]').forEach(b => {
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      const id = done ? b.dataset.done : b.dataset.undo;
+      const patch = done
+        ? { done: true, done_at: new Date().toISOString() }
+        : { done: false, done_at: null };
+      const { error } = await sb.from('follow_ups').update(patch).eq('id', id);
+      if (error) { b.disabled = false; return show($('fuMsg'), error.message, 'err'); }
+      loadOpen(); loadClosed();
+    });
+  });
+}
+
+$('fuBtn').addEventListener('click', async () => {
+  hide($('fuMsg'));
+  const title = $('fuTitle').value.trim();
+  if (!title) return show($('fuMsg'), 'What needs doing?', 'err');
+  const { error } = await sb.from('follow_ups').insert({ title, due_date: $('fuDate').value || TODAY });
+  if (error) return show($('fuMsg'), error.message, 'err');
+  $('fuTitle').value = '';
+  loadOpen();
+});
+
+$('fuTitle').addEventListener('keydown', e => { if (e.key === 'Enter') $('fuBtn').click(); });
+
+(async () => {
+  const sess = await requireSession();
+  if (!sess) return;
+  $('fuDate').value = TODAY;
+  loadOpen();
+  loadClosed();
+})();
+</script>
+
+</body>
+</html>

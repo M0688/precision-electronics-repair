@@ -94,6 +94,7 @@
 
 <nav class="tabs" id="tabs" style="display:none"><div class="wrap">
   <a href="workshop.html" class="on">Jobs</a>
+  <a href="todo.html">To do</a>
   <a href="contacts.html">Contacts</a>
   <a href="leads.html">Leads</a>
   <a href="stock.html">Stock</a>
@@ -155,15 +156,10 @@
         <button class="primary" id="pushBtn">Turn on alerts on this device</button>
       </div>
 
-      <div class="card" id="fuCard">
+      <div class="card" id="fuCard" style="display:none">
         <h2>To do</h2>
-        <div id="fuMsg" class="msg"></div>
-        <div class="row">
-          <div><label for="fuTitle">What needs doing</label><input type="text" id="fuTitle" placeholder="Chase Watford Phone Repairs about the PS5 board"></div>
-          <div style="flex:0 0 180px"><label for="fuDate">When</label><input type="date" id="fuDate" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px"></div>
-          <div style="flex:0 0 auto"><button class="primary" id="fuBtn" style="margin-bottom:14px">Add</button></div>
-        </div>
-        <div id="fuList"></div>
+        <p class="sub" id="fuSummary" style="margin-bottom:14px"></p>
+        <a class="send" href="todo.html">Open the to-do list</a>
       </div>
 
       <div class="card">
@@ -341,36 +337,22 @@ $('createBtn').addEventListener('click', async () => {
 });
 
 // ---------- to do ----------
-function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''; }
-
+// The list itself lives on its own tab. This is just a nudge if something is waiting.
 async function loadFollowUps() {
-  const { data, error } = await sb.from('follow_ups').select('*').eq('done', false).order('due_date').limit(25);
-  if (error) { $('fuList').innerHTML = ''; return; }
-  if (!data.length) { $('fuList').innerHTML = '<p class="empty">Nothing outstanding.</p>'; return; }
-  const today = new Date().toISOString().slice(0, 10);
-  $('fuList').innerHTML = `<table><tbody>${data.map(f => `
-    <tr>
-      <td>${f.title.replace(/</g, '&lt;')}</td>
-      <td style="white-space:nowrap" class="${f.due_date <= today ? '' : ''}">
-        <span style="color:${f.due_date <= today ? 'var(--red)' : 'var(--muted)'};font-weight:${f.due_date <= today ? '600' : '400'}">${fmtDate(f.due_date)}</span>
-      </td>
-      <td style="text-align:right"><button class="send" data-done="${f.id}">Done</button></td>
-    </tr>`).join('')}</tbody></table>`;
-  $('fuList').querySelectorAll('[data-done]').forEach(b => b.addEventListener('click', async () => {
-    await sb.from('follow_ups').update({ done: true, done_at: new Date().toISOString() }).eq('id', b.dataset.done);
-    loadFollowUps();
-  }));
-}
+  const { data, error } = await sb.from('follow_ups').select('due_date').eq('done', false);
+  if (error || !data || !data.length) return;
 
-$('fuBtn').addEventListener('click', async () => {
-  hide($('fuMsg'));
-  const title = $('fuTitle').value.trim();
-  if (!title) return show($('fuMsg'), 'What needs doing?', 'err');
-  const { error } = await sb.from('follow_ups').insert({ title, due_date: $('fuDate').value || new Date().toISOString().slice(0, 10) });
-  if (error) return show($('fuMsg'), error.message, 'err');
-  $('fuTitle').value = '';
-  loadFollowUps();
-});
+  const today = new Date().toISOString().slice(0, 10);
+  const due = data.filter(f => f.due_date <= today).length;
+  const ahead = data.length - due;
+
+  const bits = [];
+  if (due) bits.push(due === 1 ? '1 thing is due' : due + ' things are due');
+  if (ahead) bits.push(ahead === 1 ? '1 is coming up' : ahead + ' are coming up');
+
+  $('fuSummary').textContent = bits.join(', ') + '.';
+  $('fuCard').style.display = 'block';
+}
 
 // ---------- phone alerts ----------
 const VAPID_PUBLIC = 'BC8_T1lb2mgEI_Km3p4TY7bwX4mEeRavbqLdPBIY7QT6VLMfe9QxK1gDcGPORJTW8BBFq6N-2dhXM9NvqP16SNk';
@@ -444,7 +426,6 @@ async function start() {
     $('app').style.display = 'block';
     $('login').style.display = 'none';
     $('tabs').style.display = 'block';
-    $('fuDate').value = new Date().toISOString().slice(0, 10);
     loadJobs();
     loadFollowUps();
     setupPushUI();

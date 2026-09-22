@@ -46,6 +46,7 @@ export function waLink(phone, message) {
 export function chrome(active) {
   const tabs = [
     ['workshop.html', 'Jobs'],
+    ['todo.html', 'To do'],
     ['contacts.html', 'Contacts'],
     ['leads.html', 'Leads'],
     ['stock.html', 'Stock'],
