@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our work | Precision Electronics Repair</title>
+<meta name="description" content="Board-level repair work from our Watford workshop — charge port replacement, pad and track repair, controller stick upgrades and power board faults, photographed at each stage.">
+<link rel="canonical" href="https://precisionelectronicsrepair.co.uk/work.html">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    --navy: #1B2A4A; --navy-dark: #121d34; --ink: #1f2733; --muted: #5a6474;
+    --line: #e2e6ec; --soft: #f4f6f9; --white: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         color: var(--ink); background: var(--white); line-height: 1.6; }
+  a { color: var(--navy); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  header { border-bottom: 1px solid var(--line); background: var(--white); position: sticky; top: 0; z-index: 10; }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 78px; }
+  header img { height: 46px; display: block; }
+  nav a { margin-left: 24px; text-decoration: none; font-weight: 600; font-size: 15px; color: var(--ink); }
+  nav a:hover { color: var(--navy); text-decoration: underline; }
+  nav a.btn-sm { background: var(--navy); color: var(--white); padding: 9px 16px; border-radius: 6px; }
+  nav a.btn-sm:hover { background: var(--navy-dark); text-decoration: none; color: var(--white); }
+
+  .intro { background: var(--navy); color: var(--white); padding: 62px 0 56px; }
+  .intro h1 { font-size: 40px; margin: 0 0 14px; letter-spacing: -0.5px; line-height: 1.15; }
+  .intro p { font-size: 18px; max-width: 660px; margin: 0; color: #d7dfec; }
+
+  section { padding: 66px 0; }
+  section.alt { background: var(--soft); }
+  h2 { font-size: 30px; margin: 0 0 10px; color: var(--navy); letter-spacing: -0.3px; }
+  .lead { font-size: 17px; color: var(--muted); max-width: 680px; margin: 0 0 34px; }
+
+  .cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+  .case { background: var(--white); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .case img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--soft); }
+  .case .body { padding: 22px 24px 24px; }
+  .case h3 { margin: 0 0 14px; font-size: 18px; color: var(--navy); }
+  .case dl { margin: 0; }
+  .case dt { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; margin-top: 12px; }
+  .case dt:first-child { margin-top: 0; }
+  .case dd { margin: 3px 0 0; font-size: 15px; }
+
+  .honest { background: var(--white); border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 8px; padding: 24px 26px; margin-top: 30px; }
+  .honest h3 { margin: 0 0 8px; font-size: 18px; color: var(--navy); }
+  .honest p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .contact { background: var(--navy); color: var(--white); text-align: center; }
+  .contact h2 { color: var(--white); }
+  .contact p { color: #d7dfec; font-size: 17px; max-width: 620px; margin: 0 auto 26px; }
+  .btn { display: inline-block; background: var(--white); color: var(--navy); font-weight: 700; padding: 14px 26px; border-radius: 6px; text-decoration: none; }
+
+  footer { background: var(--navy-dark); color: #9aa6bd; font-size: 14px; padding: 26px 0; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a { color: #cdd6e6; }
+
+  @media (max-width: 720px) {
+    nav a { display: none; }
+    nav a.btn-sm { display: inline-block; margin-left: 0; }
+    .intro h1 { font-size: 30px; }
+    section { padding: 46px 0; }
+  }
+</style>
+</head>
+<body id="top">
+
+<header>
+  <div class="wrap">
+    <a href="index.html" aria-label="Precision Electronics Repair home"><img src="logo.png" alt="Precision Electronics Repair"></a>
+    <nav>
+      <a href="index.html#repairs">Repairs</a>
+      <a href="index.html#prices">Prices</a>
+      <a href="index.html#how">How it works</a>
+      <a href="index.html#contact" class="btn-sm">Get a quote</a>
+    </nav>
+  </div>
+</header>
+
+<section class="intro">
+  <div class="wrap">
+    <h1>Our work</h1>
+    <p>Board-level repair, photographed as it happens. Every job we take is documented the same way, and
+    the customer gets the pictures whether the repair succeeds or not.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Recent repairs</h2>
+    <p class="lead">Component-level work on boards that other shops would replace or write off.</p>
+
+    <div class="cases">
+
+      <div class="case">
+        <img src="work/controller-tmr-sticks.jpg" alt="Games controller mainboard with replacement thumbstick modules fitted">
+        <div class="body">
+          <h3>Controller drift &mdash; TMR stick upgrade</h3>
+          <p>The original thumbsticks were swapped for magnetic TMR modules. Standard sticks drift because
+          a contact wipes against a carbon track and wears it away. TMR modules sense position magnetically,
+          with nothing touching, so the drift does not come back.</p>
+        </div>
+      </div>
+
+      <div class="case">
+        <img src="work/keyboard-usb-c.jpg" alt="USB-C port and rebuilt solder pads on a gaming keyboard board, photographed under magnification">
+        <div class="body">
+          <h3>Gaming keyboard &mdash; USB-C port</h3>
+          <p>The charge port was replaced and the damaged pads underneath rebuilt first, so the new port had
+          something solid to sit on. Fit a port straight onto lifted pads and it comes off again.</p>
+        </div>
+      </div>
+
+      <div class="case">
+        <img src="work/ps5-hdmi-port.jpg" alt="PS5 mainboard with the HDMI port area exposed for rework">
+        <div class="body">
+          <h3>PS5 &mdash; HDMI port replacement</h3>
+          <p>The HDMI port was removed and replaced at board level &mdash; one of the most common console
+          faults there is, and one that is often quoted as a whole-board replacement elsewhere.</p>
+        </div>
+      </div>
+
+      <div class="case">
+        <img src="work/aircon-board.jpg" alt="Air conditioning control board with large electrolytic capacitors">
+        <div class="body">
+          <h3>Air conditioning control board</h3>
+          <p>Power module, three-phase bridge rectifier and two resistors replaced. A board like this is
+          usually quoted as a whole-unit replacement.</p>
+        </div>
+      </div>
+
+      <div class="case">
+        <img src="work/aircon-remote.jpg" alt="Remote control board with corroded battery terminal area cleaned and repaired">
+        <div class="body">
+          <h3>Air conditioning remote</h3>
+          <p>Leaking batteries had corroded the terminals badly. Terminals replaced and the board cleaned up.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>When it isn't worth repairing</h2>
+    <p class="lead">Not every board can be saved, and pretending otherwise wastes everybody's money. When we
+    find damage like this we say so, explain what we tested, and there's nothing to pay.</p>
+
+    <div class="cases" style="grid-template-columns:1fr;max-width:520px">
+      <div class="case">
+        <img src="work/bcm-not-viable.jpg" alt="Vehicle body control module opened on the bench for assessment">
+        <div class="body">
+          <h3>Not viable to repair</h3>
+          <p>A vehicle body control module, assessed and sent back unrepaired. The damage was beyond
+          what could sensibly be put right, so we said so and there was nothing to pay. We would rather
+          lose the job than take money for work that was never going to hold.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="honest">
+      <h3>No fix, no fee</h3>
+      <p>If we can't repair your item there is nothing to pay — you get it back with a written account of
+      what was tested and what we found. Our diagnostic fee covers up to two hours of bench time.</p>
+    </div>
+  </div>
+</section>
+
+<section class="contact">
+  <div class="wrap">
+    <h2>Got a board that's beaten you?</h2>
+    <p>Trade or retail, in Watford or posted from anywhere in the UK. Tell us what it's doing and we'll
+    tell you honestly whether it's worth looking at.</p>
+    <a class="btn" href="index.html#contact">Get a quote</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>&copy; 2026 Precision Electronics Repair &middot; Watford, Hertfordshire</div>
+    <div><a href="index.html">Home</a> &middot; <a href="terms.html">Terms</a> &middot; <a href="privacy.html">Privacy</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
