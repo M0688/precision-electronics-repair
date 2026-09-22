@@ -45,6 +45,9 @@
       </div>
       <div id="fileName" class="muted" style="margin:-6px 0 14px;display:none"></div>
 
+      <label for="url">Or a web page to read <span style="font-weight:400;color:var(--muted)">— a datasheet page, a repair guide, a forum thread with the fix on it</span></label>
+      <input type="url" id="url" placeholder="https://…">
+
 
       <div class="row">
         <div><label for="title">Title *</label><input type="text" id="title" placeholder="PS5 CFI-1216A power rails"></div>
@@ -171,11 +174,12 @@ $('addBtn').addEventListener('click', async () => {
   hide($('msg'));
   const title = $('title').value.trim();
   const text = $('text').value.trim();
-  if (!title) return show($('msg'), 'Give it a title so you can find it again.', 'err');
-  if (!FILE && !text) return show($('msg'), 'Add a file or paste some text.', 'err');
+  const url = $('url').value.trim();
+  if (!FILE && !text && !url) return show($('msg'), 'Add a file, a web address, or paste some text.', 'err');
+  if (!title && !url) return show($('msg'), 'Give it a title so you can find it again.', 'err');
 
   $('addBtn').disabled = true;
-  $('addBtn').textContent = FILE ? 'Reading the file…' : 'Adding…';
+  $('addBtn').textContent = FILE ? 'Reading the file…' : url ? 'Fetching the page…' : 'Adding…';
   $('bar').classList.add('on');
 
   const payload = {
@@ -185,6 +189,7 @@ $('addBtn').addEventListener('click', async () => {
     tags: $('tags').value.split(',').map(t => t.trim()).filter(Boolean)
   };
   if (FILE) payload.file = { mime: FILE.type || 'application/pdf', data: await readAsBase64(FILE) };
+  else if (url) payload.url = url;
   else payload.text = text;
 
   const out = await callKnowledge(payload);
@@ -195,8 +200,8 @@ $('addBtn').addEventListener('click', async () => {
 
   if (!out.ok) return show($('msg'), out.error || 'That did not work.', 'err');
 
-  show($('msg'), `Added "${title}" — ${out.chunks} section${out.chunks === 1 ? '' : 's'} from ${out.chars.toLocaleString()} characters.`, 'ok');
-  ['title', 'source', 'tags', 'text'].forEach(i => $(i).value = '');
+  show($('msg'), `Added "${title || url}" — ${out.chunks} section${out.chunks === 1 ? '' : 's'} from ${out.chars.toLocaleString()} characters.`, 'ok');
+  ['title', 'source', 'tags', 'text', 'url'].forEach(i => $(i).value = '');
   FILE = null;
   $('fileName').style.display = 'none';
   loadDocs();

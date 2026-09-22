@@ -204,6 +204,30 @@
       </div>
 
       <div class="card">
+        <h2>Repair report</h2>
+        <p class="sub" style="margin-bottom:12px">Writes a plain-English report for the customer from the booking form and your bench notes. Read it before you send it &mdash; it can only describe what you've actually written down.</p>
+        <div id="repMsg" class="msg"></div>
+        <div class="sendrow" style="margin-top:0">
+          <button class="primary" id="repBtn">Generate report</button>
+          <button class="send" id="repPdf" style="display:none">Download PDF</button>
+          <button class="send" id="repSave" style="display:none">Save to notes</button>
+        </div>
+
+        <div id="repEdit" style="display:none;margin-top:16px">
+          <label for="rSummary">Summary</label>
+          <textarea id="rSummary" style="min-height:60px"></textarea>
+          <label for="rFault">The fault</label>
+          <textarea id="rFault" style="min-height:80px"></textarea>
+          <label for="rWork">Work carried out <span style="font-weight:400;color:var(--muted)">— one per line</span></label>
+          <textarea id="rWork" style="min-height:100px"></textarea>
+          <label for="rOutcome">Outcome</label>
+          <textarea id="rOutcome" style="min-height:70px"></textarea>
+          <label for="rNotes">Worth knowing <span style="font-weight:400;color:var(--muted)">— leave blank to omit</span></label>
+          <textarea id="rNotes" style="min-height:60px"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
         <h2>Communication</h2>
         <p class="sub" style="margin-bottom:12px">Everything the software sends is logged here by itself. Add anything worth remembering — a promise, a complaint, an agreed change.</p>
         <div id="comMsg" class="msg"></div>
@@ -247,6 +271,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module">
 import { buildInvoicePdf } from './invoice-pdf.js';
+import { buildReportPdf } from './report-pdf.js';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
@@ -493,6 +518,81 @@ $('iCopy').addEventListener('click', async () => {
     $('iCopy').textContent = 'Copied';
     setTimeout(() => { $('iCopy').textContent = 'Copy link'; }, 2000);
   } catch (e) { show($('invMsg'), 'Could not copy — select the link and copy it.', 'err'); }
+});
+
+/* ---------- repair report ---------- */
+
+let REPORTJOB = null;
+
+$('repBtn').addEventListener('click', async () => {
+  hide($('repMsg'));
+  $('repBtn').disabled = true;
+  $('repBtn').textContent = 'Writing…';
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/job-report', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_number: JOB })
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'No report came back.');
+
+    REPORTJOB = out.job;
+    $('rSummary').value = out.report.summary || '';
+    $('rFault').value = out.report.fault || '';
+    $('rWork').value = out.report.work || '';
+    $('rOutcome').value = out.report.outcome || '';
+    $('rNotes').value = out.report.notes || '';
+    $('repEdit').style.display = 'block';
+    $('repPdf').style.display = '';
+    $('repSave').style.display = '';
+
+    show($('repMsg'), out.job.note_count
+      ? `Written from ${out.job.note_count} bench note${out.job.note_count === 1 ? '' : 's'}. Edit anything below before downloading.`
+      : 'There are no bench notes on this job yet, so there was little to work from. Check it carefully.',
+      out.job.note_count ? 'ok' : 'err');
+  } catch (e) {
+    show($('repMsg'), e.message, 'err');
+  }
+  $('repBtn').disabled = false;
+  $('repBtn').textContent = 'Generate report';
+});
+
+$('repPdf').addEventListener('click', () => {
+  if (!REPORTJOB) return;
+  const doc = buildReportPdf({
+    job_number: REPORTJOB.job_number,
+    customer_name: REPORTJOB.customer_name,
+    item: REPORTJOB.item,
+    serial: REPORTJOB.serial,
+    received_at: REPORTJOB.received_at,
+    summary: $('rSummary').value.trim(),
+    fault: $('rFault').value.trim(),
+    work: $('rWork').value.trim(),
+    outcome: $('rOutcome').value.trim(),
+    notes: $('rNotes').value.trim()
+  });
+  doc.save(REPORTJOB.job_number + ' repair report.pdf');
+});
+
+$('repSave').addEventListener('click', async () => {
+  hide($('repMsg'));
+  const parts = [
+    'Repair report',
+    $('rSummary').value.trim(),
+    'Fault: ' + $('rFault').value.trim(),
+    'Work carried out:\n' + $('rWork').value.trim(),
+    'Outcome: ' + $('rOutcome').value.trim()
+  ];
+  if ($('rNotes').value.trim()) parts.push('Worth knowing: ' + $('rNotes').value.trim());
+  const { data: sess } = await sb.auth.getSession();
+  const { error } = await sb.from('job_notes').insert({
+    job_id: JOBROW.id, note: parts.join('\n\n'), stage: JOBROW.status, created_by: sess?.session?.user?.email
+  });
+  if (error) return show($('repMsg'), error.message, 'err');
+  show($('repMsg'), 'Saved to the job notes.', 'ok');
+  loadNotes(JOBROW.id);
 });
 
 let AIANSWER = '';
