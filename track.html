@@ -84,7 +84,8 @@
         </div>
 
         <div id="itemsWrap" style="display:none">
-          <div class="klabel" style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">What we have</div>
+          <div class="klabel" style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px" id="itemsLabel">What we have</div>
+          <p class="small" id="batchNote" style="margin:0 0 10px;display:none"></p>
           <div class="items" id="items"></div>
         </div>
 
@@ -153,13 +154,24 @@ function draw(d) {
   $('statusLabel').textContent = d.status_label || '';
   $('statusBlurb').textContent = d.status_blurb || '';
 
-  const items = d.items || [];
-  if (items.length) {
-    $('items').innerHTML = items.map(it => {
-      const name = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position;
-      return `<div class="it"><div>${esc(name)}</div>
-        ${it.fault ? `<div class="fault">${esc(it.fault)}</div>` : ''}</div>`;
-    }).join('');
+  // Everything from the same booking form, each with its own job number.
+  const jobs = d.jobs || [];
+  if (jobs.length) {
+    const many = jobs.length > 1;
+    $('itemsLabel').textContent = many ? 'Everything you sent in' : 'What we have';
+    if (many) {
+      $('batchNote').textContent = 'You sent ' + jobs.length + ' items on one form. Each is booked in as its own ' +
+        'job so it can be priced and repaired separately, but they travel together and go on a single invoice.';
+      $('batchNote').style.display = 'block';
+    }
+    $('items').innerHTML = jobs.map(j => `
+      <div class="it"${j.is_this_one && many ? ' style="background:#f8fafc;margin:0 -18px;padding-left:18px;padding-right:18px"' : ''}>
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div><strong>${esc(j.item)}</strong>${many ? ` <span class="fault">· ${esc(j.job_number)}</span>` : ''}</div>
+          <div class="fault" style="white-space:nowrap">${esc(j.status_label)}</div>
+        </div>
+        ${j.fault ? `<div class="fault">${esc(j.fault)}</div>` : ''}
+      </div>`).join('');
     $('itemsWrap').style.display = 'block';
   }
 

@@ -147,8 +147,14 @@
       </div>
 
       <div class="card" id="itemsCard" style="display:none">
-        <h2 id="itemsTitle">Items</h2>
+        <h2 id="itemsTitle">The item</h2>
         <div id="itemsList"></div>
+      </div>
+
+      <div class="card" id="batchCard" style="display:none">
+        <h2 id="batchTitle">Booked in together</h2>
+        <p class="sub" id="batchNote"></p>
+        <div id="batchList"></div>
       </div>
 
       <div class="card" id="photoCard" style="display:none">
@@ -162,10 +168,6 @@
         <div id="quoteMsg" class="msg"></div>
         <div id="quoteList"></div>
         <div class="row">
-          <div style="flex:1 1 240px">
-            <label for="qItem">What are you pricing?</label>
-            <select id="qItem"><option value="">The whole job</option></select>
-          </div>
           <div style="flex:0 0 220px">
             <label for="qKind">This is</label>
             <select id="qKind">
@@ -317,6 +319,7 @@ const JOB = (new URLSearchParams(location.search).get('job') || '').trim().toUpp
 let JOBROW = null;
 let QUOTES = [];
 let ITEMS = [];
+let BATCH = [];
 
 function show(el, text, kind) { el.textContent = text; el.className = 'msg show ' + kind; }
 function hide(el) { el.className = 'msg'; }
@@ -437,46 +440,70 @@ async function loadItems(jobId) {
   if (!rows.length) return;
 
   ITEMS = rows;
-  $('itemsTitle').textContent = rows.length === 1 ? 'The item' : rows.length + ' items';
-  $('itemsList').innerHTML = rows.map(it => {
-    const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position;
-    const priced = QUOTES.filter(q => q.item_id === it.id);
-    const approved = priced.find(q => q.status === 'approved');
-    return `<div class="quotebox">
-      <div style="font-weight:700;color:var(--navy)">${rows.length > 1 ? it.position + '. ' : ''}${esc(head)}
-        ${approved ? `<span class="tag in" style="margin-left:8px">Approved £${Number(approved.amount).toFixed(2)}</span>`
-          : priced.length ? '<span class="tag wait" style="margin-left:8px">Priced, awaiting answer</span>'
-          : '<span class="tag off" style="margin-left:8px">Not priced yet</span>'}</div>
-      ${it.serial_imei ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Serial / IMEI: ${esc(it.serial_imei)}</div>` : ''}
-      ${it.fault_description ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(it.fault_description)}</div>` : ''}
-      ${it.fault_history ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">History: ${esc(it.fault_history)}</div>` : ''}
-      ${it.accessories ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Sent with it: ${esc(it.accessories)}</div>` : ''}
-      ${it.id ? `<label class="feetoggle" style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:400;font-size:13px;color:var(--muted)">
-        <input type="checkbox" data-fee="${it.id}" ${it.diag_fee_applies === false ? '' : 'checked'} style="width:16px;height:16px;margin:0">
-        Diagnostic fee applies to this item
-      </label>` : ''}
+  const it = rows[0];
+  const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'The item';
+  const approved = QUOTES.find(q => q.status === 'approved');
+
+  $('itemsTitle').textContent = 'The item';
+  $('itemsList').innerHTML = `<div class="quotebox">
+    <div style="font-weight:700;color:var(--navy)">${esc(head)}
+      ${approved ? `<span class="tag in" style="margin-left:8px">Approved £${Number(approved.amount).toFixed(2)}</span>`
+        : QUOTES.length ? '<span class="tag wait" style="margin-left:8px">Priced, awaiting answer</span>'
+        : '<span class="tag off" style="margin-left:8px">Not priced yet</span>'}</div>
+    ${it.serial_imei ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Serial / IMEI: ${esc(it.serial_imei)}</div>` : ''}
+    ${it.fault_description ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(it.fault_description)}</div>` : ''}
+    ${it.fault_history ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">History: ${esc(it.fault_history)}</div>` : ''}
+    ${it.accessories ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Sent with it: ${esc(it.accessories)}</div>` : ''}
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:400;font-size:13px;color:var(--muted)">
+      <input type="checkbox" id="jobFee" ${JOBROW.diag_fee_applies === false ? '' : 'checked'} style="width:16px;height:16px;margin:0">
+      Diagnostic fee applies to this job
+    </label>
+  </div>`;
+
+  $('jobFee').addEventListener('change', async () => {
+    const on = $('jobFee').checked;
+    const { error } = await sb.from('jobs').update({ diag_fee_applies: on }).eq('id', JOBROW.id);
+    if (error) { $('jobFee').checked = !on; return show($('msg'), error.message, 'err'); }
+    JOBROW.diag_fee_applies = on;
+    show($('msg'), on ? 'Diagnostic fee applies to this job.' : 'No diagnostic fee on this job.', 'ok');
+  });
+
+  $('itemsCard').style.display = 'block';
+}
+
+// Everything booked in on the same form. Each one is its own job, but they
+// are the same customer, the same parcel and the same invoice.
+async function loadBatch() {
+  const { data, error } = await sb.rpc('batch_jobs', { p_job_number: JOB });
+  if (error) return;
+  BATCH = data || [];
+  if (BATCH.length < 2) { $('batchCard').style.display = 'none'; return; }
+
+  const done = BATCH.filter(b => b.quote_status === 'approved').length;
+  $('batchTitle').textContent = BATCH.length + ' items booked in together';
+  $('batchNote').textContent = done + ' of ' + BATCH.length + ' priced and approved. ' +
+    'Each is its own job, and they all go on one invoice.';
+
+  $('batchList').innerHTML = BATCH.map(b => {
+    const tone = b.quote_status === 'approved' ? 'in' : b.quote_status ? 'wait' : 'off';
+    const money = b.quote_amount ? '£' + Number(b.quote_amount).toFixed(2) : '—';
+    const state = b.quote_status === 'approved' ? 'Approved'
+                : b.quote_status === 'declined' ? 'Declined'
+                : b.quote_status ? 'Awaiting answer' : 'Not priced';
+    return `<div class="quotebox"${b.is_self ? ' style="border-color:var(--navy);background:var(--soft)"' : ''}>
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">
+        <div style="font-weight:700;color:var(--navy)">
+          ${b.is_self ? esc(b.job_number) : `<a href="job.html?job=${esc(b.job_number)}">${esc(b.job_number)}</a>`}
+          · ${esc(b.item)}${b.is_self ? ' <span style="font-weight:400;color:var(--muted)">— you are here</span>' : ''}
+        </div>
+        <div><span class="tag ${tone}">${state}</span> <strong style="margin-left:6px">${money}</strong></div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px">${esc(b.status_label)}${b.invoiced ? ' · on an invoice' : ''}</div>
+      ${b.fault ? `<div style="font-size:13px;margin-top:4px">${esc(b.fault)}</div>` : ''}
     </div>`;
   }).join('');
 
-  $('itemsList').querySelectorAll('[data-fee]').forEach(box => {
-    box.addEventListener('change', async () => {
-      const { error } = await sb.from('intake_items')
-        .update({ diag_fee_applies: box.checked }).eq('id', box.dataset.fee);
-      if (error) { box.checked = !box.checked; return show($('msg'), error.message, 'err'); }
-      loadItems(JOBROW.id);
-    });
-  });
-
-  // The quote card can now price one item at a time.
-  const pick = $('qItem');
-  const keep = pick.value;
-  pick.innerHTML = '<option value="">The whole job</option>' + rows.filter(it => it.id).map(it => {
-    const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position;
-    return `<option value="${it.id}">${rows.length > 1 ? it.position + '. ' : ''}${esc(head)}</option>`;
-  }).join('');
-  if (keep) pick.value = keep;
-
-  $('itemsCard').style.display = 'block';
+  $('batchCard').style.display = 'block';
 }
 
 async function loadPhotos(jobId) {
@@ -557,7 +584,7 @@ async function loadQuotes(jobId) {
     </div>`;
   }).join('');
   loadItems(jobId);
-  fillInvoiceDescription();
+  loadBatch().then(fillInvoiceDescription);
 }
 
 // The invoice description starts from what the job already says, so you are
@@ -565,24 +592,39 @@ async function loadQuotes(jobId) {
 function fillInvoiceDescription() {
   if (!JOBROW || LINES.length) return;
 
-  // Every approved price becomes a line. Several items, one invoice.
-  const approved = QUOTES.filter(q => q.status === 'approved');
+  // Every approved price in the booking becomes a line — the whole batch on
+  // one invoice, not one invoice per item.
+  const siblings = (BATCH.length ? BATCH : []).filter(b => b.quote_status === 'approved' && !b.invoiced);
 
-  if (approved.length) {
-    LINES = approved.map(q => {
-      const it = ITEMS.find(i => i.id === q.item_id);
-      const head = it ? ([it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position) : '';
-      const bits = [head, q.work_summary].filter(Boolean);
-      if (q.parts_note) bits.push('Parts: ' + q.parts_note);
-      return { description: bits.join(' — '), amount: Number(q.amount), item_id: q.item_id || null, quote_id: q.id };
+  if (siblings.length) {
+    LINES = siblings.map(b => {
+      const bits = [b.item, b.quote_work].filter(Boolean);
+      if (b.quote_parts) bits.push('Parts: ' + b.quote_parts);
+      return {
+        description: b.job_number + ' · ' + bits.join(' — '),
+        amount: Number(b.quote_amount) || 0,
+        quote_id: b.quote_id || null,
+        job_ref: b.id
+      };
     });
-    $('iDescNote').textContent = approved.length === 1
+    $('iDescNote').textContent = siblings.length === 1
       ? 'Taken from the approved quote. Edit anything that changed.'
-      : approved.length + ' approved prices, one invoice. Edit anything that changed.';
+      : siblings.length + ' approved prices from this booking, on one invoice. Edit anything that changed.';
+    drawLines();
+    return;
+  }
+
+  const approved = QUOTES.find(q => q.status === 'approved');
+  const item = JOBROW.make_model || JOBROW.device_type || '';
+
+  if (approved) {
+    const bits = [item, approved.work_summary].filter(Boolean);
+    if (approved.parts_note) bits.push('Parts: ' + approved.parts_note);
+    LINES = [{ description: bits.join(' — '), amount: Number(approved.amount), quote_id: approved.id, job_ref: JOBROW.id }];
+    $('iDescNote').textContent = 'Taken from the approved quote. Edit anything that changed.';
   } else {
-    const item = JOBROW.make_model || JOBROW.device_type || '';
     const bits = [item, JOBROW.fault_description ? 'Fault reported: ' + JOBROW.fault_description : ''].filter(Boolean);
-    LINES = [{ description: bits.join(' — ') || 'Repair work', amount: 0, item_id: null, quote_id: null }];
+    LINES = [{ description: bits.join(' — ') || 'Repair work', amount: 0, quote_id: null, job_ref: JOBROW.id }];
     $('iDescNote').textContent = 'Nothing approved yet, so this is from the job details. Fill in the price before you send.';
   }
   drawLines();
@@ -629,7 +671,7 @@ function showTotal() {
 }
 
 $('iAddLine').addEventListener('click', () => {
-  LINES.push({ description: '', amount: 0, item_id: null, quote_id: null });
+  LINES.push({ description: '', amount: 0, quote_id: null, job_ref: JOBROW ? JOBROW.id : null });
   drawLines();
 });
 
@@ -999,7 +1041,7 @@ $('quoteBtn').addEventListener('click', async () => {
 
   const { data, error } = await sb.rpc('create_quote', {
     p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: null,
-    p_kind: wanted, p_item_id: $('qItem').value || null
+    p_kind: wanted
   });
   if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
   const qrow = Array.isArray(data) ? data[0] : data;

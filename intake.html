@@ -173,8 +173,9 @@
 
       <div id="done" class="done" style="display:none">
         <h2>Thank you</h2>
-        <p>Your booking form for <strong id="doneJob"></strong> has been received and locked. Please keep this reference:</p>
+        <p id="doneIntro">Your booking form for <strong id="doneJob"></strong> has been received and locked. Please keep this reference:</p>
         <div class="ref" id="doneRef"></div>
+        <div id="doneJobs" style="display:none;margin-top:18px;text-align:left"></div>
         <p class="hint" id="photoNote"></p>
         <p style="margin-top:22px">We'll be in touch by email with what to do next. You can check where your repair is up to at any time:</p>
         <p><a id="trackLink" href="#" style="display:inline-block;background:#1B2A4A;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px">Track this repair</a></p>
@@ -491,6 +492,19 @@ $('intakeForm').addEventListener('submit', async (ev) => {
     }
     formArea.style.display = 'none';
     $('doneJob').textContent = JOB;
+
+    // Each item is booked in as its own job, so the customer gets the numbers.
+    const made = (result && result.jobs) || [];
+    if (made.length > 1) {
+      $('doneIntro').innerHTML = 'Your booking form has been received and locked. Each item has its own job number, ' +
+        'so you can follow them separately. Please keep this reference:';
+      $('doneJobs').innerHTML = '<p class="hint" style="margin:0 0 8px">Your job numbers</p>' +
+        made.map(j => `<div style="border:1px solid #d9dee6;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fbfcfd">
+          <strong>${String(j.job_number).replace(/</g, '&lt;')}</strong>
+          <span style="color:#5a6474"> — ${String(j.item || '').replace(/</g, '&lt;')}</span>
+        </div>`).join('');
+      $('doneJobs').style.display = 'block';
+    }
     $('doneRef').textContent = (result && result.reference ? result.reference.slice(0, 16) : JOB);
     $('photoNote').textContent = photoMsg;
     $('trackLink').href = 'track.html?job=' + encodeURIComponent(JOB) + '&k=' + encodeURIComponent(KEY);
