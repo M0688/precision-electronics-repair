@@ -52,7 +52,8 @@ export function chrome(active) {
     ['stock.html', 'Stock'],
     ['diagnose.html', 'Diagnostic'],
     ['knowledge.html', 'Knowledge'],
-    ['reports.html', 'Reports']
+    ['reports.html', 'Reports'],
+    ['settings.html', 'Settings']
   ];
   document.body.insertAdjacentHTML('afterbegin', `
     <header><div class="wrap">

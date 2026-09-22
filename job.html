@@ -103,6 +103,7 @@
   <a href="diagnose.html">Diagnostic</a>
   <a href="knowledge.html">Knowledge</a>
   <a href="reports.html">Reports</a>
+  <a href="settings.html">Settings</a>
 </div></nav>
 
 <main>
@@ -138,6 +139,14 @@
       <div class="card">
         <h2>Booking form</h2>
         <dl class="facts" id="facts"></dl>
+        <p class="sub" style="margin:16px 0 0">
+          <a id="trackLink" href="#" target="_blank" rel="noopener">See what the customer sees</a>
+        </p>
+      </div>
+
+      <div class="card" id="itemsCard" style="display:none">
+        <h2 id="itemsTitle">Items</h2>
+        <div id="itemsList"></div>
       </div>
 
       <div class="card" id="photoCard" style="display:none">
@@ -165,6 +174,11 @@
         </div>
         <label for="qWork">What the repair involves</label>
         <textarea id="qWork" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
+
+        <label for="qPhotos">Photos <span style="font-weight:400;color:var(--muted)">— show them what you've found</span></label>
+        <input type="file" id="qPhotos" accept="image/*" multiple style="margin-bottom:8px">
+        <p class="sub" style="margin:0 0 14px">These go on the page the customer opens. Worth doing whenever you're asking for more money.</p>
+
         <button class="primary" id="quoteBtn">Send to customer</button>
         <div id="qSend" style="display:none">
           <div class="linkbox" id="qLink"></div>
@@ -281,7 +295,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module">
-import { buildInvoicePdf } from './invoice-pdf.js';
+import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
@@ -339,21 +353,35 @@ async function load() {
   $('jobSub').innerHTML = esc(bits) + (data.contact_id ? ` · <a href="contacts.html?id=${data.contact_id}">customer record</a>` : '');
   $('status').value = data.status;
 
+  const PREF = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text message', call: 'Phone call' };
+  const prefRow = fact('Prefers', PREF[data.preferred_contact] || '');
+  const feeRow = data.diag_fee_applies === false
+    ? '<dt>Diagnostic fee</dt><dd>None — obvious fault, agreed at booking.</dd>'
+    : '';
+
   $('facts').innerHTML = data.has_intake ? [
     fact('Customer', data.customer_name),
     fact('Email', data.customer_email),
     fact('Phone', data.phone),
+    prefRow,
     fact('Return address', data.address),
-    fact('Item', data.device_type),
-    fact('Make and model', data.make_model),
-    fact('Serial / IMEI', data.serial_imei),
-    fact('Fault reported', data.fault_description),
+    feeRow,
     fact('History', data.fault_history),
     fact('Sent with item', data.accessories),
     fact('Signed', data.signature_name),
     fact('Submitted', when(data.submitted_at)),
     fact('Reference', data.record_hash ? String(data.record_hash).slice(0, 16) : '')
-  ].join('') : '<dt>Status</dt><dd>The customer has not submitted their booking form yet.</dd>';
+  ].join('') : [
+    fact('Customer', data.customer_name),
+    fact('Email', data.customer_email),
+    fact('Phone', data.phone),
+    prefRow,
+    feeRow,
+    '<dt>Status</dt><dd>The customer has not submitted their booking form yet.</dd>'
+  ].join('');
+
+  $('trackLink').href = 'track.html?job=' + encodeURIComponent(data.job_number) + '&k=' + encodeURIComponent(data.access_key);
+  loadItems(data.id);
 
   setQuoteKind(data.status);
   $('qKind').addEventListener('change', () => setQuoteKind(null));
@@ -380,6 +408,35 @@ function setQuoteKind(status) {
   const kind = $('qKind').value;
   $('qKindNote').textContent = KIND_NOTE[kind];
   $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate to customer' : 'Send quote to customer';
+}
+
+// A job can carry several items — trade customers often send a batch.
+async function loadItems(jobId) {
+  const { data } = await sb.from('intake_items').select('*').eq('job_id', jobId).order('position');
+  let rows = data || [];
+
+  // Jobs booked in before the multi-item form still hold one item on the intake.
+  if (!rows.length && JOBROW && JOBROW.has_intake) {
+    rows = [{
+      position: 1,
+      device_type: JOBROW.device_type,
+      make_model: JOBROW.make_model,
+      serial_imei: JOBROW.serial_imei,
+      fault_description: JOBROW.fault_description
+    }];
+  }
+  if (!rows.length) return;
+
+  $('itemsTitle').textContent = rows.length === 1 ? 'The item' : rows.length + ' items';
+  $('itemsList').innerHTML = rows.map(it => {
+    const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position;
+    return `<div class="quotebox">
+      <div style="font-weight:700;color:var(--navy)">${rows.length > 1 ? it.position + '. ' : ''}${esc(head)}</div>
+      ${it.serial_imei ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Serial / IMEI: ${esc(it.serial_imei)}</div>` : ''}
+      ${it.fault_description ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(it.fault_description)}</div>` : ''}
+    </div>`;
+  }).join('');
+  $('itemsCard').style.display = 'block';
 }
 
 async function loadPhotos(jobId) {
@@ -438,6 +495,12 @@ $('comBtn').addEventListener('click', async () => {
 async function loadQuotes(jobId) {
   const { data } = await sb.from('quotes').select('*').eq('job_id', jobId).order('sent_at', { ascending: false });
   QUOTES = data || [];
+
+  const { data: shots } = await sb.from('quote_photos').select('*').eq('job_id', jobId);
+  const byQuote = {};
+  (shots || []).forEach(p => { (byQuote[p.quote_id] = byQuote[p.quote_id] || []).push(p); });
+  const publicUrl = path => SUPABASE_URL + '/storage/v1/object/public/quote-photos/' + path;
+
   $('quoteList').innerHTML = QUOTES.map(q => {
     const cls = q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
     const label = q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
@@ -446,6 +509,9 @@ async function loadQuotes(jobId) {
       <div class="amt">${kind} · £${Number(q.amount).toFixed(2)} <span class="tag ${cls}" style="margin-left:8px">${label}</span></div>
       <div style="font-size:14px;margin-top:6px;white-space:pre-wrap">${esc(q.work_summary)}</div>
       ${q.parts_note ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">Parts: ${esc(q.parts_note)}</div>` : ''}
+      ${(byQuote[q.id] || []).length ? `<div class="photos" style="margin-top:10px">${
+        byQuote[q.id].map(p => `<a href="${publicUrl(p.storage_path)}" target="_blank" rel="noopener"><img src="${publicUrl(p.storage_path)}" alt="Quote photo"></a>`).join('')
+      }</div>` : ''}
       <div class="when" style="color:var(--muted);font-size:12px;margin-top:8px">Sent ${when(q.sent_at)}${q.responded_at ? ' · answered ' + when(q.responded_at) : ''}</div>
       ${q.response_note ? `<div style="font-size:13px;margin-top:6px">Customer said: ${esc(q.response_note)}</div>` : ''}
     </div>`;
@@ -480,6 +546,41 @@ function fillInvoiceDescription() {
 }
 
 let LASTPDF = null;
+let INVOICES = [];
+
+// A paid invoice earns a receipt. Built here, emailed by the function.
+async function sendReceipt(invoiceId) {
+  try {
+    const { data: rows, error } = await sb.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+    if (error || !rows) return { ok: false, error: 'Could not read the invoice back.' };
+
+    const doc = buildReceiptPdf({
+      invoice_number: rows.invoice_number,
+      receipt_number: rows.receipt_number,
+      job_number: JOB,
+      issued_at: rows.issued_at,
+      paid_at: rows.paid_at,
+      paid_method: rows.paid_method,
+      description: rows.description,
+      amount: rows.amount,
+      customer_name: JOBROW.customer_name,
+      customer_address: JOBROW.address,
+      item: JOBROW.make_model || JOBROW.device_type
+    });
+    const base64 = doc.output('datauristring').split(',')[1];
+    LASTPDF = { doc, name: (rows.receipt_number || rows.invoice_number) + '.pdf' };
+
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/send-receipt', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: invoiceId, pdf_base64: base64 })
+    });
+    return await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+}
 
 async function loadInvoices(jobId) {
   const { data } = await sb.from('invoices').select('*').eq('job_id', jobId).order('issued_at', { ascending: false });
@@ -490,21 +591,51 @@ async function loadInvoices(jobId) {
         <span class="tag ${paid ? 'in' : 'wait'}" style="margin-left:8px">${paid ? 'Paid' : 'Unpaid'}</span></div>
       <div style="font-size:14px;margin-top:6px;white-space:pre-wrap">${esc(v.description)}</div>
       <div style="color:var(--muted);font-size:12px;margin-top:8px">Raised ${when(v.issued_at)}${v.paid_at ? ' · paid ' + when(v.paid_at) + ' (' + esc(v.paid_method) + ')' : ''}</div>
-      ${paid ? '' : `<div class="sendrow">
-        <button class="send" data-paid="${v.id}" data-method="bank transfer">Mark paid — bank transfer</button>
-        <button class="send" data-paid="${v.id}" data-method="cash">Mark paid — cash</button>
-      </div>`}
+      ${paid
+        ? `<div class="sendrow">
+             <button class="send" data-receipt="${v.id}">Send the receipt again</button>
+           </div>
+           ${v.receipt_number ? `<div style="color:var(--muted);font-size:12px;margin-top:8px">Receipt ${esc(v.receipt_number)}${v.receipt_sent_at ? ' · sent ' + when(v.receipt_sent_at) : ''}</div>` : ''}`
+        : `<div class="sendrow">
+             <button class="send" data-paid="${v.id}" data-method="bank transfer">Mark paid — bank transfer</button>
+             <button class="send" data-paid="${v.id}" data-method="cash">Mark paid — cash</button>
+           </div>`}
     </div>`;
   }).join('');
 
+  INVOICES = data || [];
+
   $('invList').querySelectorAll('[data-paid]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const { error } = await sb.rpc('mark_invoice_paid', {
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = 'Working…';
+
+      const { data: res, error } = await sb.rpc('mark_invoice_paid', {
         p_invoice_id: btn.dataset.paid, p_method: btn.dataset.method
       });
-      if (error) return show($('invMsg'), error.message, 'err');
-      show($('invMsg'), 'Marked as paid.', 'ok');
+      if (error) { btn.disabled = false; btn.textContent = label; return show($('invMsg'), error.message, 'err'); }
+
+      const out = await sendReceipt(btn.dataset.paid);
+      show($('invMsg'), out.ok
+        ? 'Marked as paid. Receipt ' + out.receipt_number + ' emailed to ' + out.to + '.'
+        : 'Marked as paid, but the receipt email failed (' + (out.error || 'unknown error') + ').',
+        out.ok ? 'ok' : 'err');
+
       loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id);
+    });
+  });
+
+  $('invList').querySelectorAll('[data-receipt]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; btn.textContent = 'Sending…';
+      const out = await sendReceipt(btn.dataset.receipt);
+      btn.disabled = false; btn.textContent = 'Send the receipt again';
+      show($('invMsg'), out.ok
+        ? 'Receipt ' + out.receipt_number + ' emailed to ' + out.to + ' again.'
+        : 'The receipt did not send (' + (out.error || 'unknown error') + ').',
+        out.ok ? 'ok' : 'err');
+      loadInvoices(JOBROW.id);
     });
   });
 }
@@ -722,6 +853,30 @@ $('noteBtn').addEventListener('click', async () => {
   loadNotes(JOBROW.id);
 });
 
+// Quote photos live in a bucket the customer can read, under random names.
+async function uploadQuotePhotos(quoteId) {
+  const files = Array.from(($('qPhotos').files) || []);
+  if (!files.length) return { attempted: 0, uploaded: 0 };
+
+  let uploaded = 0;
+  for (const file of files) {
+    if (file.size > 15 * 1024 * 1024) continue;
+    const ext = (file.name.split('.').pop() || 'jpg').replace(/[^a-zA-Z0-9]/g, '').slice(0, 5) || 'jpg';
+    const rand = crypto.randomUUID();
+    const path = `${quoteId}/${rand}.${ext}`;
+    const { error } = await sb.storage.from('quote-photos').upload(path, file, {
+      contentType: file.type || 'application/octet-stream'
+    });
+    if (error) continue;
+    const { error: rowErr } = await sb.from('quote_photos').insert({
+      quote_id: quoteId, job_id: JOBROW.id, storage_path: path
+    });
+    if (!rowErr) uploaded++;
+  }
+  $('qPhotos').value = '';
+  return { attempted: files.length, uploaded };
+}
+
 $('quoteBtn').addEventListener('click', async () => {
   hide($('quoteMsg'));
   const amount = parseFloat($('qAmount').value);
@@ -743,6 +898,9 @@ $('quoteBtn').addEventListener('click', async () => {
   const quoteId = qrow.quote_id || qrow.id;
   const kind = qrow.quote_kind || wanted;
   const Word = kind === 'estimate' ? 'Estimate' : 'Quote';
+
+  // Photos go up before the email, so the customer sees them on the page.
+  const shots = await uploadQuotePhotos(quoteId);
 
   const { data: sess } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote', {
@@ -771,8 +929,15 @@ $('quoteBtn').addEventListener('click', async () => {
   else { $('qSms').style.display = 'none'; }
   $('qSend').style.display = 'block';
 
-  if (out.ok) show($('quoteMsg'), Word + ' emailed to ' + out.to + '. Send it on WhatsApp or by text below as well if you like.', 'ok');
-  else show($('quoteMsg'), Word + ' saved, but the email failed (' + (out.error || 'unknown error') + '). Use the buttons below instead.', 'err');
+  let photoNote = '';
+  if (shots.attempted) {
+    photoNote = shots.uploaded === shots.attempted
+      ? ' ' + shots.uploaded + ' photo' + (shots.uploaded === 1 ? '' : 's') + ' attached.'
+      : ' Only ' + shots.uploaded + ' of ' + shots.attempted + ' photos went up.';
+  }
+
+  if (out.ok) show($('quoteMsg'), Word + ' emailed to ' + out.to + '.' + photoNote + ' Send it on WhatsApp or by text below as well if you like.', 'ok');
+  else show($('quoteMsg'), Word + ' saved, but the email failed (' + (out.error || 'unknown error') + ').' + photoNote + ' Use the buttons below instead.', 'err');
 
   $('qAmount').value = ''; $('qWork').value = '';
   if (kind === 'quote') $('status').value = 'quoted';

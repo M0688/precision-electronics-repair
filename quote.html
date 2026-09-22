@@ -80,6 +80,12 @@
           <div class="total" id="amount"></div>
         </div>
 
+        <div id="photoWrap" style="display:none;margin-bottom:20px">
+          <div class="klabel" style="margin-bottom:8px">What we found</div>
+          <div id="photos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"></div>
+          <p class="small" style="margin-top:8px">Tap a photo to see it full size.</p>
+        </div>
+
         <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee applies and we'll return your item.</p>
 
         <label for="note" style="font-weight:600;font-size:14px;display:block;margin:16px 0 6px">Anything you'd like to add? (optional)</label>
@@ -147,8 +153,8 @@ function finish(state, jobNo) {
       : 'We\'ll start work on ' + jobNo + ' and let you know as soon as it\'s tested and ready.';
   } else {
     $('doneTitle').textContent = est ? 'Estimate declined' : 'Quote declined';
-    $('doneText').textContent = est
-      ? 'No problem — nothing further is owed. Get in touch any time if you change your mind.'
+    $('doneText').textContent = (est || NO_FEE)
+      ? 'No problem — nothing is owed. We\'ll be in touch about your item for ' + jobNo + '.'
       : 'No problem. We\'ll return your item for ' + jobNo + ' and be in touch about the £30 diagnostic fee.';
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -156,6 +162,7 @@ function finish(state, jobNo) {
 
 let JOBNO = '';
 let KIND = 'quote';
+let NO_FEE = false;
 
 async function start() {
   if (!QID || !TOKEN) return fail('This quote link is incomplete. Please use the exact link we emailed you.');
@@ -176,6 +183,22 @@ async function start() {
       $('feeLine').textContent = 'Nothing is charged at this stage. If you accept, send the item in and we will inspect it before any work starts.';
       $('approveBtn').textContent = 'Accept this estimate';
     }
+    // No diagnosis was needed, so declining costs nothing.
+    NO_FEE = q.diag_fee_applies === false;
+    if (NO_FEE && KIND !== 'estimate') {
+      $('feeLine').textContent = 'No further work happens until you decide. There is no diagnostic fee on this job — the fault was clear from the start — so declining costs you nothing.';
+    }
+
+    const shots = q.photos || [];
+    if (shots.length) {
+      $('photos').innerHTML = shots.map(p => {
+        const url = SUPABASE_URL + '/storage/v1/object/public/quote-photos/' + p.path;
+        return `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Photo of the repair"
+          style="width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block"></a>`;
+      }).join('');
+      $('photoWrap').style.display = 'block';
+    }
+
     $('jobNo').textContent = q.job_number;
     $('item').textContent = q.item || q.fault || 'your item';
     $('work').textContent = q.work_summary;
@@ -208,8 +231,8 @@ async function respond(answer) {
 
 $('approveBtn').addEventListener('click', () => respond('approved'));
 $('declineBtn').addEventListener('click', () => {
-  const ask = KIND === 'estimate'
-    ? 'Decline this estimate? Nothing is charged.'
+  const ask = (KIND === 'estimate' || NO_FEE)
+    ? 'Decline this ' + (KIND === 'estimate' ? 'estimate' : 'quote') + '? Nothing is charged.'
     : 'Decline this quote? The £30 diagnostic fee will apply and we will return your item.';
   if (confirm(ask)) respond('declined');
 });

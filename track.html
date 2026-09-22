@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track your repair | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root { --navy:#1B2A4A; --navy-dark:#121d34; --ink:#1f2733; --muted:#5a6474; --line:#d9dee6; --soft:#f4f6f9; --white:#fff; --red:#b3261e; --green:#1c6b3c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:var(--ink); background:var(--soft); line-height:1.6; }
+  a { color: var(--navy); }
+  .wrap { max-width:640px; margin:0 auto; padding:0 20px; }
+  header { background:var(--white); border-bottom:1px solid var(--line); }
+  header .wrap { display:flex; align-items:center; justify-content:space-between; height:72px; max-width:1080px; }
+  header img { height:52px; display:block; }
+  header nav a { text-decoration:none; font-weight:600; font-size:15px; color:var(--ink); }
+  main { padding:40px 0 72px; }
+  .panel { background:var(--white); border:1px solid var(--line); border-radius:12px; padding:28px; }
+  h1 { font-size:26px; color:var(--navy); margin:0 0 6px; }
+  .jobline { color:var(--muted); font-size:15px; margin:0 0 22px; }
+
+  .now { border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:24px; background:#f8fafc; }
+  .now .klabel { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
+  .now .big { font-size:22px; font-weight:700; color:var(--navy); }
+  .now .blurb { font-size:15px; margin-top:6px; }
+
+  ol.steps { list-style:none; margin:0; padding:0; }
+  ol.steps li { position:relative; padding:0 0 22px 32px; }
+  ol.steps li:before {
+    content:""; position:absolute; left:6px; top:6px; width:12px; height:12px;
+    border-radius:50%; background:var(--line); border:2px solid var(--white); box-shadow:0 0 0 1px var(--line);
+  }
+  ol.steps li:after {
+    content:""; position:absolute; left:11px; top:20px; bottom:0; width:2px; background:var(--line);
+  }
+  ol.steps li:last-child:after { display:none; }
+  ol.steps li.done:before { background:var(--green); box-shadow:0 0 0 1px var(--green); }
+  ol.steps li.now:before { background:var(--navy); box-shadow:0 0 0 4px #dbe3f0; }
+  ol.steps .what { font-weight:600; font-size:15px; }
+  ol.steps .when { color:var(--muted); font-size:13px; }
+
+  .items { border:1px solid var(--line); border-radius:10px; padding:4px 18px; margin-bottom:22px; }
+  .items div.it { padding:12px 0; border-bottom:1px solid var(--line); font-size:15px; }
+  .items div.it:last-child { border-bottom:0; }
+  .items .fault { color:var(--muted); font-size:14px; }
+
+  .msg { border-radius:8px; padding:14px 16px; margin-bottom:18px; font-size:15px; display:none; }
+  .msg.show { display:block; }
+  .msg.err { background:#fdecea; border:1px solid #f3c2bd; color:var(--red); }
+  .msg.info { background:#eef2f8; border:1px solid #cdd8e8; color:var(--navy); }
+  .small { color:var(--muted); font-size:14px; }
+  footer { background:var(--navy-dark); color:#9aa6bd; font-size:14px; padding:24px 0; }
+  footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; max-width:1080px; }
+  footer a { color:#cdd6e6; }
+  @media (max-width:600px){ header .wrap{height:64px} header img{height:42px} .panel{padding:20px} h1{font-size:22px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="index.html"><img src="logo.png" alt="Precision Electronics Repair"></a>
+    <nav><a href="index.html">Home</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="panel">
+      <div id="loading" class="msg info show">Loading…</div>
+      <div id="error" class="msg err"></div>
+
+      <div id="area" style="display:none">
+        <h1>Your repair</h1>
+        <p class="jobline">Job <strong id="jobNo"></strong><span id="who"></span></p>
+
+        <div class="now">
+          <div class="klabel">Where it's up to</div>
+          <div class="big" id="statusLabel"></div>
+          <div class="blurb" id="statusBlurb"></div>
+        </div>
+
+        <div id="itemsWrap" style="display:none">
+          <div class="klabel" style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">What we have</div>
+          <div class="items" id="items"></div>
+        </div>
+
+        <div class="klabel" style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">History</div>
+        <ol class="steps" id="history"></ol>
+
+        <p class="small" id="feeNote" style="display:none"></p>
+        <p class="small">This page updates itself as we work. Questions? Email
+          <a href="mailto:info@precisionelectronicsrepair.co.uk">info@precisionelectronicsrepair.co.uk</a>
+          or call 07522 124273.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Precision Electronics Repair</span>
+    <span><a href="privacy.html">Privacy notice</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+
+<script>
+const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';
+
+const params = new URLSearchParams(location.search);
+const JOB = (params.get('job') || '').trim().toUpperCase();
+const KEY = (params.get('k') || '').trim();
+const $ = id => document.getElementById(id);
+
+function esc(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function fail(text) {
+  $('loading').classList.remove('show');
+  $('error').textContent = text;
+  $('error').classList.add('show');
+  $('area').style.display = 'none';
+}
+
+function stamp(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+async function rpc(fn, body) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+  if (!res.ok) throw new Error((data && data.message) || 'Something went wrong.');
+  return data;
+}
+
+function draw(d) {
+  $('jobNo').textContent = d.job_number;
+  $('who').textContent = d.customer_name ? ' · ' + d.customer_name : '';
+  $('statusLabel').textContent = d.status_label || '';
+  $('statusBlurb').textContent = d.status_blurb || '';
+
+  const items = d.items || [];
+  if (items.length) {
+    $('items').innerHTML = items.map(it => {
+      const name = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'Item ' + it.position;
+      return `<div class="it"><div>${esc(name)}</div>
+        ${it.fault ? `<div class="fault">${esc(it.fault)}</div>` : ''}</div>`;
+    }).join('');
+    $('itemsWrap').style.display = 'block';
+  }
+
+  // Oldest first, so the newest change sits at the bottom as "where we are now".
+  const hist = d.history || [];
+  $('history').innerHTML = hist.map((h, i) => {
+    const last = i === hist.length - 1;
+    return `<li class="${last ? 'now' : 'done'}">
+      <div class="what">${esc(h.label)}</div>
+      <div class="when">${stamp(h.at)}</div>
+    </li>`;
+  }).join('') || '<li class="now"><div class="what">Job created</div></li>';
+
+  if (d.diag_fee_applies === false) {
+    $('feeNote').textContent = 'There is no diagnostic fee on this job — the fault was clear from the start.';
+    $('feeNote').style.display = 'block';
+  }
+
+  $('loading').classList.remove('show');
+  $('area').style.display = 'block';
+}
+
+async function load(first) {
+  try {
+    const d = await rpc('job_track', { p_job_number: JOB, p_key: KEY });
+    if (!d || !d.valid) {
+      if (first) fail('We could not find that repair. Please use the exact link we emailed you, or call 07522 124273.');
+      return;
+    }
+    draw(d);
+  } catch (e) {
+    if (first) fail('We could not load your repair right now. Please try again shortly, or call 07522 124273.');
+  }
+}
+
+if (!JOB || !KEY) {
+  fail('This tracking link is incomplete. Please use the exact link we emailed you.');
+} else {
+  load(true);
+  // Pick up changes while the page is left open.
+  setInterval(() => { if (!document.hidden) load(false); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
+}
+</script>
+
+</body>
+</html>

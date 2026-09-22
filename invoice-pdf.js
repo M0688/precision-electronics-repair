@@ -21,7 +21,13 @@ function ukDate(ts) {
   return new Date(ts || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// A receipt is the same document, headed differently: nothing left to pay.
+export function buildReceiptPdf(d) {
+  return buildInvoicePdf({ ...d, receipt: true, status: 'paid' });
+}
+
 export function buildInvoicePdf(d) {
+  const receipt = d.receipt === true;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const L = 18, R = 192;
@@ -42,19 +48,19 @@ export function buildInvoicePdf(d) {
   doc.setTextColor(...NAVY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
-  doc.text('INVOICE', L, y);
+  doc.text(receipt ? 'RECEIPT' : 'INVOICE', L, y);
 
   doc.setFontSize(10);
   doc.setTextColor(...MUTED);
   doc.setFont('helvetica', 'normal');
-  doc.text('Invoice number', R - 45, y - 8);
+  doc.text(receipt ? 'Receipt number' : 'Invoice number', R - 45, y - 8);
   doc.text('Date', R - 45, y - 2);
   doc.text('Job', R - 45, y + 4);
   doc.setTextColor(30, 39, 51);
   doc.setFont('helvetica', 'bold');
-  doc.text(String(d.invoice_number), R, y - 8, { align: 'right' });
+  doc.text(String(receipt ? (d.receipt_number || d.invoice_number) : d.invoice_number), R, y - 8, { align: 'right' });
   doc.setFont('helvetica', 'normal');
-  doc.text(ukDate(d.issued_at), R, y - 2, { align: 'right' });
+  doc.text(ukDate(receipt ? (d.paid_at || d.issued_at) : d.issued_at), R, y - 2, { align: 'right' });
   doc.text(String(d.job_number), R, y + 4, { align: 'right' });
 
   // addresses
@@ -116,19 +122,18 @@ export function buildInvoicePdf(d) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(...NAVY);
-  doc.text('TOTAL DUE', R - 50, y + 2);
+  doc.text(receipt ? 'TOTAL PAID' : 'TOTAL DUE', R - 50, y + 2);
   doc.setFontSize(16);
   doc.text(money(d.amount), R, y + 2, { align: 'right' });
   y += 12;
 
-  if (d.status === 'paid') {
+  if (d.status === 'paid' && !receipt) {
     doc.setTextColor(28, 107, 60);
     doc.setFontSize(12);
     doc.text('PAID' + (d.paid_at ? ' — ' + ukDate(d.paid_at) : ''), R, y, { align: 'right' });
     y += 8;
   }
 
-  // payment details
   y += 6;
   doc.setDrawColor(226, 230, 236);
   doc.setFillColor(244, 246, 249);
@@ -136,19 +141,25 @@ export function buildInvoicePdf(d) {
   doc.setTextColor(...NAVY);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('How to pay', L + 4, y + 8);
+  doc.text(receipt ? 'Paid in full — thank you' : 'How to pay', L + 4, y + 8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(30, 39, 51);
   doc.setFontSize(9.5);
-  doc.text(`Bank transfer — ${BUSINESS.bank.name} · Sort code ${BUSINESS.bank.sort} · Account ${BUSINESS.bank.account}`, L + 4, y + 16);
-  doc.text(`Please use ${d.invoice_number} as the payment reference.`, L + 4, y + 22);
-  doc.text('Cash accepted on collection.', L + 4, y + 28);
+  if (receipt) {
+    doc.text(`Received ${money(d.amount)}${d.paid_method ? ' by ' + d.paid_method : ''}${d.paid_at ? ' on ' + ukDate(d.paid_at) : ''}.`, L + 4, y + 16);
+    doc.text(`Against invoice ${d.invoice_number}. There is nothing further to pay.`, L + 4, y + 22);
+    doc.text('Keep this receipt for your records and for any warranty claim.', L + 4, y + 28);
+  } else {
+    doc.text(`Bank transfer — ${BUSINESS.bank.name} · Sort code ${BUSINESS.bank.sort} · Account ${BUSINESS.bank.account}`, L + 4, y + 16);
+    doc.text(`Please use ${d.invoice_number} as the payment reference.`, L + 4, y + 22);
+    doc.text('Cash accepted on collection.', L + 4, y + 28);
+  }
   y += 44;
 
   // footer
   doc.setTextColor(...MUTED);
   doc.setFontSize(8.5);
-  doc.text('Payment is due before the item is returned or collected.', L, y);
+  if (!receipt) doc.text('Payment is due before the item is returned or collected.', L, y);
   doc.text(`Workmanship warranty for as long as you own the device. Parts warranty 6 months. Terms: ${BUSINESS.site}/terms.html`, L, y + 5);
 
   return doc;

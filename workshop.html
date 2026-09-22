@@ -101,6 +101,7 @@
   <a href="diagnose.html">Diagnostic</a>
   <a href="knowledge.html">Knowledge</a>
   <a href="reports.html">Reports</a>
+  <a href="settings.html">Settings</a>
 </div></nav>
 
 <main>
@@ -122,6 +123,15 @@
       <div class="card">
         <h2>New job</h2>
         <div id="newMsg" class="msg"></div>
+
+        <label for="custSearch">Dealt with them before?</label>
+        <input type="text" id="custSearch" placeholder="Search by name, company, email or number" autocomplete="off">
+        <div id="custHits"></div>
+        <div id="custPicked" style="display:none;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;padding:10px 14px;margin:-4px 0 16px;font-size:14px;color:#1c6b3c">
+          <span id="custPickedName"></span>
+          <button class="send" id="custClear" style="padding:4px 10px;margin-left:10px">Change</button>
+        </div>
+
         <div class="row">
           <div>
             <label for="custName">Customer name</label>
@@ -136,7 +146,20 @@
             <input type="text" id="custPhone" placeholder="07700 900123">
           </div>
         </div>
+        <div class="row">
+          <div style="flex:0 0 240px">
+            <label for="prefContact">How do they prefer to be contacted?</label>
+            <select id="prefContact" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px">
+              <option value="email">Email</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="sms">Text message</option>
+              <option value="call">Phone call</option>
+            </select>
+          </div>
+        </div>
+
         <div class="check"><input type="checkbox" id="emailIt" checked><label for="emailIt">Email the link automatically (needs an email address)</label></div>
+        <div class="check"><input type="checkbox" id="noDiag"><label for="noDiag">Obvious fault — no diagnostic fee (cracked screen, dead port, and the like)</label></div>
         <button class="primary" id="createBtn">Create job &amp; get link</button>
 
         <div id="sendArea" style="display:none">
@@ -253,6 +276,62 @@ $('copyBtn').addEventListener('click', async () => {
   }
 });
 
+// ---------- returning customers ----------
+// Picking someone you have dealt with before ties the job to their record,
+// which is what makes the booking form fill itself in.
+let PICKED = null;
+let searchTimer = null;
+
+function clearPick() {
+  PICKED = null;
+  $('custPicked').style.display = 'none';
+  $('custSearch').style.display = '';
+  $('custSearch').value = '';
+  $('custHits').innerHTML = '';
+}
+
+$('custClear').addEventListener('click', () => {
+  clearPick();
+  $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
+});
+
+$('custSearch').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = $('custSearch').value.trim();
+  if (q.length < 2) { $('custHits').innerHTML = ''; return; }
+  searchTimer = setTimeout(async () => {
+    const { data, error } = await sb.rpc('find_contacts', { p_query: q });
+    if (error) return;
+    const rows = data || [];
+    $('custHits').innerHTML = rows.length
+      ? rows.map(c => {
+          const who = [c.name, c.company].filter(Boolean).join(' · ') || c.email || c.phone;
+          const sub = [c.email, c.phone].filter(Boolean).join(' · ');
+          const jobs = Number(c.job_count || 0);
+          return `<div class="hitrow" data-pick='${JSON.stringify(c).replace(/'/g, '&#39;')}'
+            style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;background:#fff">
+            <div style="font-weight:600;font-size:14px">${who.replace(/</g,'&lt;')}</div>
+            <div style="font-size:13px;color:var(--muted)">${sub.replace(/</g,'&lt;')}${jobs ? ' · ' + jobs + ' previous job' + (jobs === 1 ? '' : 's') : ''}</div>
+          </div>`;
+        }).join('')
+      : '<p class="empty" style="padding:8px 0">No match — fill the details in below and a new record is made.</p>';
+
+    $('custHits').querySelectorAll('[data-pick]').forEach(el => el.addEventListener('click', () => {
+      const c = JSON.parse(el.dataset.pick);
+      PICKED = c;
+      $('custName').value = c.name || '';
+      $('custEmail').value = c.email || '';
+      $('custPhone').value = c.phone || '';
+      if (c.preferred_contact) $('prefContact').value = c.preferred_contact;
+      $('custPickedName').textContent = 'Using ' + ([c.name, c.company].filter(Boolean).join(' · ') || c.email) +
+        '. Their details will already be on the booking form.';
+      $('custPicked').style.display = 'block';
+      $('custSearch').style.display = 'none';
+      $('custHits').innerHTML = '';
+    }));
+  }, 250);
+});
+
 $('createBtn').addEventListener('click', async () => {
   hide($('newMsg'));
   $('sendArea').style.display = 'none';
@@ -260,6 +339,7 @@ $('createBtn').addEventListener('click', async () => {
   const email = $('custEmail').value.trim();
   const phone = $('custPhone').value.trim();
   const wantEmail = $('emailIt').checked;
+  const preferred = $('prefContact').value;
 
   if (wantEmail && !email) {
     return show($('newMsg'), "Enter an email address, or untick 'Email the link automatically'.", 'err');
@@ -271,7 +351,15 @@ $('createBtn').addEventListener('click', async () => {
   $('createBtn').disabled = true;
   $('createBtn').textContent = 'Working…';
 
-  const { data, error } = await sb.rpc('create_job', { p_customer_name: name, p_customer_email: email || null, p_customer_phone: phone || null, p_company: null });
+  const { data, error } = await sb.rpc('create_job', {
+    p_customer_name: name,
+    p_customer_email: email || null,
+    p_customer_phone: phone || null,
+    p_company: PICKED?.company || null,
+    p_contact_id: PICKED?.id || null,
+    p_preferred: preferred,
+    p_diag_fee: !$('noDiag').checked
+  });
   if (error) {
     $('createBtn').disabled = false;
     $('createBtn').textContent = 'Create job & get link';
@@ -299,7 +387,8 @@ $('createBtn').addEventListener('click', async () => {
   }
   $('sendArea').style.display = 'block';
 
-  let note = job.job_number + ' created.';
+  const PREF_WORD = { email: 'email', whatsapp: 'WhatsApp', sms: 'a text', call: 'a phone call' };
+  let note = job.job_number + ' created. They prefer ' + PREF_WORD[preferred] + '.';
   if (wantEmail && email) {
     const { data: sess } = await sb.auth.getSession();
     const token = sess?.session?.access_token;
@@ -321,89 +410,10 @@ $('createBtn').addEventListener('click', async () => {
   $('createBtn').disabled = false;
   $('createBtn').textContent = 'Create job & get link';
   $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
+  $('noDiag').checked = false;
+  clearPick();
   loadJobs();
 });
-
-// ---------- to do ----------
-// The list itself lives on its own tab. This is just a nudge if something is waiting.
-async function loadFollowUps() {
-  const { data, error } = await sb.from('follow_ups').select('due_date').eq('done', false);
-  if (error || !data || !data.length) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const due = data.filter(f => f.due_date <= today).length;
-  const ahead = data.length - due;
-
-  const bits = [];
-  if (due) bits.push(due === 1 ? '1 thing is due' : due + ' things are due');
-  if (ahead) bits.push(ahead === 1 ? '1 is coming up' : ahead + ' are coming up');
-
-  $('fuSummary').textContent = bits.join(', ') + '.';
-  $('fuCard').style.display = 'block';
-}
-
-// ---------- phone alerts ----------
-const VAPID_PUBLIC = 'BC8_T1lb2mgEI_Km3p4TY7bwX4mEeRavbqLdPBIY7QT6VLMfe9QxK1gDcGPORJTW8BBFq6N-2dhXM9NvqP16SNk';
-
-function urlB64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
-}
-
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-async function setupPushUI() {
-  const btn = $('pushBtn'), help = $('pushHelp');
-
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    btn.style.display = 'none';
-    help.textContent = 'This browser cannot show alerts. On iPhone, open this page in Safari, add it to your Home Screen, then open it from there.';
-    return;
-  }
-  if (isIOS && !isStandalone) {
-    btn.style.display = 'none';
-    help.innerHTML = 'To get alerts on your iPhone: tap <strong>Share</strong> → <strong>Add to Home Screen</strong>, then open the app from your Home Screen and come back here.';
-    return;
-  }
-
-  const reg = await navigator.serviceWorker.register('sw.js');
-  const existing = await reg.pushManager.getSubscription();
-  if (existing && Notification.permission === 'granted') {
-    btn.textContent = 'Send a test alert';
-    help.textContent = 'Alerts are on for this device. You will be notified when a customer submits a booking form.';
-    btn.onclick = async () => {
-      new Notification('Precision Electronics Repair', { body: 'Test alert — this is what a new booking looks like.', icon: 'icon-192.png' });
-    };
-    return;
-  }
-
-  help.textContent = 'Get a notification on this device when a customer submits a booking form.';
-  btn.onclick = async () => {
-    hide($('pushMsg'));
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return show($('pushMsg'), 'Alerts were blocked. Allow notifications for this site in your browser settings.', 'err');
-
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
-    });
-    const json = sub.toJSON();
-    const { data: sess } = await sb.auth.getSession();
-    const { error } = await sb.from('push_subscriptions').upsert({
-      email: sess?.session?.user?.email,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth: json.keys.auth,
-      device: navigator.userAgent.slice(0, 120)
-    }, { onConflict: 'endpoint' });
-    if (error) return show($('pushMsg'), error.message, 'err');
-    show($('pushMsg'), 'Alerts are on for this device.', 'ok');
-    setupPushUI();
-  };
-}
 
 // ---------- start ----------
 async function start() {
@@ -415,8 +425,6 @@ async function start() {
     $('login').style.display = 'none';
     $('tabs').style.display = 'block';
     loadJobs();
-    loadFollowUps();
-    setupPushUI();
   } else {
     $('login').style.display = 'block';
   }

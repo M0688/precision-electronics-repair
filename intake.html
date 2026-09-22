@@ -114,28 +114,27 @@
           </fieldset>
 
           <fieldset>
-            <legend>Your item</legend>
-            <label for="device_type">Type of item</label>
-            <select id="device_type">
-              <option value="">Please choose…</option>
-              <option>Phone or tablet</option>
-              <option>Laptop or computer</option>
-              <option>Games console or controller</option>
-              <option>Audio equipment</option>
-              <option>TV (up to 32")</option>
-              <option>Circuit board</option>
-              <option>Other</option>
+            <legend>What you're sending</legend>
+            <label for="item_count">How many items are you sending for repair?</label>
+            <select id="item_count">
+              <option value="1">1 item</option>
+              <option value="2">2 items</option>
+              <option value="3">3 items</option>
+              <option value="4">4 items</option>
+              <option value="5">5 items</option>
+              <option value="6">6 items</option>
+              <option value="7">7 items</option>
+              <option value="8">8 items</option>
+              <option value="9">9 items</option>
+              <option value="10">10 items</option>
             </select>
+            <p class="hint" style="margin:-8px 0 20px">Sending a batch? Set the number and tell us about each one below.</p>
 
-            <label for="make_model">Make and model</label>
-            <input type="text" id="make_model" placeholder="e.g. Sony PlayStation 5 Slim">
+            <div id="items"></div>
+          </fieldset>
 
-            <label for="serial_imei">Serial or IMEI number <span class="hint">— if you have it</span></label>
-            <input type="text" id="serial_imei">
-
-            <label for="fault_description">What's wrong with it? *</label>
-            <textarea id="fault_description" required placeholder="Describe the fault in your own words."></textarea>
-
+          <fieldset>
+            <legend>Anything else we should know</legend>
             <label for="fault_history">When did it start? Anything happen beforehand?</label>
             <textarea id="fault_history" style="min-height:80px" placeholder="Dropped, liquid, power surge, previous repair, etc."></textarea>
 
@@ -148,7 +147,8 @@
 
           <fieldset>
             <legend>Please confirm</legend>
-            <div class="check"><input type="checkbox" id="agree_diagnostic"><label for="agree_diagnostic">I understand the <strong>£30 diagnostic fee</strong>. It's deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can't be repaired.</label></div>
+            <div class="check" id="diagRow"><input type="checkbox" id="agree_diagnostic"><label for="agree_diagnostic">I understand the <strong>£30 diagnostic fee</strong>. It's deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can't be repaired.</label></div>
+            <p class="hint" id="noDiagNote" style="display:none;margin:0 0 14px;padding:10px 14px;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;color:#1c6b3c"><strong>No diagnostic fee on this job.</strong> The fault is already clear, so there's nothing to diagnose. You'll get a price for the repair and nothing happens until you approve it.</p>
             <div class="check"><input type="checkbox" id="agree_terms"><label for="agree_terms">I have read and accept the <a href="terms.html" target="_blank">terms of service</a>, including the warranty terms.</label></div>
             <div class="check"><input type="checkbox" id="agree_uncollected"><label for="agree_uncollected">I understand that items left uncollected for 90 days after repeated contact may be sold at auction to recover costs, with any surplus returned to me.</label></div>
             <div class="check"><input type="checkbox" id="agree_privacy"><label for="agree_privacy">I have read the <a href="privacy.html" target="_blank">privacy notice</a>, and I understand I should back up my data before sending my device.</label></div>
@@ -166,7 +166,8 @@
         <p>Your booking form for <strong id="doneJob"></strong> has been received and locked. Please keep this reference:</p>
         <div class="ref" id="doneRef"></div>
         <p class="hint" id="photoNote"></p>
-        <p style="margin-top:22px">We'll be in touch by email with what to do next.</p>
+        <p style="margin-top:22px">We'll be in touch by email with what to do next. You can check where your repair is up to at any time:</p>
+        <p><a id="trackLink" href="#" style="display:inline-block;background:#1B2A4A;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px">Track this repair</a></p>
       </div>
 
     </div>
@@ -190,6 +191,7 @@ const KEY = (params.get('k') || '').trim();
 
 const $ = id => document.getElementById(id);
 const loading = $('loading'), errorBox = $('error'), formArea = $('formArea');
+let NO_DIAG_FEE = false;
 
 function fail(text) {
   loading.classList.remove('show');
@@ -214,6 +216,59 @@ async function rpc(fn, body) {
   if (!res.ok) throw new Error((data && data.message) || 'Something went wrong. Please try again.');
   return data;
 }
+
+// ---------- the items being sent ----------
+const DEVICE_TYPES = ['Phone or tablet', 'Laptop or computer', 'Games console or controller',
+                      'Audio equipment', 'TV (up to 32")', 'Circuit board', 'Other'];
+
+// Rebuilds the item blocks, keeping whatever has already been typed.
+function renderItems() {
+  const wanted = parseInt($('item_count').value, 10) || 1;
+  const box = $('items');
+  const kept = readItems();
+
+  let html = '';
+  for (let n = 1; n <= wanted; n++) {
+    const v = kept[n - 1] || {};
+    const one = wanted === 1;
+    html += `
+      <div class="itemblock" ${one ? '' : 'style="border:1px solid #d9dee6;border-radius:10px;padding:16px 18px;margin-bottom:16px;background:#fbfcfd"'}>
+        ${one ? '' : `<p style="margin:0 0 14px;font-weight:700;color:#1B2A4A">Item ${n}</p>`}
+
+        <label for="device_type_${n}">Type of item</label>
+        <select id="device_type_${n}">
+          <option value="">Please choose…</option>
+          ${DEVICE_TYPES.map(t => `<option${v.device_type === t ? ' selected' : ''}>${t}</option>`).join('')}
+        </select>
+
+        <label for="make_model_${n}">Make and model</label>
+        <input type="text" id="make_model_${n}" placeholder="e.g. Sony PlayStation 5 Slim" value="${(v.make_model || '').replace(/"/g, '&quot;')}">
+
+        <label for="serial_imei_${n}">Serial or IMEI number <span class="hint">— if you have it</span></label>
+        <input type="text" id="serial_imei_${n}" value="${(v.serial_imei || '').replace(/"/g, '&quot;')}">
+
+        <label for="fault_description_${n}">What's wrong with it? *</label>
+        <textarea id="fault_description_${n}" required placeholder="Describe the fault in your own words.">${v.fault_description || ''}</textarea>
+      </div>`;
+  }
+  box.innerHTML = html;
+}
+
+function readItems() {
+  const out = [];
+  document.querySelectorAll('#items .itemblock').forEach((_, i) => {
+    const n = i + 1;
+    out.push({
+      device_type: ($(`device_type_${n}`) || {}).value || '',
+      make_model: (($(`make_model_${n}`) || {}).value || '').trim(),
+      serial_imei: (($(`serial_imei_${n}`) || {}).value || '').trim(),
+      fault_description: (($(`fault_description_${n}`) || {}).value || '').trim()
+    });
+  });
+  return out;
+}
+
+$('item_count').addEventListener('change', renderItems);
 
 async function start() {
   if (!JOB || !KEY) {
@@ -245,10 +300,20 @@ async function start() {
       const note = document.createElement('p');
       note.className = 'hint';
       note.style.cssText = 'margin:0 0 18px;padding:10px 14px;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;color:#1c6b3c';
-      note.textContent = 'We have filled in the details we already hold. Please correct anything that is wrong.';
+      note.textContent = result.returning
+        ? 'Welcome back — we have filled in your details from last time. Please correct anything that has changed, then just tell us about the items.'
+        : 'We have filled in the details we already hold. Please correct anything that is wrong.';
       formArea.insertBefore(note, formArea.firstChild);
     }
 
+    // Obvious faults need no diagnosis, so there is nothing to agree to.
+    NO_DIAG_FEE = result.diag_fee_applies === false;
+    if (NO_DIAG_FEE) {
+      $('diagRow').style.display = 'none';
+      $('noDiagNote').style.display = 'block';
+    }
+
+    renderItems();
     loading.classList.remove('show');
     formArea.style.display = 'block';
   } catch (e) {
@@ -287,32 +352,40 @@ $('intakeForm').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   errorBox.classList.remove('show');
 
+  const items = readItems();
+
   const payload = {
     customer_name: $('customer_name').value.trim(),
     email: $('email').value.trim(),
     phone: $('phone').value.trim(),
     address: $('address').value.trim(),
-    device_type: $('device_type').value,
-    make_model: $('make_model').value.trim(),
-    serial_imei: $('serial_imei').value.trim(),
-    fault_description: $('fault_description').value.trim(),
+    items,
     fault_history: $('fault_history').value.trim(),
     accessories: $('accessories').value.trim(),
-    agree_diagnostic: $('agree_diagnostic').checked,
+    agree_diagnostic: NO_DIAG_FEE ? true : $('agree_diagnostic').checked,
     agree_terms: $('agree_terms').checked,
     agree_privacy: $('agree_privacy').checked,
     agree_uncollected: $('agree_uncollected').checked,
     signature_name: $('signature_name').value.trim()
   };
 
-  if (!payload.customer_name || !payload.email || !payload.fault_description || !payload.signature_name) {
-    errorBox.textContent = 'Please fill in your name, email, the fault and your signature.';
+  if (!payload.customer_name || !payload.email || !payload.signature_name) {
+    errorBox.textContent = 'Please fill in your name, email and your signature.';
+    errorBox.classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  const missing = items.findIndex(it => !it.fault_description);
+  if (missing !== -1) {
+    errorBox.textContent = items.length === 1
+      ? 'Please tell us what is wrong with the item.'
+      : 'Please tell us what is wrong with item ' + (missing + 1) + '.';
     errorBox.classList.add('show');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
   if (!payload.agree_diagnostic || !payload.agree_terms || !payload.agree_privacy || !payload.agree_uncollected) {
-    errorBox.textContent = 'Please tick all four boxes to confirm you accept the terms.';
+    errorBox.textContent = 'Please tick the boxes to confirm you accept the terms.';
     errorBox.classList.add('show');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
@@ -349,6 +422,7 @@ $('intakeForm').addEventListener('submit', async (ev) => {
     $('doneJob').textContent = JOB;
     $('doneRef').textContent = (result && result.reference ? result.reference.slice(0, 16) : JOB);
     $('photoNote').textContent = photoMsg;
+    $('trackLink').href = 'track.html?job=' + encodeURIComponent(JOB) + '&k=' + encodeURIComponent(KEY);
     $('done').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {

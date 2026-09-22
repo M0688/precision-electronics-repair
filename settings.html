@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css">
+<style>
+  .device {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 8px; background: #fff; font-size: 14px;
+  }
+  .device .name { flex: 1; }
+  .device .when { color: var(--muted); font-size: 13px; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+
+    <div class="card">
+      <h1 style="margin:0 0 6px">Settings</h1>
+      <p class="sub">Things that apply to you rather than to a job.</p>
+    </div>
+
+    <div class="card" id="pushCard">
+      <h2>Phone alerts</h2>
+      <div id="pushMsg" class="msg"></div>
+      <p class="sub" id="pushHelp" style="margin-bottom:14px"></p>
+      <button class="primary" id="pushBtn">Turn on alerts on this device</button>
+    </div>
+
+    <div class="card">
+      <h2>Devices getting alerts</h2>
+      <div id="devices"><p class="empty">Loading…</p></div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { sb, $, show, hide, esc, when, chrome, requireSession } from './crm.js';
+
+chrome('settings.html');
+
+// ---------- phone alerts ----------
+const VAPID_PUBLIC = 'BC8_T1lb2mgEI_Km3p4TY7bwX4mEeRavbqLdPBIY7QT6VLMfe9QxK1gDcGPORJTW8BBFq6N-2dhXM9NvqP16SNk';
+
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+async function setupPushUI() {
+  const btn = $('pushBtn'), help = $('pushHelp');
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    btn.style.display = 'none';
+    help.textContent = 'This browser cannot show alerts. On iPhone, open this page in Safari, add it to your Home Screen, then open it from there.';
+    return;
+  }
+  if (isIOS && !isStandalone) {
+    btn.style.display = 'none';
+    help.innerHTML = 'To get alerts on your iPhone: tap <strong>Share</strong> → <strong>Add to Home Screen</strong>, then open the app from your Home Screen and come back here.';
+    return;
+  }
+
+  const reg = await navigator.serviceWorker.register('sw.js');
+  const existing = await reg.pushManager.getSubscription();
+  if (existing && Notification.permission === 'granted') {
+    btn.textContent = 'Send a test alert';
+    help.textContent = 'Alerts are on for this device. You will be notified when a customer submits a booking form.';
+    btn.onclick = async () => {
+      new Notification('Precision Electronics Repair', { body: 'Test alert — this is what a new booking looks like.', icon: 'icon-192.png' });
+    };
+    return;
+  }
+
+  help.textContent = 'Get a notification on this device when a customer submits a booking form.';
+  btn.onclick = async () => {
+    hide($('pushMsg'));
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return show($('pushMsg'), 'Alerts were blocked. Allow notifications for this site in your browser settings.', 'err');
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC)
+    });
+    const json = sub.toJSON();
+    const { data: sess } = await sb.auth.getSession();
+    const { error } = await sb.from('push_subscriptions').upsert({
+      email: sess?.session?.user?.email,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth,
+      device: navigator.userAgent.slice(0, 120)
+    }, { onConflict: 'endpoint' });
+    if (error) return show($('pushMsg'), error.message, 'err');
+    show($('pushMsg'), 'Alerts are on for this device.', 'ok');
+    setupPushUI();
+    loadDevices();
+  };
+}
+
+// ---------- which devices are signed up ----------
+// A rough label, worked out from the browser string each device sent.
+function deviceName(ua) {
+  const s = String(ua || '');
+  const os = /iPhone/.test(s) ? 'iPhone'
+    : /iPad/.test(s) ? 'iPad'
+    : /Android/.test(s) ? 'Android phone'
+    : /Windows/.test(s) ? 'Windows PC'
+    : /Macintosh/.test(s) ? 'Mac'
+    : 'Device';
+  const br = /Edg\//.test(s) ? 'Edge'
+    : /OPR\//.test(s) ? 'Opera'
+    : /Firefox/.test(s) ? 'Firefox'
+    : /Chrome/.test(s) ? 'Chrome'
+    : /Safari/.test(s) ? 'Safari'
+    : '';
+  return br ? os + ' · ' + br : os;
+}
+
+async function loadDevices() {
+  const { data, error } = await sb.from('push_subscriptions').select('*').order('created_at', { ascending: false });
+  if (error) { $('devices').innerHTML = '<p class="empty">Could not load this.</p>'; return; }
+  const rows = data || [];
+  $('devices').innerHTML = rows.length
+    ? rows.map(d => `<div class="device">
+        <div class="name">${esc(deviceName(d.device))}</div>
+        <div class="when">${when(d.created_at)}</div>
+        <button class="send" data-off="${esc(d.endpoint)}">Stop alerts</button>
+      </div>`).join('')
+    : '<p class="empty">No devices are set up for alerts yet.</p>';
+
+  $('devices').querySelectorAll('[data-off]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true;
+    const { error } = await sb.from('push_subscriptions').delete().eq('endpoint', b.dataset.off);
+    if (error) { b.disabled = false; return show($('pushMsg'), error.message, 'err'); }
+    loadDevices();
+    setupPushUI();
+  }));
+}
+
+(async () => {
+  const sess = await requireSession();
+  if (!sess) return;
+  setupPushUI();
+  loadDevices();
+})();
+</script>
+
+</body>
+</html>
