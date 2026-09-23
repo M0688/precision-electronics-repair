@@ -78,10 +78,28 @@
   nav.tabs a:hover { color: #fff; }
   nav.tabs a.on { color: #fff; border-bottom-color: #fff; }
 
+  /* Collapsible sections: closed by default, click the heading to open. */
+  details.sec { padding: 0; }
+  details.sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 16px 22px; user-select: none; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; flex: 0 0 auto; margin-right: 2px; }
+  details.sec[open] > summary::before { transform: rotate(45deg); }
+  details.sec > summary h2 { margin: 0; }
+  details.sec > summary:hover h2 { text-decoration: underline; }
+  details.sec > summary .count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--soft); border-radius: 20px; padding: 2px 10px; }
+  details.sec > summary .count:empty { display: none; }
+  details.sec > .secbody { padding: 0 22px 22px; }
+  details.sec { margin-bottom: 10px; }
+  .secbar { font-size: 13px; color: var(--muted); text-align: right; margin-top: -4px; }
+  .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--navy); cursor: pointer; text-decoration: underline; }
+
   @media (max-width: 640px) {
     .facts { grid-template-columns: 1fr; }
     .facts dt { border-bottom: 0; padding-bottom: 0; }
     .card { padding: 18px; }
+    details.sec { padding: 0; }
+    details.sec > summary { padding: 14px 18px; }
+    details.sec > .secbody { padding: 0 18px 18px; }
   }
 </style>
 </head>
@@ -139,34 +157,44 @@
           </div>
           <div style="flex:0 0 auto"><button class="primary" id="statusBtn" style="margin-bottom:14px">Save status</button></div>
         </div>
+        <div class="secbar"><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></div>
       </div>
 
-      <div class="card">
-        <h2>Booking form</h2>
+      <details class="card sec">
+        <summary><h2>Booking form</h2></summary>
+        <div class="secbody">
         <dl class="facts" id="facts"></dl>
         <p class="sub" style="margin:16px 0 0">
           <a id="trackLink" href="#" target="_blank" rel="noopener">See what the customer sees</a>
         </p>
-      </div>
+        </div>
+      </details>
 
-      <div class="card" id="itemsCard" style="display:none">
-        <h2 id="itemsTitle">The item</h2>
+      <details class="card sec" id="itemsCard" style="display:none">
+        <summary><h2 id="itemsTitle">The item</h2></summary>
+        <div class="secbody">
         <div id="itemsList"></div>
-      </div>
+        </div>
+      </details>
 
-      <div class="card" id="batchCard" style="display:none">
-        <h2 id="batchTitle">Booked in together</h2>
+      <details class="card sec" id="batchCard" style="display:none">
+        <summary><h2 id="batchTitle">Booked in together</h2></summary>
+        <div class="secbody">
         <p class="sub" id="batchNote"></p>
         <div id="batchList"></div>
-      </div>
+        </div>
+      </details>
 
-      <div class="card" id="photoCard" style="display:none">
-        <h2>Customer photos</h2>
+      <details class="card sec" id="photoCard" style="display:none">
+        <summary><h2>Customer photos</h2><span class="count" data-of="#photos a"></span></summary>
+        <div class="secbody">
         <div class="photos" id="photos"></div>
-      </div>
+        </div>
+      </details>
 
-      <div class="card">
-        <h2>Price the job</h2>
+      <details class="card sec">
+        <summary><h2>Price the job</h2><span class="count" data-of="#quoteList .quotebox"></span></summary>
+        <div class="secbody">
         <p class="sub" id="qKindNote" style="margin-bottom:14px"></p>
         <div id="quoteMsg" class="msg"></div>
         <div id="quoteList"></div>
@@ -203,10 +231,12 @@
             <button class="send" id="qLabel" style="display:none">Download the label &amp; slip</button>
           </div>
         </div>
-      </div>
+        </div>
+      </details>
 
-      <div class="card">
-        <h2>Invoice</h2>
+      <details class="card sec">
+        <summary><h2>Invoice</h2><span class="count" data-of="#invList .quotebox"></span></summary>
+        <div class="secbody">
         <div id="invMsg" class="msg"></div>
         <div id="invList"></div>
 
@@ -231,10 +261,12 @@
             <button class="send" id="iPdf">Download PDF</button>
           </div>
         </div>
-      </div>
+        </div>
+      </details>
 
-      <div class="card">
-        <h2>Diagnostic assistant</h2>
+      <details class="card sec">
+        <summary><h2>Diagnostic assistant</h2></summary>
+        <div class="secbody">
         <p class="sub" style="margin-bottom:12px">Uses the booking form and your bench notes. Treat it as a second opinion, not gospel.</p>
         <div id="aiMsg" class="msg"></div>
         <label for="aiQ">Your question <span style="font-weight:400;color:var(--muted)">— leave blank for "what should I check first?"</span></label>
@@ -244,10 +276,12 @@
           <button class="send" id="aiSave" style="display:none">Save answer to notes</button>
         </div>
         <div id="aiOut" style="display:none;white-space:pre-wrap;font-size:14px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:14px"></div>
-      </div>
+        </div>
+      </details>
 
-      <div class="card">
-        <h2>Repair report</h2>
+      <details class="card sec">
+        <summary><h2>Repair report</h2></summary>
+        <div class="secbody">
         <p class="sub" style="margin-bottom:12px">Writes a plain-English report for the customer from the booking form and your bench notes. Read it before you send it &mdash; it can only describe what you've actually written down.</p>
         <div id="repMsg" class="msg"></div>
         <div class="sendrow" style="margin-top:0">
@@ -268,10 +302,12 @@
           <label for="rNotes">Worth knowing <span style="font-weight:400;color:var(--muted)">— leave blank to omit</span></label>
           <textarea id="rNotes" style="min-height:60px"></textarea>
         </div>
-      </div>
+        </div>
+      </details>
 
-      <div class="card">
-        <h2>Communication</h2>
+      <details class="card sec">
+        <summary><h2>Communication</h2><span class="count" data-of="#comList li:not(.when)"></span></summary>
+        <div class="secbody">
         <p class="sub" style="margin-bottom:12px">Everything the software sends is logged here by itself. Add anything worth remembering — a promise, a complaint, an agreed change.</p>
         <div id="comMsg" class="msg"></div>
         <div class="row">
@@ -297,15 +333,18 @@
         <textarea id="comText" style="min-height:70px" placeholder="Asked when it'll be ready. Told him Thursday."></textarea>
         <button class="primary" id="comBtn">Log it</button>
         <ul class="notes" id="comList" style="margin-top:18px"></ul>
-      </div>
+        </div>
+      </details>
 
-      <div class="card">
-        <h2>Work notes</h2>
+      <details class="card sec">
+        <summary><h2>Work notes</h2><span class="count" data-of="#notes li:not(.when)"></span></summary>
+        <div class="secbody">
         <div id="noteMsg" class="msg"></div>
         <textarea id="noteText" placeholder="What you measured, what you found, what you did."></textarea>
         <button class="primary" id="noteBtn">Add note</button>
         <ul class="notes" id="notes" style="margin-top:18px"></ul>
-      </div>
+        </div>
+      </details>
 
     </div>
   </div>
@@ -1172,5 +1211,23 @@ $('qCopy').addEventListener('click', async () => {
 load();
 </script>
 
+<script>
+// Section headers show how many notes, messages, quotes etc. are inside,
+// so you can tell what's there without opening it.
+(function () {
+  const secs = () => document.querySelectorAll('details.sec');
+  document.getElementById('openAll').addEventListener('click', () => secs().forEach(d => { d.open = true; }));
+  document.getElementById('closeAll').addEventListener('click', () => secs().forEach(d => { d.open = false; }));
+  function counts() {
+    document.querySelectorAll('details.sec .count[data-of]').forEach(el => {
+      const n = document.querySelectorAll(el.dataset.of).length;
+      const t = n ? String(n) : '';
+      if (el.textContent !== t) el.textContent = t;
+    });
+  }
+  new MutationObserver(counts).observe(document.getElementById('content'), { childList: true, subtree: true });
+  counts();
+})();
+</script>
 </body>
 </html>
