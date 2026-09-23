@@ -310,12 +310,12 @@
   </div>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
 import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildLabelPdf } from './label-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { createClient } from './vendor/supabase-js.min.js';
 
 const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';
