@@ -161,7 +161,7 @@
         </div>
         <label id="tradeRow" style="display:none;align-items:center;gap:10px;font-weight:600;margin:0 0 10px">
           <input type="checkbox" id="tradeBox" style="width:18px;height:18px"> Trade account
-          <span style="font-weight:400;color:var(--muted)">— 25% off the invoice, return postage excluded</span></label>
+          <span style="font-weight:400;color:var(--muted)">— 25% off labour on invoices; parts and postage at full price</span></label>
         <div class="secbar"><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></div>
       </div>
 
@@ -714,11 +714,25 @@ function fillInvoiceDescription() {
 // ---------- invoice lines ----------
 let LINES = [];
 
+// Each line is labour, parts or postage. Only labour gets the trade discount.
+function guessKind(desc) {
+  const d = String(desc || '');
+  if (/postage|postal|royal mail|shipping|courier/i.test(d)) return 'postage';
+  if (/\bparts?\b|component|replacement (ic|chip|port|screen)/i.test(d)) return 'parts';
+  return 'labour';
+}
+const KIND_TEXT = { labour: 'Labour', parts: 'Parts', postage: 'Postage' };
+
 function drawLines() {
+  LINES.forEach(l => { if (!l.kind) l.kind = guessKind(l.description); });
   $('iLines').innerHTML = LINES.map((l, n) => `
     <div class="row" style="align-items:flex-start;margin-bottom:4px">
       <div style="flex:1 1 260px">
         <textarea data-ldesc="${n}" style="min-height:58px" placeholder="What this line is for">${esc(l.description)}</textarea>
+      </div>
+      <div style="flex:0 0 120px">
+        <select data-lkind="${n}">${Object.entries(KIND_TEXT).map(([k, v]) =>
+          `<option value="${k}"${l.kind === k ? ' selected' : ''}>${v}</option>`).join('')}</select>
       </div>
       <div style="flex:0 0 120px">
         <input type="number" data-lamt="${n}" min="0" step="0.01" placeholder="0.00" value="${l.amount ? Number(l.amount).toFixed(2) : ''}">
@@ -731,6 +745,10 @@ function drawLines() {
   $('iLines').querySelectorAll('[data-ldesc]').forEach(el => el.addEventListener('input', () => {
     LINES[+el.dataset.ldesc].description = el.value;
   }));
+  $('iLines').querySelectorAll('[data-lkind]').forEach(el => el.addEventListener('change', () => {
+    LINES[+el.dataset.lkind].kind = el.value;
+    showTotal();
+  }));
   $('iLines').querySelectorAll('[data-lamt]').forEach(el => el.addEventListener('input', () => {
     LINES[+el.dataset.lamt].amount = parseFloat(el.value) || 0;
     showTotal();
@@ -742,7 +760,7 @@ function drawLines() {
   showTotal();
 }
 
-// Trade accounts: 25% off every invoice line except return postage.
+// Trade accounts: 25% off labour only. Parts and postage are charged at full price.
 // The server applies it; this just shows you what the invoice will come to.
 let TRADE = false;
 async function loadTrade(contactId) {
@@ -762,7 +780,7 @@ $('tradeBox').addEventListener('change', async () => {
 });
 function tradeDiscount() {
   if (!TRADE) return 0;
-  const base = LINES.filter(l => !/postage/i.test(String(l.description || '')))
+  const base = LINES.filter(l => (l.kind || guessKind(l.description)) === 'labour')
                     .reduce((s, l) => s + (Number(l.amount) || 0), 0);
   return Math.round(base * 25) / 100;
 }
