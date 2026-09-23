@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book a drop-off | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root { --navy:#1B2A4A; --navy-dark:#121d34; --ink:#1f2733; --muted:#5a6474; --line:#d9dee6; --soft:#f4f6f9; --white:#fff; --red:#b3261e; --green:#1c6b3c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:var(--ink); background:var(--soft); line-height:1.6; }
+  a { color: var(--navy); }
+  .wrap { max-width:720px; margin:0 auto; padding:0 20px; }
+  header { background:var(--white); border-bottom:1px solid var(--line); }
+  header .wrap { display:flex; align-items:center; justify-content:space-between; height:72px; max-width:1080px; }
+  header img { height:52px; display:block; }
+  header nav a { text-decoration:none; font-weight:600; font-size:15px; color:var(--ink); }
+  main { padding:40px 0 72px; }
+  .panel { background:var(--white); border:1px solid var(--line); border-radius:12px; padding:28px; }
+  h1 { font-size:26px; color:var(--navy); margin:0 0 6px; }
+  .jobline { color:var(--muted); font-size:15px; margin:0 0 20px; }
+  .klabel { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.07em; margin:0 0 8px; }
+
+  .days { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:18px; }
+  .day { flex:0 0 auto; min-width:74px; text-align:center; background:#fff; border:1px solid var(--line); border-radius:10px;
+         padding:8px 10px; cursor:pointer; font:inherit; color:var(--ink); }
+  .day .dn { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .day .dd { font-size:20px; font-weight:700; line-height:1.2; }
+  .day .dm { font-size:12px; color:var(--muted); }
+  .day.on { background:var(--navy); border-color:var(--navy); color:#fff; }
+  .day.on .dn, .day.on .dm { color:#cdd6e6; }
+  .day.full { opacity:.45; }
+
+  .slots { display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:20px; }
+  .slot { background:#fff; border:1px solid var(--navy); color:var(--navy); border-radius:8px; padding:11px 8px;
+          font:inherit; font-weight:700; font-size:15px; cursor:pointer; }
+  .slot:hover { background:#eef2f8; }
+  .slot:disabled { background:#eef0f4; border-color:#e2e6ec; color:#a3abb8; cursor:default; text-decoration:line-through; }
+  .slot.pick { background:var(--navy); color:#fff; }
+  .slot.mine { background:var(--green); border-color:var(--green); color:#fff; }
+
+  .confirm { border:1px solid var(--line); border-radius:10px; padding:18px 20px; background:#f8fafc; margin-bottom:18px; display:none; }
+  .confirm.show { display:block; }
+  button.primary { background:var(--navy); color:#fff; border:0; border-radius:8px; font:inherit; font-weight:700; padding:12px 22px; cursor:pointer; font-size:16px; }
+  button.primary:disabled { opacity:.5; cursor:default; }
+
+  .addr { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 16px; font-size:15px; margin-top:12px; }
+  .msg { border-radius:8px; padding:14px 16px; margin-bottom:18px; font-size:15px; display:none; }
+  .msg.show { display:block; }
+  .msg.err { background:#fdecea; border:1px solid #f3c2bd; color:var(--red); }
+  .msg.info { background:#eef2f8; border:1px solid #cdd8e8; color:var(--navy); }
+  .msg.ok { background:#e7f2ec; border:1px solid #bcdcca; color:var(--green); }
+  .small { color:var(--muted); font-size:14px; }
+  footer { background:var(--navy-dark); color:#9aa6bd; font-size:14px; padding:24px 0; }
+  footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; max-width:1080px; }
+  footer a { color:#cdd6e6; }
+  @media (max-width:600px){ header .wrap{height:64px} header img{height:42px} .panel{padding:20px} h1{font-size:22px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="index.html"><img src="logo.png" alt="Precision Electronics Repair"></a>
+    <nav><a href="index.html">Home</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="panel">
+      <div id="loading" class="msg info show">Loading…</div>
+      <div id="error" class="msg err"></div>
+
+      <div id="area" style="display:none">
+        <h1>Bring it in yourself</h1>
+        <p class="jobline" id="jobline"></p>
+
+        <div id="current" class="msg ok"></div>
+        <div id="bookErr" class="msg err"></div>
+
+        <p style="margin:0 0 18px">Pick a time to drop your item off at our workshop in Watford. Each slot is an hour —
+          arrive any time within it. You don't need the address label or packing slips; we'll book everything
+          in with you there.</p>
+
+        <div class="klabel">Choose a day</div>
+        <div class="days" id="days"></div>
+
+        <div class="klabel" id="slotsLabel">Choose a time</div>
+        <div class="slots" id="slots"></div>
+
+        <div class="confirm" id="confirm">
+          <div style="font-size:17px;font-weight:700;color:var(--navy)" id="pickText"></div>
+          <p class="small" style="margin:4px 0 14px">Please bring every item you've booked in.</p>
+          <button class="primary" id="bookBtn">Book this time</button>
+        </div>
+
+        <p class="small" id="none" style="display:none">There are no times available over the next three weeks.
+          Please call 07522 124273 or email info@precisionelectronicsrepair.co.uk and we'll sort something out.</p>
+
+        <div class="addr">
+          <strong style="color:var(--navy)">Where to come</strong><br>
+          Precision Electronics Repair<br>
+          262D Boundary Way, Watford, Hertfordshire, WD25 7SX<br>
+          <span class="small">Running late or can't make it? Call 07522 124273, or come back to this page to pick a new time.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Precision Electronics Repair</span>
+    <span><a href="privacy.html">Privacy notice</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+
+<script>
+const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';
+
+const params = new URLSearchParams(location.search);
+const JOB = (params.get('job') || '').trim().toUpperCase();
+const KEY = (params.get('k') || '').trim();
+const $ = id => document.getElementById(id);
+const TZ = 'Europe/London';
+
+let DAYS = [];      // [{ key, date, slots: [...] }]
+let DAYKEY = null;
+let PICK = null;
+
+async function rpc(fn, body) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+  if (!res.ok) throw new Error((data && data.message) || 'Something went wrong.');
+  return data;
+}
+
+function fail(text) {
+  $('loading').classList.remove('show');
+  $('error').textContent = text;
+  $('error').classList.add('show');
+  $('area').style.display = 'none';
+}
+
+// Always UK time, whatever the visitor's device is set to.
+const fmt = (ts, o) => new Date(ts).toLocaleString('en-GB', { timeZone: TZ, ...o });
+const dayKey = ts => fmt(ts, { year: 'numeric', month: '2-digit', day: '2-digit' });
+const hourText = ts => fmt(ts, { hour: '2-digit', minute: '2-digit' });
+const longText = ts => fmt(ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ' at ' + hourText(ts);
+
+async function load(keepDay) {
+  if (!JOB || !KEY) return fail('This booking link is incomplete. Please use the exact link we emailed you.');
+  let d;
+  try { d = await rpc('appointment_slots', { p_job_number: JOB, p_key: KEY }); }
+  catch (e) { return fail('We could not load the times right now. Please try again shortly, or call 07522 124273.'); }
+  if (!d || !d.valid) return fail('We could not find that booking. Please check the link we emailed you, or call 07522 124273.');
+
+  const jobs = d.jobs || [];
+  $('jobline').innerHTML = (jobs.length > 1 ? 'Jobs <strong>' + jobs.join(', ') + '</strong>' : 'Job <strong>' + d.job_number + '</strong>') +
+    (d.customer_name ? ' · ' + String(d.customer_name).replace(/</g, '&lt;') : '');
+
+  if (d.booked) {
+    $('current').textContent = 'You\'re booked in for ' + longText(d.booked) + '. To change it, pick another time below.';
+    $('current').classList.add('show');
+  } else {
+    $('current').classList.remove('show');
+  }
+
+  const byDay = new Map();
+  (d.slots || []).forEach(s => {
+    const k = dayKey(s.starts_at);
+    if (!byDay.has(k)) byDay.set(k, { key: k, date: s.starts_at, slots: [] });
+    byDay.get(k).slots.push(s);
+  });
+  // Days with nothing left at all aren't worth showing.
+  DAYS = [...byDay.values()].filter(x => x.slots.some(s => s.free || s.mine));
+
+  $('loading').classList.remove('show');
+  $('area').style.display = 'block';
+
+  if (!DAYS.length) {
+    $('days').innerHTML = ''; $('slots').innerHTML = ''; $('slotsLabel').style.display = 'none';
+    $('none').style.display = 'block';
+    return;
+  }
+  if (!keepDay || !DAYS.find(x => x.key === DAYKEY)) {
+    const mineDay = d.booked ? DAYS.find(x => x.key === dayKey(d.booked)) : null;
+    DAYKEY = (mineDay || DAYS[0]).key;
+  }
+  drawDays();
+  drawSlots();
+}
+
+function drawDays() {
+  $('days').innerHTML = DAYS.map(x => `
+    <button class="day${x.key === DAYKEY ? ' on' : ''}" data-k="${x.key}">
+      <div class="dn">${fmt(x.date, { weekday: 'short' })}</div>
+      <div class="dd">${fmt(x.date, { day: 'numeric' })}</div>
+      <div class="dm">${fmt(x.date, { month: 'short' })}</div>
+    </button>`).join('');
+  $('days').querySelectorAll('.day').forEach(b => b.addEventListener('click', () => {
+    DAYKEY = b.dataset.k; PICK = null; $('confirm').classList.remove('show');
+    drawDays(); drawSlots();
+  }));
+  const on = $('days').querySelector('.day.on');
+  if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+function drawSlots() {
+  const day = DAYS.find(x => x.key === DAYKEY);
+  $('slotsLabel').textContent = 'Choose a time — ' + fmt(day.date, { weekday: 'long', day: 'numeric', month: 'long' });
+  $('slots').innerHTML = day.slots.map(s => {
+    const cls = s.mine ? ' mine' : (PICK === s.starts_at ? ' pick' : '');
+    const off = !s.free && !s.mine;
+    return `<button class="slot${cls}" data-s="${s.starts_at}"${off ? ' disabled title="Not available"' : ''}>${hourText(s.starts_at)}${s.mine ? ' ✓' : ''}</button>`;
+  }).join('');
+  $('slots').querySelectorAll('.slot:not(:disabled):not(.mine)').forEach(b => b.addEventListener('click', () => {
+    PICK = b.dataset.s;
+    $('pickText').textContent = longText(PICK);
+    $('confirm').classList.add('show');
+    $('bookErr').classList.remove('show');
+    drawSlots();
+    $('confirm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }));
+}
+
+$('bookBtn').addEventListener('click', async () => {
+  if (!PICK) return;
+  $('bookBtn').disabled = true; $('bookBtn').textContent = 'Booking…';
+  try {
+    await rpc('book_appointment', { p_job_number: JOB, p_key: KEY, p_starts_at: PICK });
+    PICK = null;
+    $('confirm').classList.remove('show');
+    await load(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) {
+    $('bookErr').textContent = e.message;
+    $('bookErr').classList.add('show');
+    PICK = null;
+    $('confirm').classList.remove('show');
+    await load(true);
+  }
+  $('bookBtn').disabled = false; $('bookBtn').textContent = 'Book this time';
+});
+
+load(false);
+</script>
+
+</body>
+</html>

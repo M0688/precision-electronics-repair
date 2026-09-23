@@ -29,6 +29,30 @@
       <p class="sub">Things that apply to you rather than to a job.</p>
     </div>
 
+    <div class="card">
+      <h2>Drop-off hours</h2>
+      <p class="sub">When customers can book to bring an item in. Each slot is an hour, booked at least
+      12 hours ahead, up to three weeks out. Days you leave unticked are never offered.</p>
+      <div id="hoursMsg" class="msg"></div>
+      <div id="hours"><p class="empty">Loading…</p></div>
+      <button class="primary" id="hoursSave" style="margin-top:6px">Save hours</button>
+    </div>
+
+    <div class="card">
+      <h2>Times you're away</h2>
+      <p class="sub">No drop-off slots are offered while you're away. Anything already booked in that time
+      stays booked — check the list on the Jobs page.</p>
+      <div id="awayMsg" class="msg"></div>
+      <div class="row">
+        <div><label for="awayFrom">From</label><input type="datetime-local" id="awayFrom" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;margin-bottom:14px"></div>
+        <div><label for="awayTo">Until</label><input type="datetime-local" id="awayTo" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;margin-bottom:14px"></div>
+      </div>
+      <label for="awayNote">Note <span class="muted" style="font-weight:400">— just for you, optional</span></label>
+      <input type="text" id="awayNote" placeholder="Holiday">
+      <button class="primary" id="awayAdd">Add</button>
+      <div id="awayList" style="margin-top:16px"></div>
+    </div>
+
     <div class="card" id="pushCard">
       <h2>Phone alerts</h2>
       <div id="pushMsg" class="msg"></div>
@@ -254,12 +278,88 @@ $('tplNew').addEventListener('click', () => {
   $('tplList').querySelector('.tpl [data-f="title"]').focus();
 });
 
+// ---------- drop-off hours ----------
+const WEEK = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'], [5, 'Friday'], [6, 'Saturday'], [0, 'Sunday']];
+const hourOpts = (from, to, sel) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
+  .map(h => `<option value="${h}"${h === sel ? ' selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('');
+const selStyle = 'width:auto;margin:0;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px';
+
+async function loadHours() {
+  const { data, error } = await sb.from('opening_hours').select('*');
+  if (error) return show($('hoursMsg'), error.message, 'err');
+  const byDay = Object.fromEntries((data || []).map(r => [r.weekday, r]));
+  $('hours').innerHTML = WEEK.map(([d, name]) => {
+    const r = byDay[d] || { is_open: false, open_hour: 9, close_hour: 17 };
+    return `<div class="device" data-day="${d}">
+      <label style="display:flex;align-items:center;gap:10px;margin:0;flex:0 0 150px;font-weight:600">
+        <input type="checkbox" data-f="open"${r.is_open ? ' checked' : ''}> ${name}</label>
+      <select data-f="from" style="${selStyle}">${hourOpts(0, 23, r.open_hour)}</select>
+      <span class="muted">to</span>
+      <select data-f="to" style="${selStyle}">${hourOpts(1, 24, r.close_hour)}</select>
+    </div>`;
+  }).join('');
+}
+
+$('hoursSave').addEventListener('click', async () => {
+  hide($('hoursMsg'));
+  const rows = [...$('hours').querySelectorAll('[data-day]')].map(el => ({
+    weekday: Number(el.dataset.day),
+    is_open: el.querySelector('[data-f="open"]').checked,
+    open_hour: Number(el.querySelector('[data-f="from"]').value),
+    close_hour: Number(el.querySelector('[data-f="to"]').value)
+  }));
+  const bad = rows.find(r => r.close_hour <= r.open_hour);
+  if (bad) return show($('hoursMsg'), 'The finish time has to be after the start time (' + WEEK.find(w => w[0] === bad.weekday)[1] + ').', 'err');
+  const { error } = await sb.from('opening_hours').upsert(rows);
+  if (error) return show($('hoursMsg'), error.message, 'err');
+  show($('hoursMsg'), 'Saved. Customers see the new hours straight away.', 'ok');
+});
+
+// ---------- away ----------
+const stamp = ts => new Date(ts).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+async function loadAway() {
+  const { data, error } = await sb.from('away_periods').select('*')
+    .gte('ends_at', new Date().toISOString()).order('starts_at');
+  if (error) return show($('awayMsg'), error.message, 'err');
+  const rows = data || [];
+  $('awayList').innerHTML = rows.length
+    ? rows.map(a => `<div class="device">
+        <div class="name"><strong>${stamp(a.starts_at)}</strong> to <strong>${stamp(a.ends_at)}</strong>${a.note ? ' · ' + esc(a.note) : ''}</div>
+        <button class="btn-sm" data-rm="${a.id}">Remove</button>
+      </div>`).join('')
+    : '<p class="empty">Nothing coming up.</p>';
+  $('awayList').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true;
+    const { error } = await sb.from('away_periods').delete().eq('id', b.dataset.rm);
+    if (error) { b.disabled = false; return show($('awayMsg'), error.message, 'err'); }
+    loadAway();
+  }));
+}
+
+$('awayAdd').addEventListener('click', async () => {
+  hide($('awayMsg'));
+  const f = $('awayFrom').value, t = $('awayTo').value;
+  if (!f || !t) return show($('awayMsg'), 'Pick both a start and an end.', 'err');
+  const from = new Date(f), to = new Date(t);
+  if (to <= from) return show($('awayMsg'), 'The end has to be after the start.', 'err');
+  const { error } = await sb.from('away_periods').insert({
+    starts_at: from.toISOString(), ends_at: to.toISOString(), note: $('awayNote').value.trim() || null
+  });
+  if (error) return show($('awayMsg'), error.message, 'err');
+  $('awayFrom').value = ''; $('awayTo').value = ''; $('awayNote').value = '';
+  show($('awayMsg'), 'Added. No slots will be offered in that time.', 'ok');
+  loadAway();
+});
+
 (async () => {
   const sess = await requireSession();
   if (!sess) return;
   setupPushUI();
   loadDevices();
   loadTemplates();
+  loadHours();
+  loadAway();
 })();
 </script>
 

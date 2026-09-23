@@ -229,7 +229,7 @@
             <button class="send" id="qCopy">Copy link</button>
             <a class="send wa" id="qWa" target="_blank" rel="noopener">Send on WhatsApp</a>
             <a class="send" id="qSms">Send by text</a>
-            <button class="send" id="qLabel" style="display:none">Download the label &amp; slip</button>
+            <button class="send" id="qLabel" style="display:none">Download the label &amp; slips</button>
           </div>
         </div>
         </div>
@@ -1135,20 +1135,27 @@ $('quoteBtn').addEventListener('click', async () => {
   // Photos go up before the email, so the customer sees them on the page.
   const shots = await uploadQuotePhotos(quoteId);
 
-  // An estimate travels with an address label and packing slip — the job
-  // number goes on the box, their details go inside it.
+  // An estimate travels with a plain address label for the box and one
+  // packing slip per item booked in together. Job numbers go on the slips,
+  // which travel inside with each item — never on the outside of the parcel.
   let labelBase64 = null;
   if (kind === 'estimate') {
     try {
-      const doc = await buildLabelPdf({
+      const self = {
         job_number: JOB,
-        customer_name: JOBROW.customer_name,
-        customer_address: JOBROW.address,
         item: JOBROW.make_model || JOBROW.device_type,
         fault: JOBROW.fault_description,
         accessories: JOBROW.accessories
+      };
+      const items = BATCH.length > 1
+        ? BATCH.map(b => b.is_self ? self : { job_number: b.job_number, item: b.item, fault: b.fault })
+        : [self];
+      const doc = await buildLabelPdf({
+        customer_name: JOBROW.customer_name,
+        customer_address: JOBROW.address,
+        items
       });
-      LASTLABEL = { doc, name: JOB + '-address-label.pdf' };
+      LASTLABEL = { doc, name: JOB + '-label-and-packing-slips.pdf' };
       labelBase64 = doc.output('datauristring').split(',')[1];
       $('qLabel').style.display = '';
     } catch (e) {

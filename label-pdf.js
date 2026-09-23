@@ -5,10 +5,13 @@
 // "already paid for" and that is an argument waiting to happen.
 // buildLabelPdf(data) -> Promise<jsPDF>
 //
-// One A4 sheet with a cut-out label the customer tapes to the parcel. The job
-// number is the point of it: a box with a number on it can be booked in
-// straight away, a box without one sits on the bench while we work out whose
-// it is.
+// Page one is a cut-out address label for the parcel. It carries no job
+// number, because one parcel can hold several items. Each item gets its own
+// packing slip (one page each) with its job number, and the slip travels in
+// with the item. That's how we match each item to its job.
+//
+// d.items = [{ job_number, item, fault, accessories }] — one slip per entry.
+// Without d.items, d itself is treated as the single item.
 
 const WORKSHOP = {
   name: 'Precision Electronics Repair',
@@ -85,54 +88,32 @@ export async function buildLabelPdf(d) {
   doc.setFontSize(8);
   doc.text('REPAIR — ADDRESS LABEL', LX + LW - 5, LY + 12.5, { align: 'right' });
 
-  // The job number, boxed and shouting, because postage gets taped over things.
-  const BX = LX + 6, BY = LY + 25, BW = LW - 12, BH = 26;
+  const items = (Array.isArray(d.items) && d.items.length) ? d.items : [d];
 
-  doc.setFillColor(...NAVY);
-  doc.rect(BX, BY, BW, 7, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.text('DO NOT COVER — JOB NUMBER', BX + BW / 2, BY + 5, { align: 'center' });
-
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.8);
-  doc.rect(BX, BY, BW, BH);
-  doc.setLineWidth(0.3);
-
-  doc.setTextColor(...NAVY);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(26);
-  doc.text(String(d.job_number || ''), BX + BW / 2, BY + 22, { align: 'center' });
-
-  let y = BY + BH + 9;
-
-  // send to
+  // send to — large, since this is all the outside of the box needs
+  let y = LY + 33;
   doc.setTextColor(...MUTED);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text('SEND TO', LX + 6, y);
-  y += 6;
+  doc.setFontSize(9);
+  doc.text('SEND TO', LX + 8, y);
+  y += 9;
 
   doc.setTextColor(30, 39, 51);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text(WORKSHOP.name, LX + 6, y);
-  y += 6;
+  doc.setFontSize(17);
+  doc.text(WORKSHOP.name, LX + 8, y);
+  y += 8.5;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  WORKSHOP.addr.forEach(line => { doc.text(line, LX + 6, y); y += 5.5; });
+  doc.setFontSize(15);
+  WORKSHOP.addr.forEach(line => { doc.text(line, LX + 8, y); y += 7; });
 
-  doc.setFontSize(9);
-  doc.setTextColor(...MUTED);
-  doc.text(WORKSHOP.phone, LX + 6, y + 1);
-
-  // Nothing about the customer goes on the outside of the parcel. The job
-  // number identifies it, and their details travel inside on the packing slip.
+  // Nothing about the customer goes on the outside of the parcel. Their
+  // details, and each item's job number, travel inside on the packing slips.
   doc.setFontSize(7.5);
   doc.setTextColor(...MUTED);
-  doc.text('RETURN DETAILS ON THE SLIP INSIDE', LX + LW - 6, LY + LH - 6, { align: 'right' });
+  doc.text(WORKSHOP.phone, LX + 8, LY + LH - 6);
+  doc.text('PACKING SLIP INSIDE WITH EACH ITEM', LX + LW - 6, LY + LH - 6, { align: 'right' });
 
   // ---- what to do with it, below the cut line ----
   let ny = LY + LH + 22;
@@ -146,9 +127,12 @@ export async function buildLabelPdf(d) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
 
+  const many = items.length > 1;
   const steps = [
     'Cut along the dashed line and tape the label to the outside of the parcel, address side up.',
-    'Print page two, fill in anything it asks for, and put it inside the box with the item.',
+    many
+      ? 'The following pages are packing slips, one for each item. You can pack all your items in one box. Just put each slip in with the item it belongs to, since it carries that item\'s job number and that\'s how we match it to your booking. Every item you want repaired needs its own slip.'
+      : 'Print the packing slip on the next page and put it inside the box with the item. It carries your job number, which is how we match the item to your booking.',
     'Pack the item so nothing can move inside the box. Bubble wrap around the item, then padding around that.',
     'Include anything relevant — a power lead if the fault is charging, a controller if the fault is pairing.',
     'Take it to any Post Office or drop-off point and pay for postage there — this label is an address label, not prepaid postage. We suggest a tracked service, and keep your receipt.',
@@ -174,8 +158,13 @@ export async function buildLabelPdf(d) {
   ny += 9;
   doc.text(doc.splitTextToSize(
     'Questions before you send it? Email ' + WORKSHOP.email + ' or call ' + WORKSHOP.phone + '.', 128), 40, ny);
+  ny += 9;
+  doc.setTextColor(30, 39, 51);
+  doc.text(doc.splitTextToSize(
+    'Dropping it off in person instead? You don\'t need the label or packing slips. Just bring the item to your ' +
+    'appointment in Watford and we\'ll book it in with you there. Use the "I\'ll bring it in myself" button in your email to pick a time.', 128), 40, ny);
 
-  packingSlip(doc, d, logo);
+  items.forEach((it, n) => packingSlip(doc, { ...d, ...it, slip_no: n + 1, slip_of: items.length }, logo));
 
   return doc;
 }
@@ -201,23 +190,27 @@ function packingSlip(doc, d, logo) {
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('PACKING SLIP', R, 17, { align: 'right' });
+  doc.text(d.slip_of > 1 ? 'PACKING SLIP ' + d.slip_no + ' OF ' + d.slip_of : 'PACKING SLIP', R, 17, { align: 'right' });
 
   let y = 46;
 
   doc.setTextColor(...NAVY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('Put this slip inside the box', L, y);
+  doc.text(d.slip_of > 1 ? 'Put this slip in with this item' : 'Put this slip inside the box', L, y);
   y += 7;
 
   doc.setTextColor(...MUTED);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(doc.splitTextToSize(
-    'It tells us whose parcel this is and where the item goes back to. Your name and address are ' +
-    'deliberately not on the outside label.', W), L, y);
-  y += 12;
+  const intro = doc.splitTextToSize(
+    (d.slip_of > 1
+      ? 'Each item you want repaired needs its own slip. This one is for the item below, so keep them together. '
+      : '') +
+    'The slip tells us which job this is and where the item goes back to. Your name and address are ' +
+    'deliberately not on the outside label.', W);
+  doc.text(intro, L, y);
+  y += intro.length * 4.6 + 4;
 
   // job number
   doc.setFillColor(244, 246, 249);
