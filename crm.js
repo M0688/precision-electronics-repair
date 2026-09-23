@@ -1,5 +1,6 @@
 // Shared helpers for the workshop software
 import { createClient } from './vendor/supabase-js.min.js';
+import './alert.js';
 
 export const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';

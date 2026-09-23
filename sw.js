@@ -10,7 +10,11 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     if (event.data) data.body = event.data.text();
   }
-  event.waitUntil(
+  // Tell any open workshop page, so it can flash and sound until acknowledged.
+  const tellPages = self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    list.forEach(c => c.postMessage({ type: 'workshop-alert', title: data.title, body: data.body, url: data.url }));
+  });
+  event.waitUntil(Promise.all([tellPages,
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
@@ -19,9 +23,11 @@ self.addEventListener('push', (event) => {
       // replace the last one in the tray, with no sound or pop-up.
       tag: data.tag || ('per-' + Date.now()),
       renotify: true,
+      // Stays on screen until you dismiss it.
+      requireInteraction: true,
       data: { url: data.url || '/workshop.html' }
     })
-  );
+  ]));
 });
 
 self.addEventListener('notificationclick', (event) => {
