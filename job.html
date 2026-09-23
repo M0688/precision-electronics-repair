@@ -140,6 +140,7 @@
               <option value="awaiting_intake">Awaiting booking form</option>
               <option value="intake_received">Form received</option>
               <option value="estimated">Estimate sent</option>
+              <option value="dropoff_booked">Drop-off booked</option>
               <option value="in_post">In the post to us</option>
               <option value="arrived">Item arrived</option>
               <option value="in_diagnosis">In diagnosis</option>
@@ -454,7 +455,7 @@ async function load() {
 }
 
 // Before the item is here, anything you price is an estimate.
-const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'in_post'];
+const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'dropoff_booked', 'in_post'];
 
 const KIND_NOTE = {
   estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price, an address label and a packing slip, and sending the item in is their answer. The firm price comes after you have inspected it.',

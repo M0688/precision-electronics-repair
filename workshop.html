@@ -234,7 +234,7 @@ function fmt(ts) {
 // Your wording, not the customer's — the tracking page phrases these for them.
 const STATUS_TEXT = {
   awaiting_intake: 'Awaiting form', intake_received: 'Form received',
-  estimated: 'Estimate sent', in_post: 'In post',
+  estimated: 'Estimate sent', dropoff_booked: 'Drop-off booked', in_post: 'In post',
   arrived: 'Arrived', in_diagnosis: 'In diagnosis', quoted: 'Quote sent',
   approved: 'Approved', declined: 'Declined', in_repair: 'In repair',
   testing: 'Testing', ready: 'Ready', invoiced: 'Invoiced', paid: 'Paid',
@@ -244,7 +244,7 @@ const STATUS_TEXT = {
 // Amber while something is waiting on someone, green once it's settled,
 // grey once the job is closed off.
 const STATUS_TONE = {
-  awaiting_intake: 'wait', intake_received: 'wait', estimated: 'wait', in_post: 'wait',
+  awaiting_intake: 'wait', intake_received: 'wait', estimated: 'wait', dropoff_booked: 'wait', in_post: 'wait',
   arrived: 'in', in_diagnosis: 'in', quoted: 'wait', approved: 'in',
   declined: 'off', in_repair: 'in', testing: 'in', ready: 'in',
   invoiced: 'wait', paid: 'in', returned: 'off',

@@ -15,7 +15,10 @@ self.addEventListener('push', (event) => {
       body: data.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: data.tag || 'per-job',
+      // Each alert gets its own tag. A shared tag made a new alert silently
+      // replace the last one in the tray, with no sound or pop-up.
+      tag: data.tag || ('per-' + Date.now()),
+      renotify: true,
       data: { url: data.url || '/workshop.html' }
     })
   );
