@@ -170,7 +170,7 @@ async function load(keepDay) {
     (d.customer_name ? ' · ' + String(d.customer_name).replace(/</g, '&lt;') : '');
 
   if (d.booked) {
-    $('current').textContent = 'You\'re booked in for ' + longText(d.booked) + '. To change it, pick another time below.';
+    $('current').textContent = 'You\'re booked in for ' + longText(d.booked) + '. We\'ve emailed you a confirmation. To change it, pick another time below.';
     $('current').classList.add('show');
   } else {
     $('current').classList.remove('show');
@@ -238,7 +238,14 @@ $('bookBtn').addEventListener('click', async () => {
   if (!PICK) return;
   $('bookBtn').disabled = true; $('bookBtn').textContent = 'Booking…';
   try {
-    await rpc('book_appointment', { p_job_number: JOB, p_key: KEY, p_starts_at: PICK });
+    // Goes through the server so the confirmation email and your alert go out too.
+    const res = await fetch(SUPABASE_URL + '/functions/v1/book-dropoff', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_number: JOB, key: KEY, starts_at: PICK })
+    });
+    const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+    if (!out.ok) throw new Error(out.error || 'Could not book that time.');
     PICK = null;
     $('confirm').classList.remove('show');
     await load(true);
