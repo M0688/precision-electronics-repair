@@ -41,6 +41,15 @@
       <div id="devices"><p class="empty">Loading…</p></div>
     </div>
 
+    <div class="card">
+      <h2>Standard replies</h2>
+      <p class="sub">The wording you pick from when sending an estimate or a quote. Edit any of them,
+      or add your own — anything you write here shows up in the picker straight away.</p>
+      <div id="tplMsg" class="msg"></div>
+      <div id="tplList"><p class="empty">Loading…</p></div>
+      <button class="primary" id="tplNew" style="margin-top:6px">Add a standard reply</button>
+    </div>
+
   </div>
 </main>
 
@@ -153,11 +162,104 @@ async function loadDevices() {
   }));
 }
 
+// ---------- standard replies ----------
+const KIND_LABEL = { both: 'Estimates and quotes', estimate: 'Estimates only', quote: 'Quotes only' };
+
+function tplRow(t) {
+  const isNew = !t.id;
+  return `<div class="tpl" data-id="${t.id || ''}"
+    style="border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:12px;background:#fff">
+    <div class="row">
+      <div style="flex:1 1 240px">
+        <label>Name</label>
+        <input type="text" data-f="title" value="${esc(t.title || '').replace(/"/g, '&quot;')}" placeholder="HDMI port replacement">
+      </div>
+      <div style="flex:0 0 190px">
+        <label>Show it for</label>
+        <select data-f="kind" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px">
+          ${Object.entries(KIND_LABEL).map(([k, v]) =>
+            `<option value="${k}"${(t.kind || 'both') === k ? ' selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div style="flex:0 0 130px">
+        <label>Usual price £</label>
+        <input type="number" data-f="amount" min="0" step="1" value="${t.amount != null ? Number(t.amount).toFixed(0) : ''}" placeholder="optional">
+      </div>
+    </div>
+    <label>Wording</label>
+    <textarea data-f="body" style="min-height:110px" placeholder="What the repair involves, in the words you would use to the customer.">${esc(t.body || '')}</textarea>
+    <div class="sendrow" style="margin-top:0">
+      <button class="send" data-save="1">${isNew ? 'Add it' : 'Save'}</button>
+      <button class="send" data-del="1" style="color:var(--red);border-color:#f3c2bd">${isNew ? 'Cancel' : 'Delete'}</button>
+    </div>
+  </div>`;
+}
+
+function readRow(box) {
+  const get = f => box.querySelector(`[data-f="${f}"]`).value;
+  const amount = parseFloat(get('amount'));
+  return {
+    title: get('title').trim(),
+    kind: get('kind'),
+    body: get('body').trim(),
+    amount: isNaN(amount) ? null : amount
+  };
+}
+
+async function loadTemplates() {
+  const { data, error } = await sb.from('reply_templates')
+    .select('*').eq('archived', false).order('sort').order('title');
+  if (error) return show($('tplMsg'), error.message, 'err');
+
+  const rows = data || [];
+  $('tplList').innerHTML = rows.length ? rows.map(tplRow).join('')
+    : '<p class="empty">None yet. Add one below.</p>';
+  wireRows();
+}
+
+function wireRows() {
+  $('tplList').querySelectorAll('.tpl').forEach(box => {
+    box.querySelector('[data-save]').addEventListener('click', async () => {
+      hide($('tplMsg'));
+      const v = readRow(box);
+      if (!v.title) return show($('tplMsg'), 'Give it a name.', 'err');
+      if (!v.body) return show($('tplMsg'), 'Write the wording.', 'err');
+
+      const id = box.dataset.id;
+      const { error } = id
+        ? await sb.from('reply_templates').update(v).eq('id', id)
+        : await sb.from('reply_templates').insert(v);
+      if (error) return show($('tplMsg'), error.message, 'err');
+      show($('tplMsg'), id ? 'Saved.' : 'Added.', 'ok');
+      loadTemplates();
+    });
+
+    box.querySelector('[data-del]').addEventListener('click', async () => {
+      const id = box.dataset.id;
+      if (!id) { box.remove(); return; }
+      if (!confirm('Remove this standard reply?')) return;
+      // Archived rather than deleted, so anything that used it still reads back.
+      const { error } = await sb.from('reply_templates').update({ archived: true }).eq('id', id);
+      if (error) return show($('tplMsg'), error.message, 'err');
+      show($('tplMsg'), 'Removed.', 'ok');
+      loadTemplates();
+    });
+  });
+}
+
+$('tplNew').addEventListener('click', () => {
+  if ($('tplList').querySelector('.tpl[data-id=""]')) return;
+  $('tplList').insertAdjacentHTML('afterbegin', tplRow({ kind: 'both' }));
+  wireRows();
+  $('tplList').querySelector('.tpl [data-f="title"]').focus();
+});
+
 (async () => {
   const sess = await requireSession();
   if (!sess) return;
   setupPushUI();
   loadDevices();
+  loadTemplates();
 })();
 </script>
 

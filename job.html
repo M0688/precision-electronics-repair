@@ -120,6 +120,8 @@
             <select id="status">
               <option value="awaiting_intake">Awaiting booking form</option>
               <option value="intake_received">Form received</option>
+              <option value="estimated">Estimate sent</option>
+              <option value="in_post">In the post to us</option>
               <option value="arrived">Item arrived</option>
               <option value="in_diagnosis">In diagnosis</option>
               <option value="quoted">Quote sent</option>
@@ -180,6 +182,9 @@
             <input type="number" id="qAmount" min="0" step="1" placeholder="120">
           </div>
         </div>
+        <label for="qTemplate">Standard reply <span style="font-weight:400;color:var(--muted)">— pick one to fill it in, then edit</span></label>
+        <select id="qTemplate"><option value="">Write it myself…</option></select>
+
         <label for="qWork">What the repair involves</label>
         <textarea id="qWork" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
 
@@ -194,6 +199,7 @@
             <button class="send" id="qCopy">Copy link</button>
             <a class="send wa" id="qWa" target="_blank" rel="noopener">Send on WhatsApp</a>
             <a class="send" id="qSms">Send by text</a>
+            <button class="send" id="qLabel" style="display:none">Download the postage label</button>
           </div>
         </div>
       </div>
@@ -307,6 +313,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module">
 import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
+import { buildLabelPdf } from './label-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
@@ -409,9 +416,36 @@ async function load() {
 const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'in_post'];
 
 const KIND_NOTE = {
-  estimate: 'An estimate is a price given before you have seen the item. The customer is told plainly that the price may change once it is inspected, and that you will come back to them for approval before doing anything that costs more.',
-  quote: 'A quote is a price given after you have inspected the item. The customer is told it holds unless something new turns up, in which case you will ask again before going further.'
+  estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price and a postage label, and sending the item in is their answer. The firm price comes after you have inspected it.',
+  quote: 'A quote is a price given after you have inspected the item. The customer approves or declines it, and nothing is done until they have.'
 };
+
+// Standard replies, so a routine job is three clicks not three minutes.
+let TEMPLATES = [];
+
+async function loadTemplates() {
+  const kind = $('qKind').value;
+  const { data, error } = await sb.rpc('templates_for', { p_kind: kind });
+  if (error) return;
+  TEMPLATES = data || [];
+  const keep = $('qTemplate').value;
+  $('qTemplate').innerHTML = '<option value="">Write it myself…</option>' +
+    TEMPLATES.map(t => `<option value="${t.id}">${esc(t.title)}${t.amount ? ' — £' + Number(t.amount).toFixed(0) : ''}</option>`).join('');
+  if (keep && TEMPLATES.some(t => t.id === keep)) $('qTemplate').value = keep;
+}
+
+$('qTemplate').addEventListener('change', () => {
+  const t = TEMPLATES.find(x => x.id === $('qTemplate').value);
+  if (!t) return;
+  // Never overwrite something you have already typed without saying so.
+  const existing = $('qWork').value.trim();
+  if (existing && !confirm('Replace what you have written with the "' + t.title + '" wording?')) {
+    $('qTemplate').value = '';
+    return;
+  }
+  $('qWork').value = t.body;
+  if (t.amount && !$('qAmount').value) $('qAmount').value = Number(t.amount).toFixed(0);
+});
 
 function setQuoteKind(status) {
   if (status !== null) {
@@ -419,7 +453,8 @@ function setQuoteKind(status) {
   }
   const kind = $('qKind').value;
   $('qKindNote').textContent = KIND_NOTE[kind];
-  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate to customer' : 'Send quote to customer';
+  loadTemplates();
+  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & postage label' : 'Send quote to customer';
 }
 
 // A job can carry several items — trade customers often send a batch.
@@ -676,6 +711,7 @@ $('iAddLine').addEventListener('click', () => {
 });
 
 let LASTPDF = null;
+let LASTLABEL = null;
 let INVOICES = [];
 
 // A paid invoice earns a receipt. Built here, emailed by the function.
@@ -1052,11 +1088,33 @@ $('quoteBtn').addEventListener('click', async () => {
   // Photos go up before the email, so the customer sees them on the page.
   const shots = await uploadQuotePhotos(quoteId);
 
+  // An estimate travels with a postage label — the job number goes on the box.
+  let labelBase64 = null;
+  if (kind === 'estimate') {
+    try {
+      const doc = await buildLabelPdf({
+        job_number: JOB,
+        customer_name: JOBROW.customer_name,
+        customer_address: JOBROW.address,
+        item: JOBROW.make_model || JOBROW.device_type,
+        fault: JOBROW.fault_description,
+        accessories: JOBROW.accessories
+      });
+      LASTLABEL = { doc, name: JOB + '-postage-label.pdf' };
+      labelBase64 = doc.output('datauristring').split(',')[1];
+      $('qLabel').style.display = '';
+    } catch (e) {
+      show($('quoteMsg'), 'The postage label could not be built (' + (e.message || e) + '). The estimate will still send.', 'err');
+    }
+  } else {
+    $('qLabel').style.display = 'none';
+  }
+
   const { data: sess } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote', {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quote_id: quoteId })
+    body: JSON.stringify({ quote_id: quoteId, label_base64: labelBase64 })
   });
   const out = await res.json().catch(() => ({}));
 
@@ -1068,7 +1126,8 @@ $('quoteBtn').addEventListener('click', async () => {
   const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
   const msg = kind === 'estimate'
     ? hi + 'here is an estimate for ' + JOB + ': £' + amount.toFixed(2) + '. ' + work +
-      ' — this is based on what you have told me, so the price may change once I have the item on the bench. If it does, I will come back to you for approval before doing anything. Accept or decline here: ' + link
+      ' — that is based on what you have told me, so the price may change once it is on the bench, and I will confirm before doing any work. ' +
+      'No need to reply: just post it to me when you are ready. Your postage label and the full details are here: ' + link
     : hi + 'your repair quote for ' + JOB + ' is ready: £' + amount.toFixed(2) + '. ' +
       work + ' — approve or decline here: ' + link;
   $('qLink').textContent = link;
@@ -1089,11 +1148,15 @@ $('quoteBtn').addEventListener('click', async () => {
   if (out.ok) show($('quoteMsg'), Word + ' emailed to ' + out.to + '.' + photoNote + ' Send it on WhatsApp or by text below as well if you like.', 'ok');
   else show($('quoteMsg'), Word + ' saved, but the email failed (' + (out.error || 'unknown error') + ').' + photoNote + ' Use the buttons below instead.', 'err');
 
-  $('qAmount').value = ''; $('qWork').value = '';
-  if (kind === 'quote') $('status').value = 'quoted';
+  $('qAmount').value = ''; $('qWork').value = ''; $('qTemplate').value = '';
+  $('status').value = kind === 'quote' ? 'quoted' : 'estimated';
   loadQuotes(JOBROW.id);
   loadNotes(JOBROW.id);
   loadComms(JOBROW.id);
+});
+
+$('qLabel').addEventListener('click', () => {
+  if (LASTLABEL) LASTLABEL.doc.save(LASTLABEL.name);
 });
 
 $('qCopy').addEventListener('click', async () => {

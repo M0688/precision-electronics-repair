@@ -88,12 +88,31 @@
 
         <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee applies and we'll return your item.</p>
 
-        <label for="note" style="font-weight:600;font-size:14px;display:block;margin:16px 0 6px">Anything you'd like to add? (optional)</label>
+        <label for="note" id="noteLabel" style="font-weight:600;font-size:14px;display:block;margin:16px 0 6px">Anything you'd like to add? (optional)</label>
         <textarea id="note" placeholder="Questions, or anything we should know."></textarea>
 
-        <div class="btns">
+        <div class="btns" id="answerBtns">
           <button class="yes" id="approveBtn">Approve — go ahead</button>
           <button class="no" id="declineBtn">Decline</button>
+        </div>
+
+        <div id="postBlock" style="display:none">
+          <div class="block" style="background:#f8fafc">
+            <div class="klabel">Sending it in</div>
+            <p style="margin:0 0 14px"><strong>There's nothing to reply to here.</strong> If you're happy to go
+              ahead, just post the item to us. Your postage label is attached to the email — print it, cut along
+              the dashed line and tape it to the parcel.</p>
+            <p style="margin:0 0 14px">The label carries your job number, which is how we know whose parcel it is
+              the moment it arrives.</p>
+            <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;font-size:15px">
+              <strong style="color:var(--navy)">Send to</strong><br>
+              Precision Electronics Repair<br>
+              262D Boundary Way<br>Watford<br>Hertfordshire<br>WD25 7SX<br>
+              <strong id="postJob" style="display:block;margin-top:8px"></strong>
+            </div>
+          </div>
+          <p class="small">Once it lands we'll inspect it and send you a firm price to approve. Nothing is charged
+            before that, and if you change your mind you don't need to do anything at all.</p>
         </div>
       </div>
 
@@ -171,17 +190,22 @@ async function start() {
     if (!q || !q.valid) return fail('We could not find that quote. Please check the link we emailed you, or call 07522 124273.');
     JOBNO = q.job_number;
     KIND = q.kind === 'estimate' ? 'estimate' : 'quote';
-    if (q.status !== 'sent') {
+    if (q.needs_answer && q.status !== 'sent') {
       $('loading').classList.remove('show');
       return finish(q.status, q.job_number);
     }
     if (KIND === 'estimate') {
+      // An estimate needs no answer — sending the item in is the answer.
       document.title = 'Your repair estimate | Precision Electronics Repair';
       $('headline').textContent = 'Your repair estimate';
       $('estimateNote').style.display = 'block';
       $('workLabel').textContent = 'Likely work';
-      $('feeLine').textContent = 'Nothing is charged at this stage. If you accept, send the item in and we will inspect it before any work starts.';
-      $('approveBtn').textContent = 'Accept this estimate';
+      $('feeLine').style.display = 'none';
+      $('answerBtns').style.display = 'none';
+      $('noteLabel').style.display = 'none';
+      $('note').style.display = 'none';
+      $('postJob').textContent = 'Quote job ' + q.job_number + ' on the parcel.';
+      $('postBlock').style.display = 'block';
     }
     // No diagnosis was needed, so declining costs nothing.
     NO_FEE = q.diag_fee_applies === false;
