@@ -124,7 +124,7 @@ async function start() {
       $('lines').innerHTML = rows.map(l => `
         <div style="display:flex;gap:14px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
           <div style="white-space:pre-wrap">${String(l.description || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
-          <div style="white-space:nowrap;font-weight:600">£${Number(l.amount).toFixed(2)}</div>
+          <div style="white-space:nowrap;font-weight:600">${Number(l.amount) < 0 ? '−£' : '£'}${Math.abs(Number(l.amount)).toFixed(2)}</div>
         </div>`).join('');
       $('desc').style.marginTop = '12px';
     }

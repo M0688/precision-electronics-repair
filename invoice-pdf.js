@@ -14,7 +14,8 @@ const NAVY = [27, 42, 74];
 const MUTED = [90, 100, 116];
 
 function money(n) {
-  return '£' + Number(n).toFixed(2);
+  const v = Number(n) || 0;
+  return (v < 0 ? '−£' : '£') + Math.abs(v).toFixed(2);
 }
 
 function ukDate(ts) {

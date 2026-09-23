@@ -60,10 +60,10 @@
         <div class="row">
           <div><label for="eEmail">Email</label><input type="email" id="eEmail"></div>
           <div><label for="ePhone">Phone</label><input type="text" id="ePhone"></div>
-          <div style="flex:0 0 160px"><label for="eKind">Type</label>
-            <select id="eKind"><option value="customer">Customer</option><option value="trade">Trade account</option></select>
-          </div>
         </div>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:0 0 14px">
+          <input type="checkbox" id="eTrade" style="width:18px;height:18px"> Trade account
+          <span class="muted" style="font-weight:400">— 25% off every invoice, return postage excluded</span></label>
         <label for="eAddress">Address</label>
         <textarea id="eAddress" style="min-height:70px"></textarea>
         <label for="eNotes">Notes</label>
@@ -186,7 +186,7 @@ async function loadContact() {
   $('eName').value = data.name || ''; $('eCompany').value = data.company || '';
   $('eEmail').value = data.email || ''; $('ePhone').value = data.phone || '';
   $('eAddress').value = data.address || ''; $('eNotes').value = data.notes || '';
-  $('eKind').value = data.kind || 'customer';
+  $('eTrade').checked = data.kind === 'trade';
 
   $('cEmailBtn').href = data.email ? 'mailto:' + data.email : '#';
   $('cCallBtn').href = data.phone ? 'tel:' + data.phone : '#';
@@ -250,7 +250,7 @@ if ($('saveBtn')) {
       phone: $('ePhone').value.trim() || null,
       address: $('eAddress').value.trim() || null,
       notes: $('eNotes').value.trim() || null,
-      kind: $('eKind').value
+      kind: $('eTrade').checked ? 'trade' : 'customer'
     }).eq('id', ID);
     if (error) return show($('msg'), error.message, 'err');
     show($('msg'), 'Saved.', 'ok');

@@ -159,6 +159,9 @@
           </div>
           <div style="flex:0 0 auto"><button class="primary" id="statusBtn" style="margin-bottom:14px">Save status</button></div>
         </div>
+        <label id="tradeRow" style="display:none;align-items:center;gap:10px;font-weight:600;margin:0 0 10px">
+          <input type="checkbox" id="tradeBox" style="width:18px;height:18px"> Trade account
+          <span style="font-weight:400;color:var(--muted)">— 25% off the invoice, return postage excluded</span></label>
         <div class="secbar"><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></div>
       </div>
 
@@ -413,6 +416,7 @@ async function load() {
   $('jobNo').textContent = data.job_number;
   const bits = [data.customer_name, data.make_model || data.device_type].filter(Boolean).join(' · ') || 'No booking form yet';
   $('jobSub').innerHTML = esc(bits) + (data.contact_id ? ` · <a href="contacts.html?id=${data.contact_id}">customer record</a>` : '');
+  loadTrade(data.contact_id);
   $('status').value = data.status;
 
   const PREF = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text message', call: 'Phone call' };
@@ -738,13 +742,42 @@ function drawLines() {
   showTotal();
 }
 
+// Trade accounts: 25% off every invoice line except return postage.
+// The server applies it; this just shows you what the invoice will come to.
+let TRADE = false;
+async function loadTrade(contactId) {
+  if (!contactId) { $('tradeRow').style.display = 'none'; return; }
+  const { data } = await sb.from('contacts').select('kind').eq('id', contactId).maybeSingle();
+  TRADE = (data && data.kind) === 'trade';
+  $('tradeBox').checked = TRADE;
+  $('tradeRow').style.display = 'flex';
+  showTotal();
+}
+$('tradeBox').addEventListener('change', async () => {
+  const want = $('tradeBox').checked;
+  const { error } = await sb.from('contacts').update({ kind: want ? 'trade' : 'customer' }).eq('id', JOBROW.contact_id);
+  if (error) { $('tradeBox').checked = !want; return show($('msg'), error.message, 'err'); }
+  TRADE = want;
+  showTotal();
+});
+function tradeDiscount() {
+  if (!TRADE) return 0;
+  const base = LINES.filter(l => !/postage/i.test(String(l.description || '')))
+                    .reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  return Math.round(base * 25) / 100;
+}
+
 function linesTotal() {
   return LINES.reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
 }
 
 function showTotal() {
   const t = linesTotal();
-  $('iTotal').textContent = t > 0 ? 'Invoice total: £' + t.toFixed(2) : '';
+  const d = tradeDiscount();
+  $('iTotal').textContent = t > 0
+    ? (d > 0 ? 'Trade discount (25%): −£' + d.toFixed(2) + ' · Invoice total: £' + (t - d).toFixed(2)
+             : 'Invoice total: £' + t.toFixed(2))
+    : '';
 }
 
 $('iAddLine').addEventListener('click', () => {
@@ -888,12 +921,17 @@ $('invBtn').addEventListener('click', async () => {
   }
   const row = Array.isArray(data) ? data[0] : data;
 
+  // Read back what was actually billed — it includes any trade discount line.
+  const { data: billed } = await sb.from('invoices').select('amount').eq('id', row.invoice_id).maybeSingle();
+  const { data: billedLines } = await sb.from('invoice_lines').select('description,amount').eq('invoice_id', row.invoice_id).order('position');
+  const finalAmount = billed ? Number(billed.amount) : amount;
+
   const pdfData = {
     invoice_number: row.invoice_no,
     job_number: JOB,
-    amount,
+    amount: finalAmount,
     description: desc,
-    lines,
+    lines: billedLines && billedLines.length ? billedLines : lines,
     issued_at: new Date().toISOString(),
     status: 'unpaid',
     customer_name: JOBROW.customer_name,
@@ -914,8 +952,8 @@ $('invBtn').addEventListener('click', async () => {
 
   const link = 'https://precisionelectronicsrepair.co.uk/invoice.html?i=' + row.invoice_id + '&k=' + row.invoice_token;
   const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
-  const msg = hi + 'your invoice ' + row.invoice_no + ' for £' + amount.toFixed(2) + ' is ready: ' + link +
-              ' — bank transfer to Mitchell Morris, sort code 04-29-09, account 59881100, reference ' + row.invoice_no + '. Cash also accepted on collection.';
+  const msg = hi + 'your invoice ' + row.invoice_no + ' for £' + finalAmount.toFixed(2) + ' is ready: ' + link +
+              ' — bank transfer to Mitchell Morris, sort code 04-29-09, account 59881100, reference ' + row.invoice_no + '. We also accept cash on collection.';
   $('iLink').textContent = link;
   const num = ukNumber(JOBROW.phone);
   $('iWa').href = waLink(num, msg);
