@@ -199,7 +199,7 @@
             <button class="send" id="qCopy">Copy link</button>
             <a class="send wa" id="qWa" target="_blank" rel="noopener">Send on WhatsApp</a>
             <a class="send" id="qSms">Send by text</a>
-            <button class="send" id="qLabel" style="display:none">Download the postage label</button>
+            <button class="send" id="qLabel" style="display:none">Download the label &amp; slip</button>
           </div>
         </div>
       </div>
@@ -416,7 +416,7 @@ async function load() {
 const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'in_post'];
 
 const KIND_NOTE = {
-  estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price and a postage label, and sending the item in is their answer. The firm price comes after you have inspected it.',
+  estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price, an address label and a packing slip, and sending the item in is their answer. The firm price comes after you have inspected it.',
   quote: 'A quote is a price given after you have inspected the item. The customer approves or declines it, and nothing is done until they have.'
 };
 
@@ -454,7 +454,7 @@ function setQuoteKind(status) {
   const kind = $('qKind').value;
   $('qKindNote').textContent = KIND_NOTE[kind];
   loadTemplates();
-  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & postage label' : 'Send quote to customer';
+  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & address label' : 'Send quote to customer';
 }
 
 // A job can carry several items — trade customers often send a batch.
@@ -1088,7 +1088,8 @@ $('quoteBtn').addEventListener('click', async () => {
   // Photos go up before the email, so the customer sees them on the page.
   const shots = await uploadQuotePhotos(quoteId);
 
-  // An estimate travels with a postage label — the job number goes on the box.
+  // An estimate travels with an address label and packing slip — the job
+  // number goes on the box, their details go inside it.
   let labelBase64 = null;
   if (kind === 'estimate') {
     try {
@@ -1100,11 +1101,11 @@ $('quoteBtn').addEventListener('click', async () => {
         fault: JOBROW.fault_description,
         accessories: JOBROW.accessories
       });
-      LASTLABEL = { doc, name: JOB + '-postage-label.pdf' };
+      LASTLABEL = { doc, name: JOB + '-address-label.pdf' };
       labelBase64 = doc.output('datauristring').split(',')[1];
       $('qLabel').style.display = '';
     } catch (e) {
-      show($('quoteMsg'), 'The postage label could not be built (' + (e.message || e) + '). The estimate will still send.', 'err');
+      show($('quoteMsg'), 'The label could not be built (' + (e.message || e) + '). The estimate will still send.', 'err');
     }
   } else {
     $('qLabel').style.display = 'none';
@@ -1127,7 +1128,7 @@ $('quoteBtn').addEventListener('click', async () => {
   const msg = kind === 'estimate'
     ? hi + 'here is an estimate for ' + JOB + ': £' + amount.toFixed(2) + '. ' + work +
       ' — that is based on what you have told me, so the price may change once it is on the bench, and I will confirm before doing any work. ' +
-      'No need to reply: just post it to me when you are ready. Your postage label and the full details are here: ' + link
+      'No need to reply: just post it to me when you are ready. Your address label, packing slip and the full details are here: ' + link
     : hi + 'your repair quote for ' + JOB + ' is ready: £' + amount.toFixed(2) + '. ' +
       work + ' — approve or decline here: ' + link;
   $('qLink').textContent = link;

@@ -1,4 +1,8 @@
-// Postage label builder. Needs jsPDF (UMD) loaded first.
+// Address label builder. Needs jsPDF (UMD) loaded first.
+//
+// This is an address label, not prepaid postage — the customer pays at the
+// counter. The wording says so plainly, because "postage label" reads as
+// "already paid for" and that is an argument waiting to happen.
 // buildLabelPdf(data) -> Promise<jsPDF>
 //
 // One A4 sheet with a cut-out label the customer tapes to the parcel. The job
@@ -79,7 +83,7 @@ export async function buildLabelPdf(d) {
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text('REPAIR — DO NOT REDIRECT', LX + LW - 5, LY + 12.5, { align: 'right' });
+  doc.text('REPAIR — ADDRESS LABEL', LX + LW - 5, LY + 12.5, { align: 'right' });
 
   // The job number, boxed and shouting, because postage gets taped over things.
   const BX = LX + 6, BY = LY + 25, BW = LW - 12, BH = 26;
@@ -147,7 +151,7 @@ export async function buildLabelPdf(d) {
     'Print page two, fill in anything it asks for, and put it inside the box with the item.',
     'Pack the item so nothing can move inside the box. Bubble wrap around the item, then padding around that.',
     'Include anything relevant — a power lead if the fault is charging, a controller if the fault is pairing.',
-    'Take it to any Post Office or drop-off point. We suggest a tracked service, and keep your receipt.',
+    'Take it to any Post Office or drop-off point and pay for postage there — this label is an address label, not prepaid postage. We suggest a tracked service, and keep your receipt.',
     'Back up your data first if the device holds any. We will not need your passcode unless we have asked for it.'
   ];
 
