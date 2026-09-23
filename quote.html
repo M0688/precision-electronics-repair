@@ -78,6 +78,8 @@
             <div id="parts"></div>
           </div>
           <div class="total" id="amount"></div>
+          <div class="small" style="margin-top:2px">+ return postage, charged at cost</div>
+          <p class="small" style="margin:12px 0 0;color:var(--ink)">Your final bill is the repair price plus return postage, at exactly what Royal Mail charges us. Return postage applies on every job, including if the item can't be repaired or you decide not to go ahead.</p>
         </div>
 
         <div id="photoWrap" style="display:none;margin-bottom:20px">
@@ -86,7 +88,7 @@
           <p class="small" style="margin-top:8px">Tap a photo to see it full size.</p>
         </div>
 
-        <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee applies and we'll return your item.</p>
+        <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee and return postage apply, and we'll send your item back.</p>
 
         <label for="note" id="noteLabel" style="font-weight:600;font-size:14px;display:block;margin:16px 0 6px">Anything you'd like to add? (optional)</label>
         <textarea id="note" placeholder="Questions, or anything we should know."></textarea>
@@ -103,8 +105,8 @@
               ahead, just post the item to us. An address label and a packing slip are attached to the email —
               print them, cut the label out and tape it to the parcel, and put the slip inside with the item.</p>
             <p style="margin:0 0 14px" class="small">It's an address label, not prepaid postage — you pay at the
-              counter, and a tracked service is worth it. Return postage back to you is charged at cost and
-              included in your final price.</p>
+              counter, and a tracked service is worth it. Return postage back to you is added to your
+              final bill at cost.</p>
             <p style="margin:0 0 14px">The label carries your job number, which is how we know whose parcel it is
               the moment it arrives.</p>
             <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;font-size:15px">
@@ -176,8 +178,8 @@ function finish(state, jobNo) {
   } else {
     $('doneTitle').textContent = est ? 'Estimate declined' : 'Quote declined';
     $('doneText').textContent = (est || NO_FEE)
-      ? 'No problem — nothing is owed. We\'ll be in touch about your item for ' + jobNo + '.'
-      : 'No problem. We\'ll return your item for ' + jobNo + ' and be in touch about the £30 diagnostic fee.';
+      ? (est ? 'No problem — nothing is owed. We\'ll be in touch about your item for ' + jobNo + '.' : 'No problem. We\'ll send your item for ' + jobNo + ' back — the only charge is return postage, and we\'ll be in touch about it.')
+      : 'No problem. We\'ll send your item for ' + jobNo + ' back and be in touch about the £30 diagnostic fee and return postage.';
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -213,7 +215,7 @@ async function start() {
     // No diagnosis was needed, so declining costs nothing.
     NO_FEE = q.diag_fee_applies === false;
     if (NO_FEE && KIND !== 'estimate') {
-      $('feeLine').textContent = 'No further work happens until you decide. There is no diagnostic fee on this job — the fault was clear from the start — so declining costs you nothing.';
+      $('feeLine').textContent = 'No further work happens until you decide. There is no diagnostic fee on this job — the fault was clear from the start — so if you decline you only pay return postage.';
     }
 
     const shots = q.photos || [];
@@ -240,7 +242,7 @@ async function start() {
       $('item').closest('.jobline').insertAdjacentElement('afterend', note);
     }
     $('work').textContent = q.work_summary;
-    $('amount').textContent = (KIND === 'estimate' ? 'Estimated total: £' : 'Total: £') + Number(q.amount).toFixed(2);
+    $('amount').textContent = (KIND === 'estimate' ? 'Estimated repair price: £' : 'Repair price: £') + Number(q.amount).toFixed(2);
     if (q.parts_note) { $('parts').textContent = q.parts_note; $('partsWrap').style.display = 'block'; }
     $('loading').classList.remove('show');
     $('quoteArea').style.display = 'block';
