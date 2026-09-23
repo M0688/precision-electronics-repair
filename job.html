@@ -114,6 +114,7 @@
 
 <nav class="tabs"><div class="wrap">
   <a href="workshop.html" class="on">Jobs</a>
+  <a href="invoices.html">Invoices</a>
   <a href="todo.html">To do</a>
   <a href="contacts.html">Contacts</a>
   <a href="leads.html">Leads</a>
@@ -793,7 +794,13 @@ async function sendReceipt(invoiceId) {
 }
 
 async function loadInvoices(jobId) {
-  const { data } = await sb.from('invoices').select('*').eq('job_id', jobId).order('issued_at', { ascending: false });
+  // A batch invoice is filed under the first job but covers every item on it,
+  // so also pick up any invoice that has a line for this job.
+  const { data: refs } = await sb.from('invoice_lines').select('invoice_id').eq('job_ref', jobId);
+  const ids = [...new Set((refs || []).map(r => r.invoice_id))];
+  const { data } = await sb.from('invoices').select('*')
+    .or(ids.length ? `job_id.eq.${jobId},id.in.(${ids.join(',')})` : `job_id.eq.${jobId}`)
+    .order('issued_at', { ascending: false });
   $('invList').innerHTML = (data || []).map(v => {
     const paid = v.status === 'paid';
     return `<div class="quotebox">

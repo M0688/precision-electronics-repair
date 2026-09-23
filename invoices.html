@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoices | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css">
+<style>
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filters button { background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 20px; font: inherit; font-size: 14px; font-weight: 600; padding: 7px 16px; cursor: pointer; }
+  .filters button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+  td.amt { font-weight: 700; color: var(--navy); white-space: nowrap; }
+  td .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .jobs a { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h2>Money owed and paid</h2>
+      <div class="stats" id="summary"><p class="empty">Loading…</p></div>
+    </div>
+
+    <div class="card">
+      <div class="filters" id="filters">
+        <button data-f="unpaid" class="on">Outstanding</button>
+        <button data-f="paid">Paid</button>
+        <button data-f="all">All</button>
+      </div>
+      <div id="list"><p class="empty">Loading…</p></div>
+    </div>
+  </div>
+</main>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script type="module">
+import { sb, $, show, esc, when, money, chrome, requireSession, SUPABASE_URL, SUPABASE_KEY } from './crm.js';
+import { buildReceiptPdf } from './invoice-pdf.js';
+
+chrome('invoices.html');
+
+let ROWS = [];
+let FILTER = 'unpaid';
+const DAY = 86400000;
+
+function daysSince(ts) { return Math.floor((Date.now() - new Date(ts).getTime()) / DAY); }
+
+async function start() {
+  const sess = await requireSession();
+  if (!sess) return;
+  $('filters').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    FILTER = b.dataset.f;
+    $('filters').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    render();
+  }));
+  load();
+}
+
+async function load() {
+  const { data: inv, error } = await sb.from('invoices').select('*').order('issued_at', { ascending: false });
+  if (error) return show($('msg'), error.message, 'err');
+  const { data: lines } = await sb.from('invoice_lines').select('invoice_id,job_ref');
+  const { data: jobs } = await sb.from('jobs').select('id,job_number,customer_name');
+  const jobById = Object.fromEntries((jobs || []).map(j => [j.id, j]));
+
+  ROWS = (inv || []).map(v => {
+    // Every job the invoice covers: the one it's filed under, plus any on its lines.
+    const ids = [v.job_id, ...(lines || []).filter(l => l.invoice_id === v.id && l.job_ref).map(l => l.job_ref)];
+    const covered = [...new Set(ids)].map(id => jobById[id]).filter(Boolean)
+      .sort((a, b) => a.job_number.localeCompare(b.job_number));
+    return { ...v, covered, customer: jobById[v.job_id]?.customer_name || '' };
+  });
+  summary();
+  render();
+}
+
+function summary() {
+  const unpaid = ROWS.filter(r => r.status !== 'paid');
+  const owed = unpaid.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const oldest = unpaid.length ? Math.max(...unpaid.map(r => daysSince(r.issued_at))) : null;
+  const now = new Date();
+  const paidMonth = ROWS.filter(r => r.status === 'paid' && r.paid_at &&
+    new Date(r.paid_at).getMonth() === now.getMonth() && new Date(r.paid_at).getFullYear() === now.getFullYear())
+    .reduce((s, r) => s + Number(r.amount || 0), 0);
+  const stats = [
+    ['Owed to you', money(owed)],
+    ['Unpaid invoices', unpaid.length],
+    ['Oldest unpaid', oldest === null ? '—' : oldest + (oldest === 1 ? ' day' : ' days')],
+    ['Paid this month', money(paidMonth)]
+  ];
+  $('summary').innerHTML = stats.map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function render() {
+  const rows = ROWS.filter(r => FILTER === 'all' || (FILTER === 'paid' ? r.status === 'paid' : r.status !== 'paid'));
+  if (!rows.length) {
+    $('list').innerHTML = `<p class="empty">${FILTER === 'unpaid' ? 'Nothing outstanding.' : FILTER === 'paid' ? 'No paid invoices yet.' : 'No invoices yet.'}</p>`;
+    return;
+  }
+  $('list').innerHTML = `<table>
+    <thead><tr><th>Invoice</th><th>Customer</th><th class="hide">Jobs</th><th>Amount</th><th class="hide">Raised</th><th>Status</th></tr></thead>
+    <tbody>${rows.map(r => {
+      const paid = r.status === 'paid';
+      const age = daysSince(r.issued_at);
+      const tag = paid
+        ? `<span class="tag in">Paid</span><div class="muted" style="font-size:12px;margin-top:4px">${when(r.paid_at)} · ${esc(r.paid_method || '')}</div>`
+        : `<span class="tag ${age > 14 ? 'hot' : 'wait'}">Unpaid · ${age === 0 ? 'today' : age + (age === 1 ? ' day' : ' days')}</span>
+           <div class="acts" style="margin-top:8px">
+             <button class="btn-sm" data-paid="${r.id}" data-method="bank transfer">Paid — bank</button>
+             <button class="btn-sm" data-paid="${r.id}" data-method="cash">Paid — cash</button>
+           </div>`;
+      return `<tr>
+        <td><strong>${esc(r.invoice_number)}</strong></td>
+        <td>${esc(r.customer)}</td>
+        <td class="hide jobs">${r.covered.map(j => `<a href="job.html?job=${encodeURIComponent(j.job_number)}">${esc(j.job_number)}</a>`).join('<br>')}</td>
+        <td class="amt">${money(r.amount)}</td>
+        <td class="hide">${when(r.issued_at)}</td>
+        <td>${tag}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+
+  $('list').querySelectorAll('[data-paid]').forEach(btn => btn.addEventListener('click', () => markPaid(btn)));
+}
+
+async function markPaid(btn) {
+  const row = ROWS.find(r => r.id === btn.dataset.paid);
+  if (!row) return;
+  btn.closest('.acts').querySelectorAll('button').forEach(b => { b.disabled = true; });
+  btn.textContent = 'Working…';
+
+  const { error } = await sb.rpc('mark_invoice_paid', { p_invoice_id: row.id, p_method: btn.dataset.method });
+  if (error) { show($('msg'), error.message, 'err'); return load(); }
+
+  const out = await sendReceipt(row);
+  show($('msg'), out.ok
+    ? row.invoice_number + ' marked as paid. Receipt ' + out.receipt_number + ' emailed to ' + out.to + '.'
+    : row.invoice_number + ' marked as paid, but the receipt email failed (' + (out.error || 'unknown error') + '). You can resend it from the job page.',
+    out.ok ? 'ok' : 'err');
+  load();
+}
+
+// Same receipt the job page sends.
+async function sendReceipt(row) {
+  try {
+    const { data: inv } = await sb.from('invoices').select('*').eq('id', row.id).maybeSingle();
+    const { data: job } = await sb.from('job_detail').select('*').eq('id', inv.job_id).maybeSingle();
+    const { data: lineRows } = await sb.from('invoice_lines').select('description,amount').eq('invoice_id', row.id).order('position');
+    const doc = buildReceiptPdf({
+      invoice_number: inv.invoice_number,
+      receipt_number: inv.receipt_number,
+      lines: lineRows || [],
+      job_number: job?.job_number,
+      issued_at: inv.issued_at,
+      paid_at: inv.paid_at,
+      paid_method: inv.paid_method,
+      description: inv.description,
+      amount: inv.amount,
+      customer_name: job?.customer_name,
+      customer_address: job?.address,
+      item: job?.make_model || job?.device_type
+    });
+    const base64 = doc.output('datauristring').split(',')[1];
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/send-receipt', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: row.id, pdf_base64: base64 })
+    });
+    return await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+
+start();
+</script>
+
+</body>
+</html>
