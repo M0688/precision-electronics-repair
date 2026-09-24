@@ -8,79 +8,31 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css?v=2">
 <style>
-  :root {
-    --navy: #1B2A4A; --navy-dark: #121d34; --ink: #1f2733; --muted: #5a6474;
-    --line: #d9dee6; --soft: #f4f6f9; --white: #fff; --red: #b3261e; --green: #1c6b3c; --amber: #8a5a00;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--soft); line-height: 1.55; }
-  a { color: var(--navy); }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
-
-  header { background: var(--navy); color: #fff; }
-  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
-  .brand { font-weight: 700; letter-spacing: .5px; font-size: 15px; }
-  header a { color: #cdd6e6; text-decoration: none; font-size: 14px; font-weight: 600; }
-
-  main { padding: 24px 0 64px; }
-  .card { background: var(--white); border: 2px solid #b9c3d3; box-shadow: 0 2px 6px rgba(27,42,74,.08); border-radius: 12px; padding: 22px; margin-bottom: 18px; }
-  h1 { font-size: 24px; color: var(--navy); margin: 0 0 2px; }
-  h2 { font-size: 16px; color: var(--navy); margin: 0 0 14px; }
-  .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
-
-  label { display: block; font-weight: 600; font-size: 14px; margin: 0 0 5px; }
-  input[type=text], input[type=number], textarea, select {
-    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
-    font: inherit; font-size: 15px; margin-bottom: 14px; background: #fff; color: var(--ink);
-  }
-  textarea { min-height: 90px; resize: vertical; }
-  input:focus, textarea:focus, select:focus { outline: 2px solid var(--navy); outline-offset: 1px; }
-  button.primary { background: var(--navy); color: #fff; border: 0; border-radius: 8px; font: inherit; font-weight: 700; padding: 11px 20px; cursor: pointer; }
-  button.primary:hover { background: var(--navy-dark); }
-  button.primary:disabled { opacity: .5; cursor: default; }
+  /* Only what's special to the job page — everything else comes from crm.css. */
+  .wrap { max-width: 980px; }
+  h1 { font-size: 24px; margin: 0 0 2px; }
+  textarea { min-height: 90px; }
   button.ghost { background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; padding: 10px 16px; cursor: pointer; }
-  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
-  .row > div { flex: 1 1 200px; }
 
   .facts { display: grid; grid-template-columns: 170px 1fr; gap: 0; }
   .facts dt { color: var(--muted); font-size: 13px; padding: 9px 0; border-bottom: 1px solid var(--line); }
   .facts dd { margin: 0; padding: 9px 0; font-size: 14px; border-bottom: 1px solid var(--line); white-space: pre-wrap; }
 
-  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 20px; }
-  .tag.wait { background: #fff4e0; color: var(--amber); }
-  .tag.in { background: #e7f2ec; color: var(--green); }
-  .tag.off { background: #eef0f4; color: var(--muted); }
-  .tag.hot { background: #fdecea; color: #b3261e; }
-
-  .msg { border-radius: 8px; padding: 12px 15px; margin-bottom: 14px; font-size: 14px; display: none; }
-  .msg.show { display: block; }
-  .msg.err { background: #fdecea; border: 1px solid #f3c2bd; color: var(--red); }
-  .msg.ok { background: #e7f2ec; border: 1px solid #bcdcca; color: var(--green); }
-
   .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .photos a img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
 
-  .notes { list-style: none; margin: 0; padding: 0; }
-  .notes li { border-left: 3px solid var(--line); padding: 4px 0 12px 14px; margin-bottom: 10px; }
-  .notes .when { color: var(--muted); font-size: 12px; }
-  .notes .what { font-size: 14px; white-space: pre-wrap; }
-
   .quotebox { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .quotebox .amt { font-size: 19px; font-weight: 700; color: var(--navy); }
   .sendrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .send { display: inline-block; background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; text-decoration: none; }
   .send:hover { background: var(--soft); }
   .send.wa { border-color: #25D366; color: #128C4A; }
   .linkbox { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; word-break: break-all; margin-top: 12px; }
-  .quotebox .amt { font-size: 19px; font-weight: 700; color: var(--navy); }
-  nav.tabs { background: var(--navy-dark); }
-  nav.tabs .wrap { display: flex; gap: 4px; overflow-x: auto; }
-  nav.tabs a { color: #b9c4d8; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px 16px; white-space: nowrap; border-bottom: 3px solid transparent; }
-  nav.tabs a:hover { color: #fff; }
-  nav.tabs a.on { color: #fff; border-bottom-color: #fff; }
 
   /* Collapsible sections: closed by default, click the heading to open. */
-  details.sec { padding: 0; }
+  details.sec { padding: 0; margin-bottom: 10px; }
   details.sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 16px 22px; user-select: none; }
   details.sec > summary::-webkit-details-marker { display: none; }
   details.sec > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; flex: 0 0 auto; margin-right: 2px; }
@@ -90,15 +42,12 @@
   details.sec > summary .count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--soft); border-radius: 20px; padding: 2px 10px; }
   details.sec > summary .count:empty { display: none; }
   details.sec > .secbody { padding: 0 22px 22px; }
-  details.sec { margin-bottom: 10px; }
   .secbar { font-size: 13px; color: var(--muted); text-align: right; margin-top: -4px; }
   .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--navy); cursor: pointer; text-decoration: underline; }
 
   @media (max-width: 640px) {
     .facts { grid-template-columns: 1fr; }
     .facts dt { border-bottom: 0; padding-bottom: 0; }
-    .card { padding: 18px; }
-    details.sec { padding: 0; }
     details.sec > summary { padding: 14px 18px; }
     details.sec > .secbody { padding: 0 18px 18px; }
   }
@@ -106,26 +55,7 @@
 </head>
 <body>
 
-<header>
-  <div class="wrap">
-    <div class="brand">PRECISION ELECTRONICS REPAIR · WORKSHOP</div>
-    <a href="workshop.html">&larr; All jobs</a>
-  </div>
-</header>
-
-<nav class="tabs"><div class="wrap">
-  <a href="workshop.html" class="on">Jobs</a>
-  <a href="invoices.html">Invoices</a>
-  <a href="todo.html">To do</a>
-  <a href="contacts.html">Contacts</a>
-  <a href="leads.html">Leads</a>
-  <a href="parts.html">Parts</a>
-  <a href="stock.html">Stock</a>
-  <a href="diagnose.html">Diagnostic</a>
-  <a href="knowledge.html">Knowledge</a>
-  <a href="reports.html">Reports</a>
-  <a href="settings.html">Settings</a>
-</div></nav>
+<!-- Header and tabs come from crm.js (chrome), shared with every workshop page. -->
 
 <main>
   <div class="wrap">
@@ -410,11 +340,9 @@
 import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildLabelPdf } from './label-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
-import { createClient } from './vendor/supabase-js.min.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, chrome } from './crm.js';
 
-const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+chrome('workshop.html');
 
 const $ = id => document.getElementById(id);
 const JOB = (new URLSearchParams(location.search).get('job') || '').trim().toUpperCase();
@@ -455,6 +383,8 @@ function fact(label, value) {
 async function load() {
   const { data: sess } = await sb.auth.getSession();
   if (!sess.session) { location.href = 'workshop.html'; return; }
+  $('whoEmail').textContent = sess.session.user.email;
+  $('who').style.display = 'flex';
   if (!JOB) return show($('msg'), 'No job number in the link.', 'err');
 
   const { data, error } = await sb.from('job_detail').select('*').eq('job_number', JOB).maybeSingle();
