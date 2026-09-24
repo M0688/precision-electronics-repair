@@ -31,6 +31,10 @@
   .yes:hover { background:var(--navy-dark); }
   .no { background:#fff; border:1px solid var(--line); color:var(--ink); flex:1 1 160px; }
   button:disabled { opacity:.5; cursor:default; }
+  .choice { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 6px; }
+  .choice label { flex:1 1 220px; display:flex; gap:10px; align-items:flex-start; border:1px solid var(--line); border-radius:10px; padding:12px 14px; cursor:pointer; font-size:15px; }
+  .choice label.on { border-color:var(--navy); background:#eef2f8; }
+  .choice input { margin-top:4px; }
   .msg { border-radius:8px; padding:14px 16px; margin-bottom:18px; font-size:15px; display:none; }
   .msg.show { display:block; }
   .msg.err { background:#fdecea; border:1px solid #f3c2bd; color:var(--red); }
@@ -89,6 +93,14 @@
         </div>
 
         <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee and return postage apply, and we'll send your item back.</p>
+
+        <div id="returnWrap" style="display:none;margin-top:16px">
+          <div style="font-weight:600;font-size:15px;margin-bottom:8px">How would you like it back?</div>
+          <div class="choice">
+            <label id="retPostL"><input type="radio" name="ret" value="post" id="retPost"><span><strong>Post it back to me</strong><br><span class="small" id="retPostNote">Return postage added</span></span></label>
+            <label id="retColL"><input type="radio" name="ret" value="collect" id="retCol"><span><strong>I'll collect it</strong><br><span class="small">From our workshop in Watford — no postage. You'll book a time once it's ready.</span></span></label>
+          </div>
+        </div>
 
         <label for="note" id="noteLabel" style="font-weight:600;font-size:14px;display:block;margin:16px 0 6px">Anything you'd like to add? (optional)</label>
         <textarea id="note" placeholder="Questions, or anything we should know."></textarea>
@@ -244,27 +256,16 @@ async function start() {
       $('item').closest('.jobline').insertAdjacentElement('afterend', note);
     }
     $('work').textContent = q.work_summary;
-    // Breakdown: labour, parts, trade discount, return postage, total.
-    const labour = Number(q.labour != null ? q.labour : q.amount);
-    const partsAmt = Number(q.parts || 0);
-    const postage = q.postage == null ? null : Number(q.postage);
-    const off = q.trade ? Math.round(labour * 25) / 100 : 0;
-    const total = labour + partsAmt + (postage || 0) - off;
-    const line = (a, b, colour) => '<div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:400' +
-      (colour ? ';color:' + colour : '') + '"><span>' + a + '</span><span>' + b + '</span></div>';
-    $('amount').innerHTML =
-      line('Labour', '£' + labour.toFixed(2)) +
-      (partsAmt > 0 ? line('Parts', '£' + partsAmt.toFixed(2)) : '') +
-      (q.trade ? line('Trade discount (25% off labour)', '−£' + off.toFixed(2), 'var(--green)') : '') +
-      (postage > 0 ? line('Return postage', '£' + postage.toFixed(2)) : '') +
-      '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span>' +
-      (KIND === 'estimate' ? 'Estimated total' : 'Total to pay') + '</span><span>£' + total.toFixed(2) + '</span></div>';
-    if (postage != null) {
-      $('postPlus').style.display = 'none';
-      $('postNote').textContent = postage > 0
-        ? (KIND === 'estimate' ? 'This includes' : 'That\'s the full price, including') + ' return postage. Return postage applies on every job, including if the item can\'t be repaired or you decide not to go ahead.'
-        : (KIND === 'estimate' ? 'No return postage included, as you\'re collecting it.' : 'That\'s the full price. There\'s no return postage, as you\'re collecting it.');
+    Q = q;
+    // Quotes ask how they want it back, since that decides the postage.
+    if (KIND !== 'estimate') {
+      $('returnWrap').style.display = 'block';
+      const p = q.postage == null ? null : Number(q.postage);
+      $('retPostNote').textContent = p > 0 ? 'Return postage £' + p.toFixed(2) : 'Return postage added at cost';
+      if (q.return_method === 'post') $('retPost').checked = true;
+      if (q.return_method === 'collect') $('retCol').checked = true;
     }
+    drawPrice();
     if (q.parts_note) { $('parts').textContent = q.parts_note; $('partsWrap').style.display = 'block'; }
     $('loading').classList.remove('show');
     $('quoteArea').style.display = 'block';
@@ -273,13 +274,62 @@ async function start() {
   }
 }
 
+let Q = null;
+const RET = () => (document.querySelector('input[name="ret"]:checked') || {}).value || null;
+
+// Breakdown: labour, parts, trade discount, return postage, total.
+// Collecting in person takes the postage off.
+function drawPrice() {
+  const q = Q; if (!q) return;
+  const ret = RET();
+  $('retPostL').classList.toggle('on', ret === 'post');
+  $('retColL').classList.toggle('on', ret === 'collect');
+  const labour = Number(q.labour != null ? q.labour : q.amount);
+  const partsAmt = Number(q.parts || 0);
+  const priced = q.postage == null ? null : Number(q.postage);
+  const postage = ret === 'collect' ? 0 : priced;
+  const off = q.trade ? Math.round(labour * 25) / 100 : 0;
+  const total = labour + partsAmt + (postage || 0) - off;
+  const line = (a, b, colour) => '<div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:400' +
+    (colour ? ';color:' + colour : '') + '"><span>' + a + '</span><span style="white-space:nowrap">' + b + '</span></div>';
+  $('amount').innerHTML =
+    line('Labour', '£' + labour.toFixed(2)) +
+    (partsAmt > 0 ? line('Parts', '£' + partsAmt.toFixed(2)) : '') +
+    (q.trade ? line('Trade discount (25% off labour)', '−£' + off.toFixed(2), 'var(--green)') : '') +
+    (postage > 0 ? line('Return postage', '£' + postage.toFixed(2)) : '') +
+    '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span>' +
+    (KIND === 'estimate' ? 'Estimated total' : 'Total to pay') + '</span><span>£' + total.toFixed(2) + '</span></div>';
+  if (ret === 'collect') {
+    $('postPlus').style.display = 'none';
+    $('postNote').textContent = 'That\'s the full price. There\'s no return postage, as you\'re collecting it.';
+  } else if (postage != null) {
+    $('postPlus').style.display = 'none';
+    $('postNote').textContent = postage > 0
+      ? (KIND === 'estimate' ? 'This includes' : 'That\'s the full price, including') + ' return postage. Return postage applies on every job, including if the item can\'t be repaired or you decide not to go ahead.'
+      : (KIND === 'estimate' ? 'No return postage included, as you\'re collecting it.' : 'That\'s the full price. There\'s no return postage, as you\'re collecting it.');
+  } else {
+    $('postPlus').style.display = '';
+    $('postNote').textContent = 'Your final bill is the repair price plus return postage, at exactly what Royal Mail charges us. Return postage applies on every job, including if the item can\'t be repaired or you decide not to go ahead. Collect it in person and there\'s no postage to pay.';
+  }
+}
+document.querySelectorAll('input[name="ret"]').forEach(r => r.addEventListener('change', () => {
+  drawPrice();
+  $('error').classList.remove('show');
+}));
+
 async function respond(answer) {
+  if (KIND !== 'estimate' && !RET()) {
+    $('error').textContent = 'Please choose whether you\'d like it posted back or will collect it.';
+    $('error').classList.add('show');
+    $('returnWrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   $('approveBtn').disabled = true; $('declineBtn').disabled = true;
   try {
     const res = await fetch(SUPABASE_URL + '/functions/v1/quote-response', {
       method: 'POST',
       headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quote_id: QID, token: TOKEN, answer, note: $('note').value.trim() })
+      body: JSON.stringify({ quote_id: QID, token: TOKEN, answer, note: $('note').value.trim(), return_method: RET() })
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Could not record your answer.');

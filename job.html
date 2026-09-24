@@ -166,6 +166,15 @@
         <label id="tradeRow" style="display:none;align-items:center;gap:10px;font-weight:600;margin:0 0 10px">
           <input type="checkbox" id="tradeBox" style="width:18px;height:18px"> Trade account
           <span style="font-weight:400;color:var(--muted)">— 25% off labour on invoices; parts and postage at full price</span></label>
+        <div id="retRow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px">
+          <strong>Getting it back:</strong>
+          <select id="retSel" style="width:auto;margin:0">
+            <option value="">Not asked yet</option>
+            <option value="post">Post it back</option>
+            <option value="collect">Collecting (no postage)</option>
+          </select>
+          <span id="retMsg" style="color:var(--muted);font-size:13px"></span>
+        </div>
         <div class="secbar"><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></div>
       </div>
 
@@ -436,6 +445,7 @@ async function load() {
   loadTrade(data.contact_id);
   loadDrop();
   loadCollection();
+  showReturn();
   $('status').value = data.status;
 
   const PREF = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text message', call: 'Phone call' };
@@ -705,9 +715,9 @@ function fillInvoiceDescription() {
         { labour: b.quote_labour != null ? b.quote_labour : b.quote_amount, parts: b.quote_parts_amount, postage: b.quote_postage },
         b.quote_id || null, b.id, siblings.length > 1 ? b.job_number + ' · ' : '');
     });
-    $('iDescNote').textContent = siblings.length === 1
+    $('iDescNote').textContent = (siblings.length === 1
       ? 'Taken from the approved quote. Edit anything that changed.'
-      : siblings.length + ' approved prices from this booking, on one invoice. Edit anything that changed.';
+      : siblings.length + ' approved prices from this booking, on one invoice. Edit anything that changed.') + retNote();
     drawLines();
     return;
   }
@@ -721,7 +731,7 @@ function fillInvoiceDescription() {
     splitQuote(LINES, bits.join(' — '), approved.parts_note,
       { labour: approved.labour != null ? approved.labour : approved.amount, parts: approved.parts, postage: approved.postage },
       approved.id, JOBROW.id, '');
-    $('iDescNote').textContent = 'Taken from the approved quote. Edit anything that changed.';
+    $('iDescNote').textContent = 'Taken from the approved quote. Edit anything that changed.' + retNote();
   } else {
     const bits = [item, JOBROW.fault_description ? 'Fault reported: ' + JOBROW.fault_description : ''].filter(Boolean);
     LINES = [{ description: bits.join(' — ') || 'Repair work', amount: 0, quote_id: null, job_ref: JOBROW.id }];
@@ -730,13 +740,21 @@ function fillInvoiceDescription() {
   drawLines();
 }
 
+function retNote() {
+  const m = JOBROW && JOBROW.return_method;
+  return m === 'collect' ? ' Customer is collecting, so no postage line.'
+       : m === 'post' ? ' Customer wants it posted — check the postage line.'
+       : ' Not asked yet whether they want it posted or will collect.';
+}
+
 // One approved quote becomes labour, parts and postage lines, so the trade
 // discount only touches labour and the invoice matches what they agreed to.
 function splitQuote(out, desc, partsNote, f, quoteId, jobRef, prefix) {
   const noLabour = !(Number(f.labour) > 0) && Number(f.parts) > 0;
   if (!noLabour) out.push({ description: desc, amount: Number(f.labour) || 0, kind: 'labour', quote_id: quoteId, job_ref: jobRef });
   if (Number(f.parts) > 0) out.push({ description: noLabour ? desc + ' — Parts' + (partsNote ? ': ' + partsNote : '') : prefix + 'Parts' + (partsNote ? ': ' + partsNote : ''), amount: Number(f.parts), kind: 'parts', quote_id: quoteId, job_ref: jobRef });
-  if (Number(f.postage) > 0) out.push({ description: prefix + 'Return postage', amount: Number(f.postage), kind: 'postage', quote_id: quoteId, job_ref: jobRef });
+  // Collecting in person: no postage line.
+  if (Number(f.postage) > 0 && JOBROW.return_method !== 'collect') out.push({ description: prefix + 'Return postage', amount: Number(f.postage), kind: 'postage', quote_id: quoteId, job_ref: jobRef });
 }
 
 // ---------- invoice lines ----------
@@ -818,6 +836,27 @@ async function loadDrop() {
     loadDrop(); loadNotes(JOBROW.id); loadComms(JOBROW.id);
   });
 }
+
+// ---------- post or collect ----------
+// Decides whether return postage goes on the invoice. The customer answers on
+// the quote or tracking page; you can set it here too.
+function showReturn() {
+  const m = JOBROW.return_method || '';
+  $('retSel').value = m;
+  $('retSel').style.borderColor = m ? '' : '#f0d9a8';
+  $('retMsg').textContent = m ? '' : 'Ask before you invoice — it decides the postage.';
+}
+$('retSel').addEventListener('change', async () => {
+  const m = $('retSel').value || null;
+  const ids = (BATCH.length ? BATCH.map(b => b.id) : [JOBROW.id]);
+  const { error } = await sb.from('jobs').update({ return_method: m, return_method_at: new Date().toISOString() }).in('id', ids);
+  if (error) { showReturn(); return show($('msg'), error.message, 'err'); }
+  JOBROW.return_method = m;
+  showReturn();
+  $('retMsg').textContent = 'Saved.';
+  // Rebuild the invoice lines if nothing has been typed yet.
+  if (LINES.every(l => l.quote_id)) { LINES = []; fillInvoiceDescription(); }
+});
 
 // ---------- collection, at a glance ----------
 async function loadCollection() {

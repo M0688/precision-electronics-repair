@@ -52,6 +52,11 @@
   .msg.err { background:#fdecea; border:1px solid #f3c2bd; color:var(--red); }
   .msg.info { background:#eef2f8; border:1px solid #cdd8e8; color:var(--navy); }
   .small { color:var(--muted); font-size:14px; }
+  .ret { border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:24px; }
+  .ret .opts { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  .ret button { flex:1 1 200px; border:1px solid var(--navy); background:#fff; color:var(--navy); border-radius:8px; font:inherit; font-weight:700; font-size:15px; padding:11px 14px; cursor:pointer; }
+  .ret button.on { background:var(--navy); color:#fff; }
+  .ret button:disabled { opacity:.6; cursor:default; }
   footer { background:var(--navy-dark); color:#9aa6bd; font-size:14px; padding:24px 0; }
   footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; max-width:1080px; }
   footer a { color:#cdd6e6; }
@@ -82,6 +87,15 @@
           <div class="big" id="statusLabel"></div>
           <div class="blurb" id="statusBlurb"></div>
           <a id="collectBtn" href="#" style="display:none;margin-top:12px;background:#1B2A4A;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px;display:none;font-size:15px">Book a collection time</a>
+        </div>
+
+        <div class="ret" id="retBox" style="display:none">
+          <strong style="color:var(--navy)">How would you like it back?</strong>
+          <div class="small" id="retNote">This tells us whether to add return postage to your bill.</div>
+          <div class="opts">
+            <button id="retPost" data-m="post">Post it back to me</button>
+            <button id="retCol" data-m="collect">I'll collect it (no postage)</button>
+          </div>
         </div>
 
         <div id="itemsWrap" style="display:none">
@@ -149,11 +163,39 @@ async function rpc(fn, body) {
   return data;
 }
 
+function showReturn(d) {
+  if (!d.can_choose_return) { $('retBox').style.display = 'none'; return; }
+  const m = d.return_method;
+  $('retPost').classList.toggle('on', m === 'post');
+  $('retCol').classList.toggle('on', m === 'collect');
+  $('retNote').textContent = m === 'post'
+    ? 'We\'ll post it back to you. Return postage will be added to your bill. You can change this until we invoice you.'
+    : m === 'collect'
+      ? 'You\'ll collect it from our workshop in Watford — no postage. You can book a time once it\'s ready.'
+      : 'This tells us whether to add return postage to your bill. Collect it in person and there\'s no postage to pay.';
+  $('retBox').style.display = 'block';
+}
+
+async function chooseReturn(m, btn) {
+  $('retPost').disabled = true; $('retCol').disabled = true;
+  try {
+    await rpc('set_return_method', { p_job_number: JOB, p_key: KEY, p_method: m });
+    await load(false);
+  } catch (e) {
+    $('retNote').textContent = e.message + ' Please try again, or call 07522 124273.';
+  }
+  $('retPost').disabled = false; $('retCol').disabled = false;
+}
+$('retPost').addEventListener('click', () => chooseReturn('post'));
+$('retCol').addEventListener('click', () => chooseReturn('collect'));
+
 function draw(d) {
   $('jobNo').textContent = d.job_number;
   $('who').textContent = d.customer_name ? ' · ' + d.customer_name : '';
   $('statusLabel').textContent = d.status_label || '';
   $('statusBlurb').textContent = d.status_blurb || '';
+  // Post or collect? Decides whether return postage goes on the bill.
+  showReturn(d);
   // Finished items can be collected in person, by appointment.
   if (d.can_collect) {
     $('collectBtn').href = 'collect.html?job=' + encodeURIComponent(d.job_number) + '&k=' + encodeURIComponent(KEY);
