@@ -196,6 +196,14 @@ async function sayPay(choice) {
     const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
     if (!out.ok) throw new Error(out.error || 'Something went wrong. Please try again.');
     showIntent(choice, new Date().toISOString());
+    // Paying cash means collecting in person, so go straight to picking a time.
+    if (choice === 'cash' && DATA && DATA.access_key) {
+      $('intentMsg').textContent = 'Thanks — taking you to book a collection time…';
+      setTimeout(() => {
+        location.href = 'collect.html?job=' + encodeURIComponent(DATA.job_number) + '&k=' + encodeURIComponent(DATA.access_key);
+      }, 1200);
+      return;
+    }
   } catch (e) {
     $('intentMsg').textContent = e.message + ' Or just reply to your invoice email.';
     $('intentMsg').className = 'msg err show';
