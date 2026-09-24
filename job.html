@@ -239,6 +239,14 @@
         </div>
         <label for="qPartsNote">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
         <input type="text" id="qPartsNote" placeholder="e.g. Charging IC, SMD capacitor">
+        <div class="row" id="qStockRow" style="margin:-4px 0 6px">
+          <div style="flex:2 1 240px"><label for="qStockPart" style="font-weight:400;color:var(--muted)">Price a part from stock</label>
+            <select id="qStockPart"><option value="">Choose a part…</option></select></div>
+          <div style="flex:0 0 80px"><label for="qStockQty" style="font-weight:400;color:var(--muted)">Qty</label>
+            <input type="number" id="qStockQty" min="1" step="1" value="1"></div>
+          <div style="flex:0 0 auto"><button class="send" type="button" id="qStockAdd" style="margin-bottom:14px">Add to Parts £</button></div>
+        </div>
+        <p class="sub" style="margin:-10px 0 12px">Adds the part's price to Parts £ and its name to Parts used. It doesn't take anything out of stock — do that under "Parts used" when you fit it.</p>
         <p class="sub" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
         <p class="sub" id="qTotalNote" style="display:none;margin:0 0 14px;font-weight:600;color:var(--navy)"></p>
         <p class="sub" id="qTradeNote" style="display:none;margin:-6px 0 14px;color:var(--green)"></p>
@@ -262,6 +270,21 @@
             <button class="send" id="qLabel" style="display:none">Download the label &amp; slips</button>
           </div>
         </div>
+        </div>
+      </details>
+
+      <details class="card sec">
+        <summary><h2>Parts used</h2><span class="count" data-of="#usedList tr[data-u]"></span></summary>
+        <div class="secbody">
+        <div id="partMsg" class="msg"></div>
+        <p class="sub" style="margin:0 0 12px">Take parts out of stock for this job. They go onto the invoice at cost + your markup.</p>
+        <div class="row">
+          <div style="flex:2 1 260px"><label for="uPart">Part</label><select id="uPart"><option value="">Choose a part…</option></select></div>
+          <div style="flex:0 0 90px"><label for="uQty">Qty</label><input type="number" id="uQty" min="1" step="1" value="1"></div>
+          <div style="flex:0 0 auto"><button class="primary" id="uBtn" style="margin-bottom:14px">Use part</button></div>
+        </div>
+        <div id="usedList"></div>
+        <p class="sub" style="margin:10px 0 0"><a href="parts.html">Manage parts stock</a></p>
         </div>
       </details>
 
@@ -446,6 +469,7 @@ async function load() {
   loadDrop();
   loadCollection();
   showReturn();
+  loadPartList();
   $('status').value = data.status;
 
   const PREF = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text message', call: 'Phone call' };
@@ -695,7 +719,7 @@ async function loadQuotes(jobId) {
     </div>`;
   }).join('');
   loadItems(jobId);
-  loadBatch().then(fillInvoiceDescription);
+  loadBatch().then(loadUsage).then(fillInvoiceDescription);
 }
 
 // The invoice description starts from what the job already says, so you are
@@ -734,8 +758,10 @@ function fillInvoiceDescription() {
     $('iDescNote').textContent = 'Taken from the approved quote. Edit anything that changed.' + retNote();
   } else {
     const bits = [item, JOBROW.fault_description ? 'Fault reported: ' + JOBROW.fault_description : ''].filter(Boolean);
-    LINES = [{ description: bits.join(' — ') || 'Repair work', amount: 0, quote_id: null, job_ref: JOBROW.id }];
-    $('iDescNote').textContent = 'Nothing approved yet, so this is from the job details. Fill in the price before you send.';
+    LINES = [{ description: bits.join(' — ') || 'Repair work', amount: 0, quote_id: null, job_ref: JOBROW.id },
+             ...usageLines(JOBROW.id, '')];
+    $('iDescNote').textContent = 'Nothing approved yet, so this is from the job details' +
+      (USAGE.some(u => u.job_id === JOBROW.id) ? ' and the parts you used' : '') + '. Fill in the price before you send.';
   }
   drawLines();
 }
@@ -750,9 +776,13 @@ function retNote() {
 // One approved quote becomes labour, parts and postage lines, so the trade
 // discount only touches labour and the invoice matches what they agreed to.
 function splitQuote(out, desc, partsNote, f, quoteId, jobRef, prefix) {
-  const noLabour = !(Number(f.labour) > 0) && Number(f.parts) > 0;
+  // Parts actually taken from stock replace the quote's parts figure.
+  const used = usageLines(jobRef, prefix);
+  if (used.length) f = { ...f, parts: 0 };
+  const noLabour = !(Number(f.labour) > 0) && (Number(f.parts) > 0 || used.length > 0);
   if (!noLabour) out.push({ description: desc, amount: Number(f.labour) || 0, kind: 'labour', quote_id: quoteId, job_ref: jobRef });
   if (Number(f.parts) > 0) out.push({ description: noLabour ? desc + ' — Parts' + (partsNote ? ': ' + partsNote : '') : prefix + 'Parts' + (partsNote ? ': ' + partsNote : ''), amount: Number(f.parts), kind: 'parts', quote_id: quoteId, job_ref: jobRef });
+  used.forEach(l => out.push({ ...l, quote_id: quoteId }));
   // Collecting in person: no postage line.
   if (Number(f.postage) > 0 && JOBROW.return_method !== 'collect') out.push({ description: prefix + 'Return postage', amount: Number(f.postage), kind: 'postage', quote_id: quoteId, job_ref: jobRef });
 }
@@ -835,6 +865,95 @@ async function loadDrop() {
     $('status').value = 'dropoff_booked';
     loadDrop(); loadNotes(JOBROW.id); loadComms(JOBROW.id);
   });
+}
+
+// ---------- parts from stock ----------
+let PARTLIST = [];   // parts_stock rows
+let USAGE = [];      // parts used on this job (and the rest of its booking)
+const gbp = n => '£' + Number(n || 0).toFixed(2);
+// Always round UP to the penny.
+const upPenny = n => Math.ceil(Math.round(Number(n) * 1e6) / 1e4) / 100;
+
+async function loadPartList() {
+  const { data } = await sb.from('parts_stock').select('id,name,part_number,in_stock,next_unit_cost,sell_price').eq('archived', false).order('name');
+  PARTLIST = data || [];
+  const opts = PARTLIST.map(p => `<option value="${p.id}"${Number(p.in_stock) > 0 ? '' : ' disabled'}>${esc(p.name)}${p.part_number ? ' · ' + esc(p.part_number) : ''} — ${p.in_stock} in stock${p.sell_price != null && Number(p.in_stock) > 0 ? ' · ' + gbp(p.sell_price) : ''}</option>`).join('');
+  $('uPart').innerHTML = '<option value="">Choose a part…</option>' + opts;
+  $('qStockPart').innerHTML = '<option value="">Choose a part…</option>' + opts;
+}
+
+async function loadUsage() {
+  const ids = BATCH.length ? BATCH.map(b => b.id) : [JOBROW.id];
+  const { data } = await sb.from('part_usage').select('id, job_id, part_id, qty, unit_cost, unit_price, used_at, parts(name)').in('job_id', ids).order('used_at');
+  USAGE = data || [];
+  const mine = USAGE.filter(u => u.job_id === JOBROW.id);
+  if (!mine.length) { $('usedList').innerHTML = '<p class="sub" style="margin:0">No parts used on this job yet.</p>'; return; }
+  const cost = mine.reduce((s, u) => s + u.qty * Number(u.unit_cost), 0);
+  const price = mine.reduce((s, u) => s + u.qty * Number(u.unit_price), 0);
+  $('usedList').innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:14px">
+    <thead><tr style="color:var(--muted);font-size:12px;text-align:left"><th style="padding:6px 4px">Part</th><th style="text-align:right">Qty</th><th style="text-align:right">Cost</th><th style="text-align:right">Charged</th><th></th></tr></thead>
+    <tbody>${mine.map(u => `<tr data-u="${u.id}" style="border-top:1px solid var(--line)">
+      <td style="padding:8px 4px">${esc(u.parts?.name || 'Part')}</td><td style="text-align:right">${u.qty}</td>
+      <td style="text-align:right">${gbp(u.qty * u.unit_cost)}</td><td style="text-align:right">${gbp(u.qty * u.unit_price)}</td>
+      <td style="text-align:right"><button class="send" data-ret="${u.id}" style="padding:5px 10px;font-size:13px">Return to stock</button></td></tr>`).join('')}
+      <tr style="border-top:1px solid var(--line);font-weight:700"><td style="padding:8px 4px">Total</td><td></td><td style="text-align:right">${gbp(cost)}</td><td style="text-align:right">${gbp(price)}</td><td></td></tr>
+    </tbody></table>`;
+  $('usedList').querySelectorAll('[data-ret]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true;
+    const { error } = await sb.rpc('return_part_usage', { p_usage_id: b.dataset.ret });
+    if (error) { b.disabled = false; return show($('partMsg'), error.message, 'err'); }
+    show($('partMsg'), 'Returned to stock.', 'ok');
+    afterPartsChange();
+  }));
+}
+
+async function afterPartsChange() {
+  await Promise.all([loadPartList(), loadUsage()]);
+  // Rebuild the invoice lines if they're still the automatic ones.
+  if (LINES.every(l => l.quote_id || l.usage)) { LINES = []; fillInvoiceDescription(); }
+  loadNotes(JOBROW.id);
+}
+
+$('uBtn').addEventListener('click', async () => {
+  hide($('partMsg'));
+  const id = $('uPart').value, qty = parseInt($('uQty').value, 10);
+  if (!id) return show($('partMsg'), 'Choose a part.', 'err');
+  if (!(qty > 0)) return show($('partMsg'), 'Enter how many.', 'err');
+  $('uBtn').disabled = true;
+  const { data, error } = await sb.rpc('use_part', { p_job_number: JOB, p_part_id: id, p_qty: qty });
+  $('uBtn').disabled = false;
+  if (error) return show($('partMsg'), error.message, 'err');
+  show($('partMsg'), 'Taken from stock: cost ' + gbp(data.cost) + ', charged ' + gbp(data.price) + '. ' + data.left + ' left.', 'ok');
+  $('uPart').value = ''; $('uQty').value = 1;
+  afterPartsChange();
+});
+
+// Quote helper: price a stock part without taking it out of stock.
+$('qStockAdd').addEventListener('click', () => {
+  const p = PARTLIST.find(x => x.id === $('qStockPart').value);
+  const qty = parseInt($('qStockQty').value, 10) || 1;
+  if (!p || p.sell_price == null) return show($('quoteMsg'), 'Choose a part that has a price (it needs a purchase recorded).', 'err');
+  const add = upPenny(Number(p.sell_price) * qty);
+  $('qParts').value = (upPenny((parseFloat($('qParts').value) || 0) + add)).toFixed(2);
+  const bit = p.name + (qty > 1 ? ' × ' + qty : '');
+  $('qPartsNote').value = $('qPartsNote').value.trim() ? $('qPartsNote').value.trim() + ', ' + bit : bit;
+  $('qStockPart').value = ''; $('qStockQty').value = 1;
+  showTradeQuote();
+});
+
+// Parts used on a job become invoice lines, one per part.
+function usageLines(jobRef, prefix) {
+  const byPart = {};
+  USAGE.filter(u => u.job_id === jobRef).forEach(u => {
+    const k = u.part_id;
+    byPart[k] = byPart[k] || { name: u.parts?.name || 'Part', qty: 0, amount: 0 };
+    byPart[k].qty += u.qty;
+    byPart[k].amount += u.qty * Number(u.unit_price);
+  });
+  return Object.values(byPart).map(p => ({
+    description: prefix + 'Part: ' + p.name + (p.qty > 1 ? ' × ' + p.qty : ''),
+    amount: Math.round(p.amount * 100) / 100, kind: 'parts', quote_id: null, job_ref: jobRef, usage: true
+  }));
 }
 
 // ---------- post or collect ----------
@@ -1071,7 +1190,7 @@ $('invBtn').addEventListener('click', async () => {
   hide($('invMsg'));
 
   const lines = LINES
-    .map(l => ({ ...l, description: String(l.description || '').trim(), amount: Number(l.amount) || 0 }))
+    .map(({ usage, ...l }) => ({ ...l, description: String(l.description || '').trim(), amount: Number(l.amount) || 0 }))
     .filter(l => l.description || l.amount);
 
   if (!lines.length) return show($('invMsg'), 'Add at least one line.', 'err');

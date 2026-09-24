@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parts | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css">
+<style>
+  .markup { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .markup input { width: 110px; margin: 0; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  tr.part { cursor: pointer; }
+  tr.part:hover td { background: #f8fafc; }
+  tr.open td { background: #f4f6f9; }
+  .detail td { background: #fbfcfd; padding: 16px 12px 20px; }
+  .preview { font-weight: 700; color: var(--navy); margin: -4px 0 14px; min-height: 22px; }
+  .mini th, .mini td { font-size: 13px; padding: 7px 8px; }
+  .search { max-width: 320px; margin: 0; }
+  .toolbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  details.add summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+  details.add[open] summary { margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+      <h1>Parts stock</h1>
+      <p class="sub">Components and parts you buy in for repairs. Cost per unit is what you paid (including VAT and postage) ÷ quantity, rounded up to the penny.</p>
+      <div class="stats" id="summary"></div>
+    </div>
+
+    <div class="card">
+      <h2>Markup on parts</h2>
+      <div class="markup">
+        <input type="number" id="markup" min="0" step="0.1"> <strong>%</strong>
+        <button class="primary" id="markupSave">Save</button>
+        <span class="muted" id="markupEx"></span>
+      </div>
+      <p class="muted" style="margin:10px 0 0">The customer's price = cost per unit + this %, rounded up to the penny. You can still change the price on an invoice.</p>
+    </div>
+
+    <div class="card">
+      <details class="add" id="addPart">
+        <summary>+ Add a new part</summary>
+        <div class="row">
+          <div style="flex:2 1 260px"><label for="pName">Name</label><input type="text" id="pName" placeholder="USB-C charging port, PS5"></div>
+          <div><label for="pNumber">Part number <span class="muted">(optional)</span></label><input type="text" id="pNumber"></div>
+        </div>
+        <div class="row">
+          <div><label for="pCat">Category <span class="muted">(optional)</span></label><input type="text" id="pCat" list="cats" placeholder="Ports, ICs, Capacitors…"></div>
+          <div><label for="pLoc">Where it's kept <span class="muted">(optional)</span></label><input type="text" id="pLoc" placeholder="Drawer 3"></div>
+          <div style="flex:0 1 160px"><label for="pReorder">Warn me at</label><input type="number" id="pReorder" min="0" step="1" value="0"></div>
+        </div>
+        <datalist id="cats"></datalist>
+        <p class="muted" style="margin:-6px 0 14px">"Warn me at": the part is flagged as low when stock drops to this number.</p>
+        <button class="primary" id="pAdd">Add part</button>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <input type="search" id="search" class="search" placeholder="Search parts…">
+        <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="lowOnly"> Low stock only</label>
+      </div>
+      <p class="muted" style="margin:0 0 10px">Tap a part to add a purchase or see its history.</p>
+      <div id="list"><p class="empty">Loading…</p></div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { sb, $, show, hide, esc, when, money, chrome, requireSession } from './crm.js';
+
+chrome('parts.html');
+
+let PARTS = [];
+let OPEN = null;
+let MARKUP = 0;
+
+// Always round UP to the penny.
+const up = n => Math.ceil(Math.round(Number(n) * 1e6) / 1e4) / 100;
+const priceOf = cost => up(cost * (1 + MARKUP / 100));
+
+async function start() {
+  const sess = await requireSession();
+  if (!sess) return;
+  $('search').addEventListener('input', render);
+  $('lowOnly').addEventListener('change', render);
+  $('markup').addEventListener('input', showMarkupExample);
+  $('markupSave').addEventListener('click', saveMarkup);
+  $('pAdd').addEventListener('click', addPart);
+  load();
+}
+
+async function load() {
+  const [{ data: parts, error }, { data: set }] = await Promise.all([
+    sb.from('parts_stock').select('*').eq('archived', false).order('name'),
+    sb.from('app_settings').select('num').eq('key', 'parts_markup_pct').maybeSingle()
+  ]);
+  if (error) return show($('msg'), error.message, 'err');
+  PARTS = parts || [];
+  MARKUP = Number(set?.num || 0);
+  $('markup').value = MARKUP;
+  showMarkupExample();
+  $('cats').innerHTML = [...new Set(PARTS.map(p => p.category).filter(Boolean))].sort().map(c => `<option value="${esc(c)}">`).join('');
+
+  const inStock = PARTS.reduce((s, p) => s + Number(p.in_stock), 0);
+  const value = PARTS.reduce((s, p) => s + Number(p.stock_value), 0);
+  const low = PARTS.filter(p => p.low).length;
+  $('summary').innerHTML = [
+    ['Parts listed', PARTS.length],
+    ['Units in stock', inStock],
+    ['Stock value (at cost)', money(value)],
+    ['Low stock', low]
+  ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  render();
+}
+
+function showMarkupExample() {
+  const m = Number($('markup').value || 0);
+  $('markupEx').textContent = 'e.g. a £1.24 part → £' + up(1.24 * (1 + m / 100)).toFixed(2);
+}
+
+async function saveMarkup() {
+  const m = Number($('markup').value);
+  if (!(m >= 0)) return show($('msg'), 'Enter a markup of 0 or more.', 'err');
+  const { error } = await sb.from('app_settings').upsert({ key: 'parts_markup_pct', num: m, updated_at: new Date().toISOString() });
+  if (error) return show($('msg'), error.message, 'err');
+  show($('msg'), 'Markup saved: ' + m + '%. New prices apply to parts you use from now on.', 'ok');
+  load();
+}
+
+async function addPart() {
+  hide($('msg'));
+  const name = $('pName').value.trim();
+  if (!name) return show($('msg'), 'Give the part a name.', 'err');
+  const { data, error } = await sb.from('parts').insert({
+    name,
+    part_number: $('pNumber').value.trim() || null,
+    category: $('pCat').value.trim() || null,
+    location: $('pLoc').value.trim() || null,
+    reorder_level: parseInt($('pReorder').value, 10) || 0
+  }).select('id').single();
+  if (error) return show($('msg'), error.message, 'err');
+  ['pName', 'pNumber', 'pCat', 'pLoc'].forEach(id => $(id).value = '');
+  $('pReorder').value = 0;
+  $('addPart').open = false;
+  OPEN = data.id;
+  show($('msg'), name + ' added. Now add what you bought.', 'ok');
+  await load();
+}
+
+function render() {
+  const q = $('search').value.trim().toLowerCase();
+  const rows = PARTS.filter(p => (!$('lowOnly').checked || p.low) &&
+    (!q || [p.name, p.part_number, p.category, p.location].some(v => String(v || '').toLowerCase().includes(q))));
+  if (!rows.length) {
+    $('list').innerHTML = `<p class="empty">${PARTS.length ? 'Nothing matches.' : 'No parts yet. Add your first one above.'}</p>`;
+    return;
+  }
+  $('list').innerHTML = `<table>
+    <thead><tr><th>Part</th><th class="num">In stock</th><th class="num">Cost / unit</th><th class="num">Price / unit</th><th class="hide">Where</th></tr></thead>
+    <tbody>${rows.map(p => `
+      <tr class="part${OPEN === p.id ? ' open' : ''}" data-id="${p.id}">
+        <td><strong>${esc(p.name)}</strong>${p.part_number ? ` <span class="muted">· ${esc(p.part_number)}</span>` : ''}
+          ${p.category ? `<div class="muted">${esc(p.category)}</div>` : ''}</td>
+        <td class="num">${p.in_stock}${p.low ? ' <span class="tag hot">Low</span>' : ''}</td>
+        <td class="num">${p.next_unit_cost != null ? money(p.next_unit_cost) : '—'}</td>
+        <td class="num">${p.next_unit_cost != null ? money(priceOf(p.next_unit_cost)) : '—'}</td>
+        <td class="hide">${esc(p.location || '')}</td>
+      </tr>
+      ${OPEN === p.id ? `<tr class="detail"><td colspan="5" id="detail"></td></tr>` : ''}`).join('')}
+    </tbody></table>
+    <p class="muted" style="margin:10px 0 0">Cost / unit is the next unit to be used (oldest stock goes first).</p>`;
+  $('list').querySelectorAll('tr.part').forEach(tr => tr.addEventListener('click', () => {
+    OPEN = OPEN === tr.dataset.id ? null : tr.dataset.id;
+    render();
+  }));
+  if (OPEN && rows.find(p => p.id === OPEN)) drawDetail(rows.find(p => p.id === OPEN));
+}
+
+async function drawDetail(p) {
+  const box = $('detail');
+  const today = new Date().toISOString().slice(0, 10);
+  box.innerHTML = `
+    <h2 style="margin-bottom:10px">Add a purchase of ${esc(p.name)}</h2>
+    <div class="row">
+      <div style="flex:0 1 140px"><label for="bQty">Quantity bought</label><input type="number" id="bQty" min="1" step="1"></div>
+      <div style="flex:0 1 220px"><label for="bTotal">Total paid £ <span class="muted">(inc. VAT &amp; postage)</span></label><input type="number" id="bTotal" min="0" step="0.01"></div>
+      <div><label for="bSupplier">Supplier <span class="muted">(optional)</span></label><input type="text" id="bSupplier"></div>
+      <div style="flex:0 1 170px"><label for="bDate">Date</label><input type="date" id="bDate" value="${today}"></div>
+    </div>
+    <div class="preview" id="bPreview"></div>
+    <button class="primary" id="bAdd">Add to stock</button>
+    <div id="history" style="margin-top:22px"><p class="empty">Loading history…</p></div>
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-sm" id="editPart">Edit details</button>
+      <button class="btn-sm" id="archivePart">Remove from list</button>
+    </div>`;
+
+  const preview = () => {
+    const q = parseInt($('bQty').value, 10), t = parseFloat($('bTotal').value);
+    $('bPreview').textContent = q > 0 && t >= 0
+      ? 'Cost per unit: ' + money(up(t / q)) + ' · price to customer: ' + money(priceOf(up(t / q)))
+      : '';
+  };
+  $('bQty').addEventListener('input', preview);
+  $('bTotal').addEventListener('input', preview);
+
+  $('bAdd').addEventListener('click', async () => {
+    hide($('msg'));
+    const q = parseInt($('bQty').value, 10), t = parseFloat($('bTotal').value);
+    if (!(q > 0)) return show($('msg'), 'Enter how many you bought.', 'err');
+    if (!(t >= 0)) return show($('msg'), 'Enter the total you paid, including VAT and postage.', 'err');
+    $('bAdd').disabled = true;
+    const { data, error } = await sb.rpc('add_part_purchase', {
+      p_part_id: p.id, p_qty: q, p_total: t,
+      p_supplier: $('bSupplier').value.trim() || null, p_date: $('bDate').value || null
+    });
+    $('bAdd').disabled = false;
+    if (error) return show($('msg'), error.message, 'err');
+    show($('msg'), q + ' × ' + p.name + ' added at ' + money(data.unit_cost) + ' each.', 'ok');
+    load();
+  });
+
+  $('editPart').addEventListener('click', () => editPart(p));
+  $('archivePart').addEventListener('click', async () => {
+    if (Number(p.in_stock) > 0 && !confirm(p.name + ' still has ' + p.in_stock + ' in stock. Remove it from the list anyway?')) return;
+    const { error } = await sb.from('parts').update({ archived: true }).eq('id', p.id);
+    if (error) return show($('msg'), error.message, 'err');
+    OPEN = null; load();
+  });
+
+  // Purchases and where they went.
+  const [{ data: buys }, { data: used }] = await Promise.all([
+    sb.from('part_purchases').select('*').eq('part_id', p.id).order('purchased_at', { ascending: false }),
+    sb.from('part_usage').select('qty, unit_cost, unit_price, used_at, jobs(job_number)').eq('part_id', p.id).order('used_at', { ascending: false }).limit(30)
+  ]);
+  $('history').innerHTML = `
+    <h2 style="margin-bottom:8px">Purchases</h2>
+    ${(buys || []).length ? `<table class="mini"><thead><tr><th>Date</th><th>Supplier</th><th class="num">Bought</th><th class="num">Paid</th><th class="num">Per unit</th><th class="num">Left</th><th></th></tr></thead><tbody>
+      ${buys.map(b => `<tr><td>${when(b.purchased_at)}</td><td>${esc(b.supplier || '')}</td><td class="num">${b.qty}</td>
+        <td class="num">${money(b.total_paid)}</td><td class="num">${money(b.unit_cost)}</td><td class="num">${b.qty_left}</td>
+        <td class="num">${b.qty_left === b.qty ? `<button class="btn-sm" data-del="${b.id}">Delete</button>` : ''}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="empty">No purchases yet.</p>'}
+    <h2 style="margin:18px 0 8px">Used on jobs</h2>
+    ${(used || []).length ? `<table class="mini"><thead><tr><th>Date</th><th>Job</th><th class="num">Qty</th><th class="num">Cost</th><th class="num">Charged</th></tr></thead><tbody>
+      ${used.map(u => `<tr><td>${when(u.used_at)}</td><td><a href="job.html?job=${esc(u.jobs?.job_number)}">${esc(u.jobs?.job_number || '')}</a></td>
+        <td class="num">${u.qty}</td><td class="num">${money(u.qty * u.unit_cost)}</td><td class="num">${money(u.qty * u.unit_price)}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="empty">Not used on any jobs yet.</p>'}`;
+  $('history').querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!confirm('Delete this purchase? Only do this if it was entered by mistake.')) return;
+    const { error } = await sb.from('part_purchases').delete().eq('id', btn.dataset.del);
+    if (error) return show($('msg'), error.message, 'err');
+    load();
+  }));
+}
+
+function editPart(p) {
+  const box = $('detail');
+  box.innerHTML = `
+    <h2>Edit ${esc(p.name)}</h2>
+    <div class="row">
+      <div style="flex:2 1 260px"><label>Name</label><input type="text" id="eName" value="${esc(p.name)}"></div>
+      <div><label>Part number</label><input type="text" id="eNumber" value="${esc(p.part_number || '')}"></div>
+    </div>
+    <div class="row">
+      <div><label>Category</label><input type="text" id="eCat" list="cats" value="${esc(p.category || '')}"></div>
+      <div><label>Where it's kept</label><input type="text" id="eLoc" value="${esc(p.location || '')}"></div>
+      <div style="flex:0 1 160px"><label>Warn me at</label><input type="number" id="eReorder" min="0" value="${p.reorder_level}"></div>
+    </div>
+    <button class="primary" id="eSave">Save</button> <button class="btn-sm" id="eCancel">Cancel</button>`;
+  $('eCancel').addEventListener('click', () => render());
+  $('eSave').addEventListener('click', async () => {
+    const name = $('eName').value.trim();
+    if (!name) return show($('msg'), 'Give the part a name.', 'err');
+    const { error } = await sb.from('parts').update({
+      name, part_number: $('eNumber').value.trim() || null, category: $('eCat').value.trim() || null,
+      location: $('eLoc').value.trim() || null, reorder_level: parseInt($('eReorder').value, 10) || 0
+    }).eq('id', p.id);
+    if (error) return show($('msg'), error.message, 'err');
+    load();
+  });
+}
+
+start();
+</script>
+
+</body>
+</html>

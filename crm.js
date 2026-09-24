@@ -51,6 +51,7 @@ export function chrome(active) {
     ['todo.html', 'To do'],
     ['contacts.html', 'Contacts'],
     ['leads.html', 'Leads'],
+    ['parts.html', 'Parts'],
     ['stock.html', 'Stock'],
     ['diagnose.html', 'Diagnostic'],
     ['knowledge.html', 'Knowledge'],
