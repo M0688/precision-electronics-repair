@@ -68,7 +68,10 @@
     <div class="card">
       <div class="toolbar">
         <input type="search" id="search" class="search" placeholder="Search parts…">
-        <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="lowOnly"> Low stock only</label>
+        <div style="display:flex;gap:18px;flex-wrap:wrap">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="lowOnly"> Low stock only</label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="showArch"> Show archived</label>
+        </div>
       </div>
       <p class="muted" style="margin:0 0 10px">Tap a part to add a purchase or see its history.</p>
       <div id="list"><p class="empty">Loading…</p></div>
@@ -84,6 +87,7 @@ chrome('parts.html');
 let PARTS = [];
 let OPEN = null;
 let MARKUP = 0;
+let SUPPLIERS = [];
 
 // Always round UP to the penny.
 const up = n => Math.ceil(Math.round(Number(n) * 1e6) / 1e4) / 100;
@@ -94,6 +98,7 @@ async function start() {
   if (!sess) return;
   $('search').addEventListener('input', render);
   $('lowOnly').addEventListener('change', render);
+  $('showArch').addEventListener('change', render);
   $('markup').addEventListener('input', showMarkupExample);
   $('markupSave').addEventListener('click', saveMarkup);
   $('pAdd').addEventListener('click', addPart);
@@ -101,22 +106,29 @@ async function start() {
 }
 
 async function load() {
-  const [{ data: parts, error }, { data: set }] = await Promise.all([
-    sb.from('parts_stock').select('*').eq('archived', false).order('name'),
-    sb.from('app_settings').select('num').eq('key', 'parts_markup_pct').maybeSingle()
+  const [{ data: parts, error }, { data: set }, { data: sups }] = await Promise.all([
+    sb.from('parts_stock').select('*').order('name'),
+    sb.from('app_settings').select('num').eq('key', 'parts_markup_pct').maybeSingle(),
+    sb.from('part_purchases').select('supplier').not('supplier', 'is', null)
   ]);
+  // Every supplier you've used before, ignoring differences in capitals.
+  const seen = new Map();
+  (sups || []).forEach(x => { const k = x.supplier.trim().toLowerCase(); if (k && !seen.has(k)) seen.set(k, x.supplier.trim()); });
+  SUPPLIERS = [...seen.values()].sort((a, b) => a.localeCompare(b));
   if (error) return show($('msg'), error.message, 'err');
   PARTS = parts || [];
+  const live = PARTS.filter(p => !p.archived);
   MARKUP = Number(set?.num || 0);
   $('markup').value = MARKUP;
   showMarkupExample();
   $('cats').innerHTML = [...new Set(PARTS.map(p => p.category).filter(Boolean))].sort().map(c => `<option value="${esc(c)}">`).join('');
 
-  const inStock = PARTS.reduce((s, p) => s + Number(p.in_stock), 0);
-  const value = PARTS.reduce((s, p) => s + Number(p.stock_value), 0);
-  const low = PARTS.filter(p => p.low).length;
+  const inStock = live.reduce((s, p) => s + Number(p.in_stock), 0);
+  const value = live.reduce((s, p) => s + Number(p.stock_value), 0);
+  const low = live.filter(p => p.low).length;
+  const arch = PARTS.length - live.length;
   $('summary').innerHTML = [
-    ['Parts listed', PARTS.length],
+    ['Parts listed', live.length + (arch ? ' <span style="font-size:13px;font-weight:400;color:var(--muted)">+ ' + arch + ' archived</span>' : '')],
     ['Units in stock', inStock],
     ['Stock value (at cost)', money(value)],
     ['Low stock', low]
@@ -160,7 +172,7 @@ async function addPart() {
 
 function render() {
   const q = $('search').value.trim().toLowerCase();
-  const rows = PARTS.filter(p => (!$('lowOnly').checked || p.low) &&
+  const rows = PARTS.filter(p => ($('showArch').checked || !p.archived) && (!$('lowOnly').checked || (p.low && !p.archived)) &&
     (!q || [p.name, p.part_number, p.category, p.location].some(v => String(v || '').toLowerCase().includes(q))));
   if (!rows.length) {
     $('list').innerHTML = `<p class="empty">${PARTS.length ? 'Nothing matches.' : 'No parts yet. Add your first one above.'}</p>`;
@@ -172,7 +184,7 @@ function render() {
       <tr class="part${OPEN === p.id ? ' open' : ''}" data-id="${p.id}">
         <td><strong>${esc(p.name)}</strong>${p.part_number ? ` <span class="muted">· ${esc(p.part_number)}</span>` : ''}
           ${p.category ? `<div class="muted">${esc(p.category)}</div>` : ''}</td>
-        <td class="num">${p.in_stock}${p.low ? ' <span class="tag hot">Low</span>' : ''}</td>
+        <td class="num">${p.in_stock}${p.archived ? ' <span class="tag off">Archived</span>' : p.low ? ' <span class="tag hot">Low</span>' : ''}</td>
         <td class="num">${p.next_unit_cost != null ? money(p.next_unit_cost) : '—'}</td>
         <td class="num">${p.next_unit_cost != null ? money(priceOf(p.next_unit_cost)) : '—'}</td>
         <td class="hide">${esc(p.location || '')}</td>
@@ -191,11 +203,18 @@ async function drawDetail(p) {
   const box = $('detail');
   const today = new Date().toISOString().slice(0, 10);
   box.innerHTML = `
+    ${p.archived ? `<p class="msg show err" style="margin:0 0 14px">This part is archived — it's hidden from the list and can't be picked on jobs. Restore it to use it again.</p>` : ''}
     <h2 style="margin-bottom:10px">Add a purchase of ${esc(p.name)}</h2>
     <div class="row">
       <div style="flex:0 1 140px"><label for="bQty">Quantity bought</label><input type="number" id="bQty" min="1" step="1"></div>
       <div style="flex:0 1 220px"><label for="bTotal">Total paid £ <span class="muted">(inc. VAT &amp; postage)</span></label><input type="number" id="bTotal" min="0" step="0.01"></div>
-      <div><label for="bSupplier">Supplier <span class="muted">(optional)</span></label><input type="text" id="bSupplier"></div>
+      <div><label for="bSupplierSel">Supplier <span class="muted">(optional)</span></label>
+        <select id="bSupplierSel">
+          <option value="">— None —</option>
+          ${SUPPLIERS.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+          <option value="__new">+ Add new supplier…</option>
+        </select>
+        <input type="text" id="bSupplier" placeholder="New supplier name" style="display:none;margin-top:-6px"></div>
       <div style="flex:0 1 170px"><label for="bDate">Date</label><input type="date" id="bDate" value="${today}"></div>
     </div>
     <div class="preview" id="bPreview"></div>
@@ -203,7 +222,8 @@ async function drawDetail(p) {
     <div id="history" style="margin-top:22px"><p class="empty">Loading history…</p></div>
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm" id="editPart">Edit details</button>
-      <button class="btn-sm" id="archivePart">Remove from list</button>
+      <button class="btn-sm" id="archivePart">${p.archived ? 'Restore' : 'Archive'}</button>
+      <button class="btn-sm" id="deletePart" style="color:var(--red);border-color:#f3c2bd">Delete</button>
     </div>`;
 
   const preview = () => {
@@ -213,17 +233,30 @@ async function drawDetail(p) {
       : '';
   };
   $('bQty').addEventListener('input', preview);
+  $('bSupplierSel').addEventListener('change', () => {
+    const add = $('bSupplierSel').value === '__new';
+    $('bSupplier').style.display = add ? 'block' : 'none';
+    if (add) $('bSupplier').focus();
+  });
   $('bTotal').addEventListener('input', preview);
 
+  // The picked supplier, or the new one typed in (matched to an existing one if only the capitals differ).
+  const supplierChosen = () => {
+    const v = $('bSupplierSel').value;
+    if (v !== '__new') return v || null;
+    const typed = $('bSupplier').value.trim();
+    return SUPPLIERS.find(x => x.toLowerCase() === typed.toLowerCase()) || typed || null;
+  };
   $('bAdd').addEventListener('click', async () => {
     hide($('msg'));
+    if ($('bSupplierSel').value === '__new' && !$('bSupplier').value.trim()) return show($('msg'), 'Type the new supplier\'s name, or pick one from the list.', 'err');
     const q = parseInt($('bQty').value, 10), t = parseFloat($('bTotal').value);
     if (!(q > 0)) return show($('msg'), 'Enter how many you bought.', 'err');
     if (!(t >= 0)) return show($('msg'), 'Enter the total you paid, including VAT and postage.', 'err');
     $('bAdd').disabled = true;
     const { data, error } = await sb.rpc('add_part_purchase', {
       p_part_id: p.id, p_qty: q, p_total: t,
-      p_supplier: $('bSupplier').value.trim() || null, p_date: $('bDate').value || null
+      p_supplier: supplierChosen(), p_date: $('bDate').value || null
     });
     $('bAdd').disabled = false;
     if (error) return show($('msg'), error.message, 'err');
@@ -232,10 +265,27 @@ async function drawDetail(p) {
   });
 
   $('editPart').addEventListener('click', () => editPart(p));
+  // Archive hides a part (history kept); restore brings it back.
   $('archivePart').addEventListener('click', async () => {
-    if (Number(p.in_stock) > 0 && !confirm(p.name + ' still has ' + p.in_stock + ' in stock. Remove it from the list anyway?')) return;
-    const { error } = await sb.from('parts').update({ archived: true }).eq('id', p.id);
+    const to = !p.archived;
+    if (to && Number(p.in_stock) > 0 && !confirm(p.name + ' still has ' + p.in_stock + ' in stock. Archive it anyway?')) return;
+    const { error } = await sb.from('parts').update({ archived: to }).eq('id', p.id);
     if (error) return show($('msg'), error.message, 'err');
+    show($('msg'), p.name + (to ? ' archived. Tick "Show archived" to see it again.' : ' restored.'), 'ok');
+    if (to) OPEN = null;
+    load();
+  });
+  // Delete removes it for good — only if it has never been used on a job.
+  $('deletePart').addEventListener('click', async () => {
+    const { data: usedRows, error: uErr } = await sb.from('part_usage').select('job_id').eq('part_id', p.id);
+    if (uErr) return show($('msg'), uErr.message, 'err');
+    const jobs = new Set((usedRows || []).map(u => u.job_id)).size;
+    if (jobs) return show($('msg'), p.name + ' has been used on ' + jobs + ' job' + (jobs === 1 ? '' : 's') + ', so it can\'t be deleted — that would break those jobs\' records. Archive it instead.', 'err');
+    if (!confirm('Delete ' + p.name + ' and all its purchase records for good? This can\'t be undone.')) return;
+    const { error } = await sb.from('parts').delete().eq('id', p.id);
+    if (error) return show($('msg'), /foreign key|violates/i.test(error.message)
+      ? p.name + ' has been used on a job, so it can\'t be deleted. Archive it instead.' : error.message, 'err');
+    show($('msg'), p.name + ' deleted.', 'ok');
     OPEN = null; load();
   });
 
