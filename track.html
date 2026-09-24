@@ -81,6 +81,7 @@
           <div class="klabel">Where it's up to</div>
           <div class="big" id="statusLabel"></div>
           <div class="blurb" id="statusBlurb"></div>
+          <a id="collectBtn" href="#" style="display:none;margin-top:12px;background:#1B2A4A;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px;display:none;font-size:15px">Book a collection time</a>
         </div>
 
         <div id="itemsWrap" style="display:none">
@@ -153,6 +154,14 @@ function draw(d) {
   $('who').textContent = d.customer_name ? ' · ' + d.customer_name : '';
   $('statusLabel').textContent = d.status_label || '';
   $('statusBlurb').textContent = d.status_blurb || '';
+  // Finished items can be collected in person, by appointment.
+  if (d.can_collect) {
+    $('collectBtn').href = 'collect.html?job=' + encodeURIComponent(d.job_number) + '&k=' + encodeURIComponent(KEY);
+    $('collectBtn').textContent = d.collection_at ? 'Change or cancel collection' : 'Book a collection time';
+    $('collectBtn').style.display = 'inline-block';
+  } else {
+    $('collectBtn').style.display = 'none';
+  }
 
   // Everything from the same booking form, each with its own job number.
   const jobs = d.jobs || [];

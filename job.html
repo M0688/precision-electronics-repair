@@ -135,6 +135,7 @@
         <h1 id="jobNo"></h1>
         <p class="sub" id="jobSub"></p>
         <div id="dropBox" style="display:none;border-radius:10px;padding:12px 16px;margin:-6px 0 16px;display:none;align-items:center;gap:12px;flex-wrap:wrap"></div>
+        <div id="colBox" style="display:none;border-radius:10px;padding:12px 16px;margin:-6px 0 16px;align-items:center;gap:12px;flex-wrap:wrap"></div>
         <div class="row">
           <div>
             <label for="status">Status</label>
@@ -434,6 +435,7 @@ async function load() {
   $('jobSub').innerHTML = esc(bits) + (data.contact_id ? ` · <a href="contacts.html?id=${data.contact_id}">customer record</a>` : '');
   loadTrade(data.contact_id);
   loadDrop();
+  loadCollection();
   $('status').value = data.status;
 
   const PREF = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text message', call: 'Phone call' };
@@ -814,6 +816,36 @@ async function loadDrop() {
     show($('msg'), out.emailed ? 'Confirmed. ' + out.to + ' has been emailed.' : 'Confirmed, but the email did not send.', out.emailed ? 'ok' : 'err');
     $('status').value = 'dropoff_booked';
     loadDrop(); loadNotes(JOBROW.id); loadComms(JOBROW.id);
+  });
+}
+
+// ---------- collection, at a glance ----------
+async function loadCollection() {
+  const { data } = await sb.rpc('job_collection', { p_job_id: JOBROW.id });
+  const d = Array.isArray(data) ? data[0] : data;
+  const box = $('colBox');
+  if (!d || !d.starts_at) { box.style.display = 'none'; return; }
+  const when = new Date(d.starts_at).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  box.style.display = 'flex';
+  box.style.background = d.confirmed ? '#e7f2ec' : '#fff4e0';
+  box.style.border = '1px solid ' + (d.confirmed ? '#bcdcca' : '#f0d9a8');
+  box.innerHTML = d.confirmed
+    ? `<div style="flex:1"><strong style="color:var(--green)">Collection confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>`
+    : `<div style="flex:1"><strong style="color:var(--amber)">Collection requested — needs confirming</strong><br><span style="font-size:15px">${esc(when)}</span></div>
+       <button class="primary" id="colConfirm">Confirm</button>`;
+  const btn = $('colConfirm');
+  if (btn) btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Confirming…';
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/collection', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'confirm', job_number: JOB })
+    });
+    const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+    if (!out.ok) { btn.disabled = false; btn.textContent = 'Confirm'; return show($('msg'), out.error || 'Could not confirm.', 'err'); }
+    show($('msg'), out.emailed ? 'Collection confirmed. ' + out.to + ' has been emailed.' : 'Confirmed, but the email did not send.', out.emailed ? 'ok' : 'err');
+    loadCollection(); loadNotes(JOBROW.id); loadComms(JOBROW.id);
   });
 }
 
