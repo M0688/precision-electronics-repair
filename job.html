@@ -51,6 +51,7 @@
   .tag.wait { background: #fff4e0; color: var(--amber); }
   .tag.in { background: #e7f2ec; color: var(--green); }
   .tag.off { background: #eef0f4; color: var(--muted); }
+  .tag.hot { background: #fdecea; color: #b3261e; }
 
   .msg { border-radius: 8px; padding: 12px 15px; margin-bottom: 14px; font-size: 14px; display: none; }
   .msg.show { display: block; }
@@ -940,6 +941,7 @@ async function loadInvoices(jobId) {
     return `<div class="quotebox">
       <div class="amt">${esc(v.invoice_number)} · £${Number(v.amount).toFixed(2)}
         <span class="tag ${paid ? 'in' : 'wait'}" style="margin-left:8px">${paid ? 'Paid' : 'Unpaid'}</span></div>
+      ${!paid && v.pay_intent ? `<div style="margin-top:8px"><span class="tag ${v.pay_intent === 'bank' ? 'hot' : 'wait'}">${v.pay_intent === 'bank' ? 'Customer says paid by bank transfer — check the account' : 'Customer will pay cash on collection'}</span> <span style="color:var(--muted);font-size:12px">${when(v.pay_intent_at)}</span></div>` : ''}
       <div style="font-size:14px;margin-top:6px;white-space:pre-wrap">${esc(v.description)}</div>
       <div style="color:var(--muted);font-size:12px;margin-top:8px">Raised ${when(v.issued_at)}${v.paid_at ? ' · paid ' + when(v.paid_at) + ' (' + esc(v.paid_method) + ')' : ''}</div>
       ${paid

@@ -113,6 +113,7 @@ function render() {
       const tag = paid
         ? `<span class="tag in">Paid</span><div class="muted" style="font-size:12px;margin-top:4px">${when(r.paid_at)} · ${esc(r.paid_method || '')}</div>`
         : `<span class="tag ${age > 14 ? 'hot' : 'wait'}">Unpaid · ${age === 0 ? 'today' : age + (age === 1 ? ' day' : ' days')}</span>
+           ${r.pay_intent ? `<div style="font-size:12px;margin-top:4px;font-weight:600;color:${r.pay_intent === 'bank' ? 'var(--red, #b3261e)' : 'inherit'}">${r.pay_intent === 'bank' ? 'Says paid by transfer — check bank' : 'Paying cash on collection'}</div>` : ''}
            <div class="acts" style="margin-top:8px">
              <button class="btn-sm" data-paid="${r.id}" data-method="bank transfer">Paid — bank</button>
              <button class="btn-sm" data-paid="${r.id}" data-method="cash">Paid — cash</button>

@@ -32,6 +32,14 @@
   .msg.show { display:block; }
   .msg.err { background:#fdecea; border:1px solid #f3c2bd; color:var(--red); }
   .msg.info { background:#eef2f8; border:1px solid #cdd8e8; color:var(--navy); }
+  .msg.ok { background:#e7f2ec; border:1px solid #bcdcca; color:var(--green); }
+  .ref { background:#fff8e6; border:1px solid #f0d58c; border-radius:8px; padding:12px 14px; margin:10px 0 14px; }
+  .paybtns { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .paybtns button { flex:1 1 220px; width:auto; }
+  button.alt { background:#fff; color:var(--navy); border:1px solid var(--navy); }
+  button.alt:hover { background:#eef2f8; }
+  button.pick { outline:3px solid #f0d58c; outline-offset:2px; }
+  button:disabled { opacity:.5; cursor:default; }
   footer { background:var(--navy-dark); color:#9aa6bd; font-size:14px; padding:24px 0; }
   footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; max-width:1080px; }
   footer a { color:#cdd6e6; }
@@ -67,9 +75,16 @@
 
         <div class="pay" id="payBlock">
           <strong style="color:var(--navy)">How to pay</strong><br>
-          Bank transfer — Mitchell Morris · Sort code 04-29-09 · Account 59881100<br>
-          Please use <strong id="payRef"></strong> as the reference.<br>
-          We also accept cash on collection.
+          <strong>Bank transfer</strong> — Mitchell Morris · Sort code 04-29-09 · Account 59881100
+          <div class="ref"><strong>You must use your job number, <span id="payRef"></span>, as the payment reference</strong> — it's how we match your payment to your repair.</div>
+          <strong>Or cash</strong> when you collect it in person.
+          <p style="margin:12px 0 0">Please let us know which you're doing. We don't watch the bank account in real time, so if you've
+            paid by transfer, pressing the button tells us straight away and gets your item back to you sooner.</p>
+          <div id="intentMsg" class="msg" style="margin:12px 0 0"></div>
+          <div class="paybtns" id="payBtns">
+            <button id="sayBank">I've paid by bank transfer</button>
+            <button id="sayCash" class="alt">I'll pay cash on collection</button>
+          </div>
         </div>
 
         <button id="dl">Download PDF invoice</button>
@@ -132,7 +147,15 @@ async function start() {
       ? (d.description && d.description !== 'Repair work — see the itemised list.' ? d.description : '')
       : d.description;
     $('amount').textContent = 'Total due: £' + Number(d.amount).toFixed(2);
-    $('payRef').textContent = d.invoice_number;
+    $('payRef').textContent = d.job_number;
+    showIntent(d.pay_intent, d.pay_intent_at);
+    // Came from a button in the email: highlight it, but they still press it here.
+    const say = params.get('say');
+    if (!d.pay_intent && (say === 'bank' || say === 'cash') && d.status !== 'paid') {
+      const b = $(say === 'bank' ? 'sayBank' : 'sayCash');
+      b.classList.add('pick');
+      setTimeout(() => b.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+    }
     if (d.status === 'paid') {
       $('paidTag').style.display = 'block';
       $('amount').textContent = 'Total: £' + Number(d.amount).toFixed(2);
@@ -144,6 +167,38 @@ async function start() {
     fail('We could not load your invoice right now. Please try again shortly, or call 07522 124273.');
   }
 }
+
+function showIntent(choice, at) {
+  if (!choice) return;
+  const when = at ? new Date(at).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+  $('intentMsg').textContent = choice === 'bank'
+    ? 'Thanks — you told us ' + (when ? 'on ' + when + ' ' : '') + 'that you\'ve paid by bank transfer. We\'ll check the account and confirm by email once it\'s arrived.'
+    : 'Thanks — you told us ' + (when ? 'on ' + when + ' ' : '') + 'that you\'ll pay cash on collection.';
+  $('intentMsg').className = 'msg ok show';
+  $('sayBank').textContent = choice === 'bank' ? 'I\'ve paid by bank transfer ✓' : 'I\'ve paid by bank transfer';
+  $('sayCash').textContent = choice === 'cash' ? 'I\'ll pay cash on collection ✓' : 'I\'ll pay cash on collection';
+  $('sayBank').classList.remove('pick'); $('sayCash').classList.remove('pick');
+}
+
+async function sayPay(choice) {
+  $('sayBank').disabled = true; $('sayCash').disabled = true;
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/invoice-intent', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: ID, token: TOKEN, choice })
+    });
+    const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+    if (!out.ok) throw new Error(out.error || 'Something went wrong. Please try again.');
+    showIntent(choice, new Date().toISOString());
+  } catch (e) {
+    $('intentMsg').textContent = e.message + ' Or just reply to your invoice email.';
+    $('intentMsg').className = 'msg err show';
+  }
+  $('sayBank').disabled = false; $('sayCash').disabled = false;
+}
+$('sayBank').addEventListener('click', () => sayPay('bank'));
+$('sayCash').addEventListener('click', () => sayPay('cash'));
 
 $('dl').addEventListener('click', () => {
   if (!DATA) return;

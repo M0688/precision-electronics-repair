@@ -163,7 +163,7 @@ export function buildInvoicePdf(d) {
     doc.text('Keep this receipt for your records and for any warranty claim.', L + 4, y + 28);
   } else {
     doc.text(`Bank transfer — ${BUSINESS.bank.name} · Sort code ${BUSINESS.bank.sort} · Account ${BUSINESS.bank.account}`, L + 4, y + 16);
-    doc.text(`Please use ${d.invoice_number} as the payment reference.`, L + 4, y + 22);
+    doc.text(`You must use your job number, ${d.job_number || d.invoice_number}, as the payment reference.`, L + 4, y + 22);
     doc.text('We also accept cash on collection.', L + 4, y + 28);
   }
   y += 44;
