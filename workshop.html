@@ -28,6 +28,34 @@
   .send.wa { border-color: #25D366; color: #128C4A; }
   #login { max-width: 420px; margin: 60px auto; }
   body.signed-out nav.tabs { display: none; }
+  /* Week calendar */
+  .calbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .calbar .send { margin: 0; padding: 7px 12px; font-size: 13px; }
+  #calTitle { color: var(--navy); margin-left: 6px; }
+  .calkey { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .calkey .k { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 6px; }
+  .k.drop { background: #fff1d6; border: 2px solid #d99a1e; }
+  .k.coll { background: #e3edfb; border: 2px solid #3d6fb6; }
+  .k.req { background: #fff; border: 2px dashed #b3261e; }
+  .k.shut { background: repeating-linear-gradient(45deg, #eef0f4, #eef0f4 4px, #e2e6ec 4px, #e2e6ec 8px); border: 1px solid #d9dee6; }
+  .calwrap { overflow-x: auto; }
+  .calgrid { display: grid; grid-template-columns: 54px repeat(7, minmax(110px, 1fr)); min-width: 820px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .calgrid .ch { background: var(--soft); font-size: 12px; font-weight: 700; color: var(--navy); text-align: center; padding: 8px 4px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .calgrid .ch.today { background: var(--navy); color: #fff; }
+  .calgrid .ch:first-child { border-left: 0; }
+  .calgrid .th { font-size: 12px; color: var(--muted); text-align: right; padding: 4px 6px; border-top: 1px solid var(--line); }
+  .calgrid .cell { min-height: 54px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 3px; }
+  .calgrid .cell.shut { background: repeating-linear-gradient(45deg, #f4f6f9, #f4f6f9 6px, #eceff4 6px, #eceff4 12px); }
+  .calgrid .cell.past { opacity: .55; }
+  .bk { display: block; border-radius: 6px; padding: 4px 6px; font-size: 12px; line-height: 1.35; text-decoration: none; color: var(--ink); margin-bottom: 3px; }
+  .bk.drop { background: #fff1d6; border-left: 4px solid #d99a1e; }
+  .bk.coll { background: #e3edfb; border-left: 4px solid #3d6fb6; }
+  .bk.req { outline: 2px dashed #b3261e; outline-offset: -2px; }
+  .bk strong { display: block; font-size: 12px; color: var(--navy); }
+  .bk .bkline { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bk button { margin-top: 3px; background: var(--navy); color: #fff; border: 0; border-radius: 5px; font: inherit; font-size: 11px; font-weight: 700; padding: 3px 8px; cursor: pointer; }
+  .bk button:disabled { opacity: .5; }
+  .calnote { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
   @media (max-width: 700px) { main { padding: 20px 0 48px; } }
 </style>
 </head>
@@ -51,9 +79,16 @@
     <!-- Dashboard -->
     <div id="app" style="display:none">
 
-      <div class="card" id="dropCard" style="display:none">
-        <h2>Drop-offs &amp; collections booked</h2>
-        <div id="dropArea"></div>
+      <div class="card" id="calCard">
+        <h2>Bookings calendar</h2>
+        <div class="calbar">
+          <button class="send" id="calPrev" type="button">&larr; Previous</button>
+          <button class="send" id="calToday" type="button">This week</button>
+          <button class="send" id="calNext" type="button">Next &rarr;</button>
+          <strong id="calTitle"></strong>
+          <span class="calkey"><span class="k drop"></span>Drop-off <span class="k coll"></span>Collection <span class="k req"></span>Needs confirming <span class="k shut"></span>Closed / away</span>
+        </div>
+        <div class="calwrap"><div id="calGrid" class="calgrid"></div></div>
       </div>
 
       <div class="card">
@@ -393,33 +428,108 @@ async function confirmDropoff(jobNo, btn, kind) {
   });
   const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
   if (!out.ok) { btn.disabled = false; btn.textContent = 'Confirm'; show($('jobsMsg'), out.error || 'Could not confirm.', 'err'); return; }
-  loadDropoffs(); loadJobs();
+  loadCalendar(); loadJobs();
 }
-// Customers who've booked to bring items in themselves. Hidden when there are none.
-async function loadDropoffs() {
-  const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
-  const { data, error } = await sb.from('appointments')
-    .select('starts_at, confirmed_at, kind, jobs(job_number, customer_name, customer_phone, batch_id, batch_size)')
-    .is('cancelled_at', null).gte('starts_at', since).order('starts_at');
-  if (error || !data || !data.length) { $('dropCard').style.display = 'none'; return; }
-  const t = dropText;
-  const e = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  $('dropArea').innerHTML = `<table><tbody>${data.map(a => {
-    const j = a.jobs || {};
-    const n = j.batch_size > 1 ? ` <span style="color:#5a6474">+ ${j.batch_size - 1} more item${j.batch_size > 2 ? 's' : ''}</span>` : '';
-    const k = a.kind === 'collection'
-      ? '<span class="tag" style="background:#e8eefb;color:#1B2A4A">Collection</span>'
-      : '<span class="tag wait">Drop-off</span>';
-    return `<tr><td style="white-space:nowrap"><strong>${t(a.starts_at)}</strong><br>${k}</td>
-      <td>${e(j.customer_name)}${j.customer_phone ? `<br><span style="color:#5a6474;font-size:13px">${e(j.customer_phone)}</span>` : ''}</td>
-      <td class="jobno"><a href="job.html?job=${e(j.job_number)}" style="text-decoration:none">${e(j.job_number)}</a>${n}</td>
-      <td style="text-align:right">${a.confirmed_at
-        ? '<span class="tag in">Confirmed</span>'
-        : `<button class="primary" data-confirm="${e(j.job_number)}" data-kind="${e(a.kind)}" style="padding:8px 16px">Confirm</button>`}</td></tr>`;
-  }).join('')}</tbody></table>`;
-  $('dropArea').querySelectorAll('[data-confirm]').forEach(b => b.addEventListener('click', () => confirmDropoff(b.dataset.confirm, b, b.dataset.kind)));
-  $('dropCard').style.display = 'block';
+// ---------- bookings calendar (week view) ----------
+// Drop-offs and collections on a Mon–Sun grid, using your opening hours.
+// Closed days and away times are shaded. Unconfirmed bookings have a red dashed
+// outline and a Confirm button.
+const TZ = 'Europe/London';
+let WEEK = 0;   // 0 = this week, 1 = next, -1 = last …
+const ukParts = d => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false, weekday: 'short' })
+    .formatToParts(d).map(x => [x.type, x.value]));
+  return { ymd: p.year + '-' + p.month + '-' + p.day, hour: Number(p.hour) % 24, wd: p.weekday };
+};
+// Monday (UK date) of the week we're showing, as YYYY-MM-DD.
+function weekStart() {
+  const now = new Date();
+  const { ymd, wd } = ukParts(now);
+  const back = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }[wd];
+  const d = new Date(ymd + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - back + WEEK * 7);
+  return d;
 }
+const addDays = (d, n) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; };
+const ymdOf = d => d.toISOString().slice(0, 10);
+const esc2 = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+async function loadCalendar() {
+  const mon = weekStart();
+  const days = [...Array(7)].map((_, i) => addDays(mon, i));
+  const from = addDays(mon, -1).toISOString(), to = addDays(mon, 8).toISOString();
+  const [{ data: appts }, { data: hours }, { data: away }, { data: names }] = await Promise.all([
+    sb.from('appointments').select('starts_at, confirmed_at, kind, batch_id, jobs(job_number, customer_phone, batch_size)')
+      .is('cancelled_at', null).gte('starts_at', from).lt('starts_at', to).order('starts_at'),
+    sb.from('opening_hours').select('*'),
+    sb.from('away_periods').select('starts_at, ends_at').lt('starts_at', to).gt('ends_at', from),
+    sb.from('job_list').select('job_number, customer_name')
+  ]);
+  const nameOf = Object.fromEntries((names || []).map(n => [n.job_number, n.customer_name]));
+  const H = Object.fromEntries((hours || []).map(h => [h.weekday, h]));
+  const open = (hours || []).filter(h => h.is_open);
+  const first = Math.min(9, ...open.map(h => h.open_hour));
+  const last = Math.max(17, ...open.map(h => h.close_hour));
+  const slots = [...Array(last - first)].map((_, i) => first + i);
+
+  // Bookings by "YYYY-MM-DD hour" in UK time.
+  const byCell = {};
+  (appts || []).forEach(a => {
+    const p = ukParts(new Date(a.starts_at));
+    (byCell[p.ymd + ' ' + p.hour] = byCell[p.ymd + ' ' + p.hour] || []).push(a);
+  });
+  const isAway = (ymd, hr) => (away || []).some(w => {
+    const a = ukParts(new Date(w.starts_at)), b = ukParts(new Date(w.ends_at));
+    const key = ymd + String(hr).padStart(2, '0'), s = a.ymd + String(a.hour).padStart(2, '0'), e = b.ymd + String(b.hour).padStart(2, '0');
+    return key >= s && key < e;
+  });
+  const todayYmd = ukParts(new Date()).ymd;
+  const nowKey = todayYmd + String(ukParts(new Date()).hour).padStart(2, '0');
+  const dayName = d => d.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+
+  let html = '<div class="ch"></div>' + days.map(d => `<div class="ch${ymdOf(d) === todayYmd ? ' today' : ''}">${dayName(d)}</div>`).join('');
+  let count = 0, pending = 0;
+  slots.forEach(hr => {
+    html += `<div class="th">${String(hr).padStart(2, '0')}:00</div>`;
+    days.forEach(d => {
+      const ymd = ymdOf(d), wd = d.getUTCDay(), h = H[wd];
+      const shut = !h || !h.is_open || hr < h.open_hour || hr >= h.close_hour || isAway(ymd, hr);
+      const past = (ymd + String(hr).padStart(2, '0')) < nowKey;
+      const list = byCell[ymd + ' ' + hr] || [];
+      html += `<div class="cell${shut ? ' shut' : ''}${past ? ' past' : ''}">` + list.map(a => {
+        count++;
+        const j = a.jobs || {}, col = a.kind === 'collection';
+        if (!a.confirmed_at) pending++;
+        const more = j.batch_size > 1 ? ` +${j.batch_size - 1}` : '';
+        return `<a class="bk ${col ? 'coll' : 'drop'}${a.confirmed_at ? '' : ' req'}" href="job.html?job=${esc2(j.job_number)}" title="${esc2(nameOf[j.job_number] || '')} ${esc2(j.customer_phone || '')}">
+          <strong>${col ? 'Collection' : 'Drop-off'}</strong>
+          <span class="bkline">${esc2(nameOf[j.job_number] || 'Customer')}</span>
+          <span class="bkline">${esc2(j.job_number)}${more}</span>
+          ${a.confirmed_at ? '' : `<button type="button" data-confirm="${esc2(j.job_number)}" data-kind="${esc2(a.kind)}">Confirm</button>`}
+        </a>`;
+      }).join('') + '</div>';
+    });
+  });
+  // Bookings outside the hours shown (e.g. before hours changed) still get listed.
+  const shown = new Set(slots.flatMap(hr => days.map(d => ymdOf(d) + ' ' + hr)));
+  const outside = Object.entries(byCell).filter(([k]) => !shown.has(k) && days.some(d => k.startsWith(ymdOf(d)))).flatMap(([, v]) => v);
+
+  $('calGrid').innerHTML = html;
+  const last7 = addDays(mon, 6);
+  $('calTitle').textContent = mon.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' }) + ' – ' +
+    last7.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }) +
+    (count ? ` · ${count} booking${count === 1 ? '' : 's'}${pending ? `, ${pending} to confirm` : ''}` : ' · no bookings');
+  let note = $('calNote');
+  if (!note) { note = document.createElement('p'); note.id = 'calNote'; note.className = 'calnote'; $('calGrid').parentElement.after(note); }
+  note.textContent = outside.length ? outside.length + ' booking(s) this week fall outside your current opening hours — check the job pages.' : '';
+  $('calGrid').querySelectorAll('[data-confirm]').forEach(b => b.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    confirmDropoff(b.dataset.confirm, b, b.dataset.kind);
+  }));
+}
+$('calPrev').addEventListener('click', () => { WEEK--; loadCalendar(); });
+$('calNext').addEventListener('click', () => { WEEK++; loadCalendar(); });
+$('calToday').addEventListener('click', () => { WEEK = 0; loadCalendar(); });
 
 // ---------- start ----------
 async function start() {
@@ -431,7 +541,7 @@ async function start() {
     $('login').style.display = 'none';
     document.body.classList.remove('signed-out');
     loadJobs();
-    loadDropoffs();
+    loadCalendar();
   } else {
     $('login').style.display = 'block';
   }
