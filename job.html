@@ -133,6 +133,7 @@
       <div class="card">
         <h1 id="jobNo"></h1>
         <p class="sub" id="jobSub"></p>
+        <div id="dropBox" style="display:none;border-radius:10px;padding:12px 16px;margin:-6px 0 16px;display:none;align-items:center;gap:12px;flex-wrap:wrap"></div>
         <div class="row">
           <div>
             <label for="status">Status</label>
@@ -140,7 +141,8 @@
               <option value="awaiting_intake">Awaiting booking form</option>
               <option value="intake_received">Form received</option>
               <option value="estimated">Estimate sent</option>
-              <option value="dropoff_booked">Drop-off booked</option>
+              <option value="dropoff_requested">Drop-off requested</option>
+              <option value="dropoff_booked">Drop-off confirmed</option>
               <option value="in_post">In the post to us</option>
               <option value="arrived">Item arrived</option>
               <option value="in_diagnosis">In diagnosis</option>
@@ -216,6 +218,7 @@
             <input type="number" id="qAmount" min="0" step="1" placeholder="120">
           </div>
         </div>
+        <p class="sub" id="qTradeNote" style="display:none;margin:-6px 0 14px;color:var(--green)"></p>
         <label for="qTemplate">Standard reply <span style="font-weight:400;color:var(--muted)">— pick one to fill it in, then edit</span></label>
         <select id="qTemplate"><option value="">Write it myself…</option></select>
 
@@ -417,6 +420,7 @@ async function load() {
   const bits = [data.customer_name, data.make_model || data.device_type].filter(Boolean).join(' · ') || 'No booking form yet';
   $('jobSub').innerHTML = esc(bits) + (data.contact_id ? ` · <a href="contacts.html?id=${data.contact_id}">customer record</a>` : '');
   loadTrade(data.contact_id);
+  loadDrop();
   $('status').value = data.status;
 
   const PREF = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text message', call: 'Phone call' };
@@ -459,7 +463,7 @@ async function load() {
 }
 
 // Before the item is here, anything you price is an estimate.
-const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'dropoff_booked', 'in_post'];
+const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'dropoff_requested', 'dropoff_booked', 'in_post'];
 
 const KIND_NOTE = {
   estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price, an address label and a packing slip, and sending the item in is their answer. The firm price comes after you have inspected it.',
@@ -760,6 +764,37 @@ function drawLines() {
   showTotal();
 }
 
+// ---------- drop-off, at a glance ----------
+async function loadDrop() {
+  const { data } = await sb.rpc('job_dropoff', { p_job_id: JOBROW.id });
+  const d = Array.isArray(data) ? data[0] : data;
+  const box = $('dropBox');
+  if (!d || !d.starts_at) { box.style.display = 'none'; return; }
+  const when = new Date(d.starts_at).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  box.style.display = 'flex';
+  box.style.background = d.confirmed ? '#e7f2ec' : '#fff4e0';
+  box.style.border = '1px solid ' + (d.confirmed ? '#bcdcca' : '#f0d9a8');
+  box.innerHTML = d.confirmed
+    ? `<div style="flex:1"><strong style="color:var(--green)">Drop-off confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>`
+    : `<div style="flex:1"><strong style="color:var(--amber)">Drop-off requested — needs confirming</strong><br><span style="font-size:15px">${esc(when)}</span></div>
+       <button class="primary" id="dropConfirm">Confirm</button>`;
+  const btn = $('dropConfirm');
+  if (btn) btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Confirming…';
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/confirm-dropoff', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_number: JOB })
+    });
+    const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+    if (!out.ok) { btn.disabled = false; btn.textContent = 'Confirm'; return show($('msg'), out.error || 'Could not confirm.', 'err'); }
+    show($('msg'), out.emailed ? 'Confirmed. ' + out.to + ' has been emailed.' : 'Confirmed, but the email did not send.', out.emailed ? 'ok' : 'err');
+    $('status').value = 'dropoff_booked';
+    loadDrop(); loadNotes(JOBROW.id); loadComms(JOBROW.id);
+  });
+}
+
 // Trade accounts: 25% off labour only. Parts and postage are charged at full price.
 // The server applies it; this just shows you what the invoice will come to.
 let TRADE = false;
@@ -770,13 +805,26 @@ async function loadTrade(contactId) {
   $('tradeBox').checked = TRADE;
   $('tradeRow').style.display = 'flex';
   showTotal();
+  showTradeQuote();
 }
+// On a trade job, show the price the customer will see on the estimate or quote.
+function showTradeQuote() {
+  const a = parseFloat($('qAmount').value) || 0;
+  if (!TRADE || a <= 0) { $('qTradeNote').style.display = 'none'; return; }
+  const off = Math.round(a * 25) / 100;
+  $('qTradeNote').textContent = 'Trade account: the customer sees £' + a.toFixed(2) + ' − £' + off.toFixed(2) +
+    ' trade discount = £' + (a - off).toFixed(2) + '. Enter your normal price here.';
+  $('qTradeNote').style.display = 'block';
+}
+$('qAmount').addEventListener('input', showTradeQuote);
+
 $('tradeBox').addEventListener('change', async () => {
   const want = $('tradeBox').checked;
   const { error } = await sb.from('contacts').update({ kind: want ? 'trade' : 'customer' }).eq('id', JOBROW.contact_id);
   if (error) { $('tradeBox').checked = !want; return show($('msg'), error.message, 'err'); }
   TRADE = want;
   showTotal();
+  showTradeQuote();
 });
 function tradeDiscount() {
   if (!TRADE) return 0;

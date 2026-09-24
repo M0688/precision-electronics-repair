@@ -244,7 +244,18 @@ async function start() {
       $('item').closest('.jobline').insertAdjacentElement('afterend', note);
     }
     $('work').textContent = q.work_summary;
-    $('amount').textContent = (KIND === 'estimate' ? 'Estimated repair price: £' : 'Repair price: £') + Number(q.amount).toFixed(2);
+    const label = KIND === 'estimate' ? 'Estimated repair price' : 'Repair price';
+    if (q.trade) {
+      // Trade accounts: show the 25% off labour and what they'll actually pay.
+      const full = Number(q.amount), off = Math.round(full * 25) / 100;
+      $('amount').innerHTML =
+        '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:400"><span>' + label + '</span><span>£' + full.toFixed(2) + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:400;color:var(--green)"><span>Trade discount (25% off labour)</span><span>−£' + off.toFixed(2) + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span>Your trade price</span><span>£' + (full - off).toFixed(2) + '</span></div>' +
+        '<div class="small" style="font-weight:400;margin-top:4px">If parts are needed, they\'re charged at full price — the discount is on labour.</div>';
+    } else {
+      $('amount').textContent = label + ': £' + Number(q.amount).toFixed(2);
+    }
     if (q.parts_note) { $('parts').textContent = q.parts_note; $('partsWrap').style.display = 'block'; }
     $('loading').classList.remove('show');
     $('quoteArea').style.display = 'block';

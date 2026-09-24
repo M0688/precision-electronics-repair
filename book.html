@@ -170,7 +170,10 @@ async function load(keepDay) {
     (d.customer_name ? ' · ' + String(d.customer_name).replace(/</g, '&lt;') : '');
 
   if (d.booked) {
-    $('current').textContent = 'You\'re booked in for ' + longText(d.booked) + '. We\'ve emailed you a confirmation. To change it, pick another time below.';
+    $('current').textContent = d.confirmed
+      ? 'Confirmed: we\'ll see you on ' + longText(d.booked) + '. To change it, pick another time below.'
+      : 'You\'ve asked for ' + longText(d.booked) + '. We\'ll confirm it shortly and email you when we do. To change it, pick another time below.';
+    $('current').className = 'msg show ' + (d.confirmed ? 'ok' : 'info');
     $('current').classList.add('show');
   } else {
     $('current').classList.remove('show');

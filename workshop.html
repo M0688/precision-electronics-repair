@@ -234,7 +234,7 @@ function fmt(ts) {
 // Your wording, not the customer's — the tracking page phrases these for them.
 const STATUS_TEXT = {
   awaiting_intake: 'Awaiting form', intake_received: 'Form received',
-  estimated: 'Estimate sent', dropoff_booked: 'Drop-off booked', in_post: 'In post',
+  estimated: 'Estimate sent', dropoff_requested: 'Drop-off requested', dropoff_booked: 'Drop-off confirmed', in_post: 'In post',
   arrived: 'Arrived', in_diagnosis: 'In diagnosis', quoted: 'Quote sent',
   approved: 'Approved', declined: 'Declined', in_repair: 'In repair',
   testing: 'Testing', ready: 'Ready', invoiced: 'Invoiced', paid: 'Paid',
@@ -244,7 +244,7 @@ const STATUS_TEXT = {
 // Amber while something is waiting on someone, green once it's settled,
 // grey once the job is closed off.
 const STATUS_TONE = {
-  awaiting_intake: 'wait', intake_received: 'wait', estimated: 'wait', dropoff_booked: 'wait', in_post: 'wait',
+  awaiting_intake: 'wait', intake_received: 'wait', estimated: 'wait', dropoff_requested: 'wait', dropoff_booked: 'in', in_post: 'wait',
   arrived: 'in', in_diagnosis: 'in', quoted: 'wait', approved: 'in',
   declined: 'off', in_repair: 'in', testing: 'in', ready: 'in',
   invoiced: 'wait', paid: 'in', returned: 'off',
@@ -261,12 +261,15 @@ async function loadJobs() {
     $('jobsArea').innerHTML = '<p class="empty">No jobs yet. Create one above.</p>';
     return;
   }
+  // Drop-off day and time, right under the status.
+  const DROP = await dropoffsByJob();
   const rows = data.map(j => `
     <tr>
       <td class="jobno"><a href="job.html?job=${j.job_number}" style="text-decoration:none">${j.job_number}</a></td>
       <td>${j.customer_name || '<span style="color:#5a6474">—</span>'}${j.customer_email ? `<br><span style="color:#5a6474;font-size:13px">${j.customer_email}</span>` : ''}</td>
       <td class="hide">${j.make_model || ''}${j.fault_description ? `<br><span style="color:#5a6474;font-size:13px">${j.fault_description.slice(0, 60)}${j.fault_description.length > 60 ? '…' : ''}</span>` : ''}</td>
-      <td><span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(STATUS_TEXT[j.status] || j.status_label || j.status || '').replace(/</g, '&lt;')}</span></td>
+      <td><span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(STATUS_TEXT[j.status] || j.status_label || j.status || '').replace(/</g, '&lt;')}</span>${
+        DROP[j.job_number] && /^dropoff_/.test(j.status) ? `<br><span style="font-size:13px;font-weight:600;color:#1B2A4A">${dropText(DROP[j.job_number].starts_at)}</span>` : ''}</td>
       <td class="hide">${fmt(j.submitted_at || j.created_at)}</td>
     </tr>`).join('');
   $('jobsArea').innerHTML = `<table>
@@ -442,22 +445,51 @@ $('createBtn').addEventListener('click', async () => {
 });
 
 // ---------- drop-offs ----------
+const dropText = ts => new Date(ts).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+// job number -> its live drop-off (shared by every item on the booking)
+async function dropoffsByJob() {
+  const { data: appts } = await sb.from('appointments').select('batch_id, starts_at, confirmed_at').is('cancelled_at', null);
+  if (!appts || !appts.length) return {};
+  const byBatch = Object.fromEntries(appts.map(a => [a.batch_id, a]));
+  const { data: jobs } = await sb.from('jobs').select('id, job_number, batch_id');
+  const out = {};
+  (jobs || []).forEach(j => { const a = byBatch[j.batch_id || j.id]; if (a) out[j.job_number] = a; });
+  return out;
+}
+
+async function confirmDropoff(jobNo, btn) {
+  btn.disabled = true; btn.textContent = 'Confirming…';
+  const { data: sess } = await sb.auth.getSession();
+  const res = await fetch(SUPABASE_URL + '/functions/v1/confirm-dropoff', {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_number: jobNo })
+  });
+  const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+  if (!out.ok) { btn.disabled = false; btn.textContent = 'Confirm'; show($('jobsMsg'), out.error || 'Could not confirm.', 'err'); return; }
+  loadDropoffs(); loadJobs();
+}
 // Customers who've booked to bring items in themselves. Hidden when there are none.
 async function loadDropoffs() {
   const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
   const { data, error } = await sb.from('appointments')
-    .select('starts_at, jobs(job_number, customer_name, customer_phone, batch_id, batch_size)')
+    .select('starts_at, confirmed_at, jobs(job_number, customer_name, customer_phone, batch_id, batch_size)')
     .is('cancelled_at', null).gte('starts_at', since).order('starts_at');
   if (error || !data || !data.length) { $('dropCard').style.display = 'none'; return; }
-  const t = ts => new Date(ts).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const t = dropText;
   const e = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   $('dropArea').innerHTML = `<table><tbody>${data.map(a => {
     const j = a.jobs || {};
     const n = j.batch_size > 1 ? ` <span style="color:#5a6474">+ ${j.batch_size - 1} more item${j.batch_size > 2 ? 's' : ''}</span>` : '';
     return `<tr><td style="white-space:nowrap"><strong>${t(a.starts_at)}</strong></td>
       <td>${e(j.customer_name)}${j.customer_phone ? `<br><span style="color:#5a6474;font-size:13px">${e(j.customer_phone)}</span>` : ''}</td>
-      <td class="jobno"><a href="job.html?job=${e(j.job_number)}" style="text-decoration:none">${e(j.job_number)}</a>${n}</td></tr>`;
+      <td class="jobno"><a href="job.html?job=${e(j.job_number)}" style="text-decoration:none">${e(j.job_number)}</a>${n}</td>
+      <td style="text-align:right">${a.confirmed_at
+        ? '<span class="tag in">Confirmed</span>'
+        : `<button class="primary" data-confirm="${e(j.job_number)}" style="padding:8px 16px">Confirm</button>`}</td></tr>`;
   }).join('')}</tbody></table>`;
+  $('dropArea').querySelectorAll('[data-confirm]').forEach(b => b.addEventListener('click', () => confirmDropoff(b.dataset.confirm, b)));
   $('dropCard').style.display = 'block';
 }
 
