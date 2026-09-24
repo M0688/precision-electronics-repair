@@ -15,7 +15,7 @@ const MUTED = [90, 100, 116];
 
 function money(n) {
   const v = Number(n) || 0;
-  return (v < 0 ? '−£' : '£') + Math.abs(v).toFixed(2);
+  return (v < 0 ? '-£' : '£') + Math.abs(v).toFixed(2);
 }
 
 function ukDate(ts) {

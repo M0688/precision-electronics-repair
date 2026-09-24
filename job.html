@@ -213,11 +213,23 @@
               <option value="quote">A quote — inspected it</option>
             </select>
           </div>
-          <div style="flex:0 0 160px">
-            <label for="qAmount">Total price £</label>
-            <input type="number" id="qAmount" min="0" step="1" placeholder="120">
+          <div style="flex:0 0 130px">
+            <label for="qAmount">Labour £</label>
+            <input type="number" id="qAmount" min="0" step="0.01" placeholder="90">
+          </div>
+          <div style="flex:0 0 130px">
+            <label for="qParts">Parts £</label>
+            <input type="number" id="qParts" min="0" step="0.01" placeholder="0">
+          </div>
+          <div style="flex:0 0 150px">
+            <label for="qPost">Return postage £</label>
+            <input type="number" id="qPost" min="0" step="0.01" placeholder="at cost">
           </div>
         </div>
+        <label for="qPartsNote">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
+        <input type="text" id="qPartsNote" placeholder="e.g. Charging IC, SMD capacitor">
+        <p class="sub" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
+        <p class="sub" id="qTotalNote" style="display:none;margin:0 0 14px;font-weight:600;color:var(--navy)"></p>
         <p class="sub" id="qTradeNote" style="display:none;margin:-6px 0 14px;color:var(--green)"></p>
         <label for="qTemplate">Standard reply <span style="font-weight:400;color:var(--muted)">— pick one to fill it in, then edit</span></label>
         <select id="qTemplate"><option value="">Write it myself…</option></select>
@@ -659,6 +671,7 @@ async function loadQuotes(jobId) {
     const kind = (q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote';
     return `<div class="quotebox">
       <div class="amt">${kind} · £${Number(q.amount).toFixed(2)} <span class="tag ${cls}" style="margin-left:8px">${label}</span></div>
+      ${q.labour != null ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Labour £${Number(q.labour).toFixed(2)}${Number(q.parts) > 0 ? ' · Parts £' + Number(q.parts).toFixed(2) : ''} · ${q.postage == null ? 'Postage at cost' : Number(q.postage) > 0 ? 'Postage £' + Number(q.postage).toFixed(2) : 'No postage'}${TRADE ? ' · before trade discount' : ''}</div>` : ''}
       <div style="font-size:14px;margin-top:6px;white-space:pre-wrap">${esc(q.work_summary)}</div>
       ${q.parts_note ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">Parts: ${esc(q.parts_note)}</div>` : ''}
       ${(byQuote[q.id] || []).length ? `<div class="photos" style="margin-top:10px">${
@@ -682,15 +695,12 @@ function fillInvoiceDescription() {
   const siblings = (BATCH.length ? BATCH : []).filter(b => b.quote_status === 'approved' && !b.invoiced);
 
   if (siblings.length) {
-    LINES = siblings.map(b => {
+    LINES = [];
+    siblings.forEach(b => {
       const bits = [b.item, b.quote_work].filter(Boolean);
-      if (b.quote_parts) bits.push('Parts: ' + b.quote_parts);
-      return {
-        description: b.job_number + ' · ' + bits.join(' — '),
-        amount: Number(b.quote_amount) || 0,
-        quote_id: b.quote_id || null,
-        job_ref: b.id
-      };
+      splitQuote(LINES, b.job_number + ' · ' + bits.join(' — '), b.quote_parts,
+        { labour: b.quote_labour != null ? b.quote_labour : b.quote_amount, parts: b.quote_parts_amount, postage: b.quote_postage },
+        b.quote_id || null, b.id, siblings.length > 1 ? b.job_number + ' · ' : '');
     });
     $('iDescNote').textContent = siblings.length === 1
       ? 'Taken from the approved quote. Edit anything that changed.'
@@ -704,8 +714,10 @@ function fillInvoiceDescription() {
 
   if (approved) {
     const bits = [item, approved.work_summary].filter(Boolean);
-    if (approved.parts_note) bits.push('Parts: ' + approved.parts_note);
-    LINES = [{ description: bits.join(' — '), amount: Number(approved.amount), quote_id: approved.id, job_ref: JOBROW.id }];
+    LINES = [];
+    splitQuote(LINES, bits.join(' — '), approved.parts_note,
+      { labour: approved.labour != null ? approved.labour : approved.amount, parts: approved.parts, postage: approved.postage },
+      approved.id, JOBROW.id, '');
     $('iDescNote').textContent = 'Taken from the approved quote. Edit anything that changed.';
   } else {
     const bits = [item, JOBROW.fault_description ? 'Fault reported: ' + JOBROW.fault_description : ''].filter(Boolean);
@@ -713,6 +725,15 @@ function fillInvoiceDescription() {
     $('iDescNote').textContent = 'Nothing approved yet, so this is from the job details. Fill in the price before you send.';
   }
   drawLines();
+}
+
+// One approved quote becomes labour, parts and postage lines, so the trade
+// discount only touches labour and the invoice matches what they agreed to.
+function splitQuote(out, desc, partsNote, f, quoteId, jobRef, prefix) {
+  const noLabour = !(Number(f.labour) > 0) && Number(f.parts) > 0;
+  if (!noLabour) out.push({ description: desc, amount: Number(f.labour) || 0, kind: 'labour', quote_id: quoteId, job_ref: jobRef });
+  if (Number(f.parts) > 0) out.push({ description: noLabour ? desc + ' — Parts' + (partsNote ? ': ' + partsNote : '') : prefix + 'Parts' + (partsNote ? ': ' + partsNote : ''), amount: Number(f.parts), kind: 'parts', quote_id: quoteId, job_ref: jobRef });
+  if (Number(f.postage) > 0) out.push({ description: prefix + 'Return postage', amount: Number(f.postage), kind: 'postage', quote_id: quoteId, job_ref: jobRef });
 }
 
 // ---------- invoice lines ----------
@@ -808,15 +829,28 @@ async function loadTrade(contactId) {
   showTradeQuote();
 }
 // On a trade job, show the price the customer will see on the estimate or quote.
-function showTradeQuote() {
-  const a = parseFloat($('qAmount').value) || 0;
-  if (!TRADE || a <= 0) { $('qTradeNote').style.display = 'none'; return; }
-  const off = Math.round(a * 25) / 100;
-  $('qTradeNote').textContent = 'Trade account: the customer sees £' + a.toFixed(2) + ' − £' + off.toFixed(2) +
-    ' trade discount = £' + (a - off).toFixed(2) + '. Enter your normal price here.';
-  $('qTradeNote').style.display = 'block';
+function quoteFigures() {
+  const labour = parseFloat($('qAmount').value) || 0;
+  const parts = parseFloat($('qParts').value) || 0;
+  const postRaw = $('qPost').value.trim();
+  const post = postRaw === '' ? null : (parseFloat(postRaw) || 0);
+  const off = TRADE ? Math.round(labour * 25) / 100 : 0;
+  return { labour, parts, post, off, total: labour + parts + (post || 0) - off };
 }
-$('qAmount').addEventListener('input', showTradeQuote);
+function showTradeQuote() {
+  const f = quoteFigures();
+  if (f.labour + f.parts <= 0) { $('qTradeNote').style.display = 'none'; $('qTotalNote').style.display = 'none'; return; }
+  if (TRADE) {
+    $('qTradeNote').textContent = 'Trade account: 25% off labour = -£' + f.off.toFixed(2) + '. Enter your normal labour price.';
+    $('qTradeNote').style.display = 'block';
+  } else {
+    $('qTradeNote').style.display = 'none';
+  }
+  $('qTotalNote').textContent = 'Customer sees: total £' + f.total.toFixed(2) +
+    (f.post == null ? ' + return postage at cost' : f.post > 0 ? ' (includes £' + f.post.toFixed(2) + ' return postage)' : ' (no postage)');
+  $('qTotalNote').style.display = 'block';
+}
+['qAmount', 'qParts', 'qPost'].forEach(id => $(id).addEventListener('input', showTradeQuote));
 
 $('tradeBox').addEventListener('change', async () => {
   const want = $('tradeBox').checked;
@@ -1216,9 +1250,10 @@ async function uploadQuotePhotos(quoteId) {
 
 $('quoteBtn').addEventListener('click', async () => {
   hide($('quoteMsg'));
-  const amount = parseFloat($('qAmount').value);
+  const F = quoteFigures();
+  const amount = F.total;
   const work = $('qWork').value.trim();
-  if (!amount || amount <= 0) return show($('quoteMsg'), 'Enter the amount.', 'err');
+  if (F.labour + F.parts <= 0) return show($('quoteMsg'), 'Enter the labour or parts price.', 'err');
   if (!work) return show($('quoteMsg'), 'Describe the work.', 'err');
   if (!JOBROW.customer_email) return show($('quoteMsg'), 'This job has no customer email address.', 'err');
 
@@ -1228,8 +1263,9 @@ $('quoteBtn').addEventListener('click', async () => {
   $('quoteBtn').disabled = true; $('quoteBtn').textContent = 'Sending…';
 
   const { data, error } = await sb.rpc('create_quote', {
-    p_job_number: JOB, p_amount: amount, p_work_summary: work, p_parts_note: null,
-    p_kind: wanted
+    p_job_number: JOB, p_amount: F.labour, p_work_summary: work,
+    p_parts_note: $('qPartsNote').value.trim() || null,
+    p_kind: wanted, p_parts: F.parts, p_postage: F.post
   });
   if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
   const qrow = Array.isArray(data) ? data[0] : data;
@@ -1285,10 +1321,10 @@ $('quoteBtn').addEventListener('click', async () => {
   const link = 'https://precisionelectronicsrepair.co.uk/quote.html?q=' + quoteId + '&k=' + token;
   const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
   const msg = kind === 'estimate'
-    ? hi + 'here is an estimate for ' + JOB + ': £' + amount.toFixed(2) + '. ' + work +
+    ? hi + 'here is an estimate for ' + JOB + ': £' + amount.toFixed(2) + (F.post == null ? ' + return postage' : '') + '. ' + work +
       ' — that is based on what you have told me, so the price may change once it is on the bench, and I will confirm before doing any work. ' +
       'No need to reply: just post it to me when you are ready. Your address label, packing slip and the full details are here: ' + link
-    : hi + 'your repair quote for ' + JOB + ' is ready: £' + amount.toFixed(2) + '. ' +
+    : hi + 'your repair quote for ' + JOB + ' is ready: £' + amount.toFixed(2) + (F.post == null ? ' + return postage' : '') + '. ' +
       work + ' — approve or decline here: ' + link;
   $('qLink').textContent = link;
   const num = ukNumber(JOBROW.phone);
@@ -1308,7 +1344,8 @@ $('quoteBtn').addEventListener('click', async () => {
   if (out.ok) show($('quoteMsg'), Word + ' emailed to ' + out.to + '.' + photoNote + ' Send it on WhatsApp or by text below as well if you like.', 'ok');
   else show($('quoteMsg'), Word + ' saved, but the email failed (' + (out.error || 'unknown error') + ').' + photoNote + ' Use the buttons below instead.', 'err');
 
-  $('qAmount').value = ''; $('qWork').value = ''; $('qTemplate').value = '';
+  $('qAmount').value = ''; $('qParts').value = ''; $('qPost').value = ''; $('qPartsNote').value = '';
+  $('qWork').value = ''; $('qTemplate').value = ''; showTradeQuote();
   $('status').value = kind === 'quote' ? 'quoted' : 'estimated';
   loadQuotes(JOBROW.id);
   loadNotes(JOBROW.id);

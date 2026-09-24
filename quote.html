@@ -78,8 +78,8 @@
             <div id="parts"></div>
           </div>
           <div class="total" id="amount"></div>
-          <div class="small" style="margin-top:2px">+ return postage, charged at cost</div>
-          <p class="small" style="margin:12px 0 0;color:var(--ink)">Your final bill is the repair price plus return postage, at exactly what Royal Mail charges us. Return postage applies on every job, including if the item can't be repaired or you decide not to go ahead.</p>
+          <div class="small" id="postPlus" style="margin-top:2px">+ return postage, charged at cost</div>
+          <p class="small" id="postNote" style="margin:12px 0 0;color:var(--ink)">Your final bill is the repair price plus return postage, at exactly what Royal Mail charges us. Return postage applies on every job, including if the item can't be repaired or you decide not to go ahead.</p>
         </div>
 
         <div id="photoWrap" style="display:none;margin-bottom:20px">
@@ -244,17 +244,26 @@ async function start() {
       $('item').closest('.jobline').insertAdjacentElement('afterend', note);
     }
     $('work').textContent = q.work_summary;
-    const label = KIND === 'estimate' ? 'Estimated repair price' : 'Repair price';
-    if (q.trade) {
-      // Trade accounts: show the 25% off labour and what they'll actually pay.
-      const full = Number(q.amount), off = Math.round(full * 25) / 100;
-      $('amount').innerHTML =
-        '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:400"><span>' + label + '</span><span>£' + full.toFixed(2) + '</span></div>' +
-        '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:400;color:var(--green)"><span>Trade discount (25% off labour)</span><span>−£' + off.toFixed(2) + '</span></div>' +
-        '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span>Your trade price</span><span>£' + (full - off).toFixed(2) + '</span></div>' +
-        '<div class="small" style="font-weight:400;margin-top:4px">If parts are needed, they\'re charged at full price — the discount is on labour.</div>';
-    } else {
-      $('amount').textContent = label + ': £' + Number(q.amount).toFixed(2);
+    // Breakdown: labour, parts, trade discount, return postage, total.
+    const labour = Number(q.labour != null ? q.labour : q.amount);
+    const partsAmt = Number(q.parts || 0);
+    const postage = q.postage == null ? null : Number(q.postage);
+    const off = q.trade ? Math.round(labour * 25) / 100 : 0;
+    const total = labour + partsAmt + (postage || 0) - off;
+    const line = (a, b, colour) => '<div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:400' +
+      (colour ? ';color:' + colour : '') + '"><span>' + a + '</span><span>' + b + '</span></div>';
+    $('amount').innerHTML =
+      line('Labour', '£' + labour.toFixed(2)) +
+      (partsAmt > 0 ? line('Parts', '£' + partsAmt.toFixed(2)) : '') +
+      (q.trade ? line('Trade discount (25% off labour)', '−£' + off.toFixed(2), 'var(--green)') : '') +
+      (postage > 0 ? line('Return postage', '£' + postage.toFixed(2)) : '') +
+      '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span>' +
+      (KIND === 'estimate' ? 'Estimated total' : 'Total to pay') + '</span><span>£' + total.toFixed(2) + '</span></div>';
+    if (postage != null) {
+      $('postPlus').style.display = 'none';
+      $('postNote').textContent = postage > 0
+        ? (KIND === 'estimate' ? 'This includes' : 'That\'s the full price, including') + ' return postage. Return postage applies on every job, including if the item can\'t be repaired or you decide not to go ahead.'
+        : (KIND === 'estimate' ? 'No return postage included, as you\'re collecting it.' : 'That\'s the full price. There\'s no return postage, as you\'re collecting it.');
     }
     if (q.parts_note) { $('parts').textContent = q.parts_note; $('partsWrap').style.display = 'block'; }
     $('loading').classList.remove('show');
