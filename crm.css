@@ -75,3 +75,11 @@ td .muted, .muted { color: var(--muted); font-size: 13px; }
   .card { padding: 18px; }
   header .wrap { height: 54px; }
 }
+
+/* Foldable sections: click a section's heading to hide or show it. */
+.card.foldable > h2.foldhead { cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none; }
+.card.foldable > h2.foldhead::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s; flex: 0 0 auto; margin: 0 2px 3px 0; }
+.card.foldable > h2.foldhead:hover { text-decoration: underline; }
+.card.foldable.folded > h2.foldhead { margin-bottom: 0; }
+.card.foldable.folded > h2.foldhead::before { transform: rotate(-45deg); margin-bottom: 0; }
+.card.foldable.folded > :not(h2.foldhead) { display: none !important; }

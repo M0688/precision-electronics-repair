@@ -68,6 +68,33 @@ export function chrome(active) {
     </div></nav>`);
 
   $('signOut').addEventListener('click', async () => { await sb.auth.signOut(); location.href = 'workshop.html'; });
+  collapsibleSections();
+}
+
+// Every section box (.card) that starts with a heading is collapsed when the
+// page opens; click the heading to open or close it. Sections added later
+// (e.g. after loading) are picked up too. Page-title boxes (h1) stay open.
+function collapsibleSections() {
+  const wire = card => {
+    if (card.dataset.fold || card.tagName === 'DETAILS') return;
+    const h = card.firstElementChild;
+    if (!h || h.tagName !== 'H2') return;
+    card.dataset.fold = '1';
+    card.classList.add('foldable');
+    h.classList.add('foldhead');
+    h.setAttribute('role', 'button');
+    h.tabIndex = 0;
+    card.classList.add('folded');
+    const toggle = () => card.classList.toggle('folded');
+    h.addEventListener('click', toggle);
+    h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  };
+  const scan = () => document.querySelectorAll('.card').forEach(wire);
+  const start = () => {
+    scan();
+    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 }
 
 // Returns the session, or sends you to the sign-in page

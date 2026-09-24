@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=2">
+<link rel="stylesheet" href="crm.css?v=3">
 <style>
   .markup { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .markup input { width: 110px; margin: 0; }
@@ -48,8 +48,8 @@
     </div>
 
     <div class="card">
-      <details class="add" id="addPart">
-        <summary>+ Add a new part</summary>
+      <h2>Add a new part</h2>
+      <div id="addPart">
         <div class="row">
           <div style="flex:2 1 260px"><label for="pName">Name</label><input type="text" id="pName" placeholder="USB-C charging port, PS5"></div>
           <div><label for="pNumber">Part number <span class="muted">(optional)</span></label><input type="text" id="pNumber"></div>
@@ -62,10 +62,11 @@
         <datalist id="cats"></datalist>
         <p class="muted" style="margin:-6px 0 14px">"Warn me at": the part is flagged as low when stock drops to this number.</p>
         <button class="primary" id="pAdd">Add part</button>
-      </details>
+      </div>
     </div>
 
     <div class="card">
+      <h2>All parts</h2>
       <div class="toolbar">
         <input type="search" id="search" class="search" placeholder="Search parts…">
         <div style="display:flex;gap:18px;flex-wrap:wrap">
@@ -164,7 +165,8 @@ async function addPart() {
   if (error) return show($('msg'), error.message, 'err');
   ['pName', 'pNumber', 'pCat', 'pLoc'].forEach(id => $(id).value = '');
   $('pReorder').value = 0;
-  $('addPart').open = false;
+  $('addPart').closest('.card').classList.add('folded');
+  $('list').closest('.card').classList.remove('folded');
   OPEN = data.id;
   show($('msg'), name + ' added. Now add what you bought.', 'ok');
   await load();
