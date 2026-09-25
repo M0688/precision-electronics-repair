@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=4">
+<link rel="stylesheet" href="crm.css?v=5">
 <style>
   /* Only what's special to the job page — everything else comes from crm.css. */
   .wrap { max-width: 980px; }
@@ -338,7 +338,7 @@
 import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildLabelPdf } from './label-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
-import { sb, SUPABASE_URL, SUPABASE_KEY, chrome } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
 
 chrome('workshop.html');
 
@@ -383,6 +383,7 @@ async function load() {
   if (!sess.session) { location.href = 'workshop.html'; return; }
   $('whoEmail').textContent = sess.session.user.email;
   $('who').style.display = 'flex';
+  startMail();
   if (!JOB) return show($('msg'), 'No job number in the link.', 'err');
 
   const { data, error } = await sb.from('job_detail').select('*').eq('job_number', JOB).maybeSingle();

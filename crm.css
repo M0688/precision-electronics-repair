@@ -74,6 +74,8 @@ td .muted, .muted { color: var(--muted); font-size: 13px; }
   th.hide, td.hide { display: none; }
   .card { padding: 18px; }
   header .wrap { height: 54px; }
+  #whoEmail { display: none; }
+  .brand { font-size: 12px; }
 }
 
 /* Foldable sections: click a section's heading to hide or show it. */

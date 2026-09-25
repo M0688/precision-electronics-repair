@@ -61,7 +61,11 @@ export function chrome(active) {
   document.body.insertAdjacentHTML('afterbegin', `
     <header><div class="wrap">
       <div class="brand">PRECISION ELECTRONICS REPAIR · WORKSHOP</div>
-      <div class="who" id="who" style="display:none"><span id="whoEmail"></span><button id="signOut">Sign out</button></div>
+      <div class="who" id="who" style="display:none">
+        <a id="mailBtn" href="${GMAIL_INBOX}" target="_blank" rel="noopener" title="Open the business inbox"
+           style="color:#fff;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px">Mail<span id="mailCount"
+           style="display:none;background:#e5484d;color:#fff;border-radius:10px;min-width:20px;height:20px;padding:0 6px;font-size:12px;line-height:20px;text-align:center"></span></a>
+        <span id="whoEmail"></span><button id="signOut">Sign out</button></div>
     </div></header>
     <nav class="tabs"><div class="wrap">
       ${tabs.map(([href, label]) => `<a href="${href}"${href === active ? ' class="on"' : ''}>${label}</a>`).join('')}
@@ -97,11 +101,40 @@ function collapsibleSections() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 }
 
+// Business inbox (info@). The unread count comes from a Google Apps Script in
+// that Gmail account, which updates mail_status every minute.
+const GMAIL_INBOX = 'https://mail.google.com/mail/?authuser=' + encodeURIComponent('info@precisionelectronicsrepair.co.uk') + '#inbox';
+let mailTimer = null;
+async function mailCheck() {
+  const badge = $('mailCount'), btn = $('mailBtn');
+  if (!badge) return;
+  const { data } = await sb.from('mail_status').select('unread,synced_at').eq('id', 1).maybeSingle();
+  if (!data || !data.synced_at) { badge.style.display = 'none'; return; }
+  const stale = Date.now() - new Date(data.synced_at).getTime() > 10 * 60 * 1000;
+  if (stale) {
+    badge.textContent = '?'; badge.style.background = '#8a94a6'; badge.style.display = 'inline-block';
+    btn.title = 'Unread count not updating since ' + new Date(data.synced_at).toLocaleString('en-GB') + ' — check the Apps Script';
+  } else if (data.unread > 0) {
+    badge.textContent = data.unread > 99 ? '99+' : String(data.unread);
+    badge.style.background = '#e5484d'; badge.style.display = 'inline-block';
+    btn.title = data.unread + ' unread in the business inbox';
+  } else {
+    badge.style.display = 'none'; btn.title = 'No unread email';
+  }
+}
+export function startMail() {
+  if (mailTimer) return;
+  mailCheck();
+  mailTimer = setInterval(mailCheck, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) mailCheck(); });
+}
+
 // Returns the session, or sends you to the sign-in page
 export async function requireSession() {
   const { data } = await sb.auth.getSession();
   if (!data.session) { location.href = 'workshop.html'; return null; }
   const who = $('who');
   if (who) { $('whoEmail').textContent = data.session.user.email; who.style.display = 'flex'; }
+  startMail();
   return data.session;
 }

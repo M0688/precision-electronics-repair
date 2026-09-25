@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PER Workshop">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="crm.css?v=4">
+<link rel="stylesheet" href="crm.css?v=5">
 <style>
   /* Only what's special to the jobs list — everything else comes from crm.css. */
   main { padding: 28px 0 64px; }
@@ -156,7 +156,7 @@
 </main>
 
 <script type="module">
-import { sb, SUPABASE_URL, SUPABASE_KEY, chrome } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
 
 // Tabs stay hidden until you're signed in.
 document.body.classList.add('signed-out');
@@ -537,6 +537,7 @@ async function start() {
   if (data.session) {
     $('whoEmail').textContent = data.session.user.email;
     $('who').style.display = 'flex';
+    startMail();
     $('app').style.display = 'block';
     $('login').style.display = 'none';
     document.body.classList.remove('signed-out');
