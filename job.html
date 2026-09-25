@@ -107,6 +107,12 @@
           </select>
           <span id="retMsg" style="color:var(--muted);font-size:13px"></span>
         </div>
+        <div id="timerRow" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px">
+          <strong>Work time:</strong>
+          <span id="timerClock" style="font-variant-numeric:tabular-nums;font-size:18px;font-weight:700;color:var(--navy)">0:00:00</span>
+          <button type="button" id="timerBtn" style="width:auto;margin:0;padding:8px 18px;border-radius:8px;font:inherit;font-weight:700;cursor:pointer;border:1.5px solid #1c6b3c;background:#1c6b3c;color:#fff">Start</button>
+          <span id="timerMsg" style="color:var(--muted);font-size:13px"></span>
+        </div>
         <div class="secbar"><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></div>
       </div>
 
@@ -214,6 +220,14 @@
         </div>
         <div id="usedList"></div>
         <p class="sub" style="margin:10px 0 0"><a href="parts.html">Manage parts stock</a></p>
+        </div>
+      </details>
+
+      <details class="card sec">
+        <summary><h2>Time log</h2><span class="count" data-of="#timeList tr[data-t]"></span></summary>
+        <div class="secbody">
+        <p class="sub" style="margin-bottom:12px">Every Start / Stop on this job. Only one timer runs at a time — starting one here stops any other.</p>
+        <div id="timeList"><p class="sub">No time logged yet.</p></div>
         </div>
       </details>
 
@@ -338,7 +352,7 @@
 import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildLabelPdf } from './label-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
-import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail, timerCheck } from './crm.js';
 
 chrome('workshop.html');
 
@@ -400,6 +414,7 @@ async function load() {
   loadCollection();
   showReturn();
   loadPartList();
+  loadTimer();
   $('status').value = data.status;
 
   const PREF = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text message', call: 'Phone call' };
@@ -823,6 +838,57 @@ let USAGE = [];      // parts used on this job (and the rest of its booking)
 const gbp = n => '£' + Number(n || 0).toFixed(2);
 // Always round UP to the penny.
 const upPenny = n => Math.ceil(Math.round(Number(n) * 1e6) / 1e4) / 100;
+
+// ---------- work timer ----------
+let TIMES = [];
+let TICK = null;
+const fmtDur = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+const hm = ms => { const m = Math.round(ms / 60000); return m < 60 ? m + ' min' : Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
+const running = () => TIMES.find(t => !t.stopped_at);
+const totalMs = () => TIMES.reduce((a, t) => a + ((t.stopped_at ? new Date(t.stopped_at) : new Date()) - new Date(t.started_at)), 0);
+
+function drawTimer() {
+  const on = running();
+  $('timerClock').textContent = fmtDur(totalMs());
+  const b = $('timerBtn');
+  b.textContent = on ? 'Stop' : 'Start';
+  b.style.background = b.style.borderColor = on ? '#b3261e' : '#1c6b3c';
+  $('timerMsg').textContent = on ? 'Running since ' + new Date(on.started_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : (TIMES.length ? 'Total on this job' : '');
+  clearInterval(TICK);
+  if (on) TICK = setInterval(() => { $('timerClock').textContent = fmtDur(totalMs()); }, 1000);
+}
+
+async function loadTimer() {
+  const { data, error } = await sb.from('job_time').select('*').eq('job_id', JOBROW.id).order('started_at');
+  if (error) { $('timerMsg').textContent = error.message; return; }
+  TIMES = data || [];
+  drawTimer();
+  $('timeList').innerHTML = TIMES.length ? `<table><thead><tr><th>Date</th><th>Start</th><th>Stop</th><th>Time</th><th></th></tr></thead><tbody>${
+    TIMES.map(t => `<tr data-t="${t.id}"><td>${new Date(t.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
+      <td>${new Date(t.started_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</td>
+      <td>${t.stopped_at ? new Date(t.stopped_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '<strong>running</strong>'}</td>
+      <td>${hm((t.stopped_at ? new Date(t.stopped_at) : new Date()) - new Date(t.started_at))}</td>
+      <td style="text-align:right">${t.stopped_at ? `<button class="linkbtn" data-tdel="${t.id}">Delete</button>` : ''}</td></tr>`).join('')
+  }</tbody><tfoot><tr><td colspan="3"><strong>Total</strong></td><td><strong>${hm(totalMs())}</strong></td><td></td></tr></tfoot></table>`
+    : '<p class="sub">No time logged yet.</p>';
+  $('timeList').querySelectorAll('[data-tdel]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Delete this time entry?')) return;
+    const { error } = await sb.from('job_time').delete().eq('id', b.dataset.tdel);
+    if (error) return show($('msg'), error.message, 'err');
+    loadTimer();
+  }));
+}
+
+$('timerBtn').addEventListener('click', async () => {
+  const b = $('timerBtn'); b.disabled = true;
+  const on = running();
+  const { data, error } = await sb.rpc(on ? 'timer_stop' : 'timer_start', { p_job_id: JOBROW.id });
+  b.disabled = false;
+  if (error) return show($('msg'), error.message, 'err');
+  if (!on && data && data.stopped_other) show($('msg'), 'Timer on ' + data.stopped_other + ' was stopped — only one runs at a time.', 'ok');
+  await loadTimer();
+  timerCheck();
+});
 
 async function loadPartList() {
   const { data } = await sb.from('parts_stock').select('id,name,part_number,in_stock,next_unit_cost,sell_price').eq('archived', false).order('name');

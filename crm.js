@@ -62,6 +62,8 @@ export function chrome(active) {
     <header><div class="wrap">
       <div class="brand">PRECISION ELECTRONICS REPAIR · WORKSHOP</div>
       <div class="who" id="who" style="display:none">
+        <a id="timerPill" href="#" title="A job timer is running"
+           style="display:none;color:#fff;text-decoration:none;font-weight:700;background:#b3261e;border-radius:6px;padding:5px 10px;font-variant-numeric:tabular-nums"></a>
         <a id="mailBtn" href="${GMAIL_INBOX}" target="_blank" rel="noopener" title="Open the business inbox"
            style="color:#fff;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px">Mail<span id="mailCount"
            style="display:none;background:#e5484d;color:#fff;border-radius:10px;min-width:20px;height:20px;padding:0 6px;font-size:12px;line-height:20px;text-align:center"></span></a>
@@ -122,11 +124,29 @@ async function mailCheck() {
     badge.style.display = 'none'; btn.title = 'No unread email';
   }
 }
+// A job timer left running shows in the header on every page.
+let runTick = null;
+export async function timerCheck() {
+  const pill = $('timerPill');
+  if (!pill) return;
+  const { data } = await sb.from('job_time').select('started_at, jobs(job_number)').is('stopped_at', null).maybeSingle();
+  clearInterval(runTick);
+  if (!data) { pill.style.display = 'none'; return; }
+  const no = data.jobs?.job_number || '';
+  pill.href = 'job.html?job=' + encodeURIComponent(no);
+  const draw = () => {
+    const s = Math.max(0, Math.floor((Date.now() - new Date(data.started_at).getTime()) / 1000));
+    pill.textContent = '⏱ ' + no + ' ' + Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  };
+  draw(); runTick = setInterval(draw, 1000);
+  pill.style.display = 'inline-block';
+}
+
 export function startMail() {
   if (mailTimer) return;
-  mailCheck();
-  mailTimer = setInterval(mailCheck, 60 * 1000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) mailCheck(); });
+  mailCheck(); timerCheck();
+  mailTimer = setInterval(() => { mailCheck(); timerCheck(); }, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { mailCheck(); timerCheck(); } });
 }
 
 // Returns the session, or sends you to the sign-in page
