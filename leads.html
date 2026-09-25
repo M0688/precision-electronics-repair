@@ -174,6 +174,9 @@ info@precisionelectronicsrepair.co.uk
 
 If you'd rather not hear from me again, just reply "unsubscribe" and I won't email you again.`;
 const CHECK = 'CHECK LEGAL FORM BEFORE EMAILING. ';
+// Opens a ready-filled Gmail draft from the business account (no mail app needed).
+const gmail = (to, subject, body) => 'https://mail.google.com/mail/?authuser=' + encodeURIComponent('info@precisionelectronicsrepair.co.uk') +
+  '&view=cm&fs=1&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
 const needsCheck = r => (r.notes || '').startsWith(CHECK);
 
 // What the follow-up should remind you to do, per stage
@@ -248,8 +251,8 @@ function render() {
                  <a class="btn-sm" target="_blank" rel="noopener" href="https://find-and-update.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(r.company)}">Look up on Companies House</a>
                  <button class="btn-sm" data-legal="${r.id}" data-ok="1">It's a Ltd / LLP / PLC</button>
                  <button class="btn-sm" data-legal="${r.id}" data-ok="0">Sole trader / partnership</button>`
-              : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(LOCAL_SUBJECT(r.company))}&body=${encodeURIComponent(LOCAL_BODY(r.company))}">Email pitch</a>` : ''))
-          : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(EMAIL_SUBJECT)}&body=${encodeURIComponent(EMAIL_BODY)}">Email pitch</a>` : '')}
+              : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" target="_blank" rel="noopener" href="${gmail(r.email, LOCAL_SUBJECT(r.company), LOCAL_BODY(r.company))}">Email pitch</a>` : ''))
+          : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" target="_blank" rel="noopener" href="${gmail(r.email, EMAIL_SUBJECT, EMAIL_BODY)}">Email pitch</a>` : '')}
         ${r.phone && r.type !== 'local business' ? `<a class="btn-sm wa" data-pitch="${r.id}" data-chan="whatsapp" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
         ${r.phone ? `<a class="btn-sm" href="tel:${esc(r.phone)}">Call</a>` : ''}
         <button class="btn-sm" data-log="${r.id}">Conversation log</button>
