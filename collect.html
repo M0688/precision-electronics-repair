@@ -181,12 +181,25 @@ const dayKey = ts => fmt(ts, { year: 'numeric', month: '2-digit', day: '2-digit'
 const hourText = ts => fmt(ts, { hour: '2-digit', minute: '2-digit' });
 const longText = ts => fmt(ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ' at ' + hourText(ts);
 
+function showDone(d) {
+  const jobs = d.jobs && d.jobs.length > 1 ? 'Jobs <strong>' + d.jobs.join(', ') + '</strong>' : 'Job <strong>' + d.job_number + '</strong>';
+  const track = 'track.html?job=' + encodeURIComponent(JOB) + '&k=' + encodeURIComponent(KEY);
+  $('loading').classList.remove('show');
+  $('area').innerHTML = '<h1>Collected</h1><p class="jobline">' + jobs + '</p>' +
+    '<div class="msg ok show">Your item was collected on ' + longText(d.done) + '. This booking is complete, so it can no longer be changed or cancelled.</div>' +
+    '<p>Questions? Call 07522 124273 or reply to any of our emails.</p>' +
+    '<p><a href="' + track + '" style="font-weight:700">Track your repair</a></p>';
+  $('area').style.display = 'block';
+}
+
 async function load(keepDay) {
   if (!JOB || !KEY) return fail('This booking link is incomplete. Please use the exact link we emailed you.');
   let d;
   try { d = await rpc('collection_slots', { p_job_number: JOB, p_key: KEY }); }
   catch (e) { return fail('We could not load the times right now. Please try again shortly, or call 07522 124273.'); }
   if (!d || !d.valid) return fail('We could not find that job. Please check the link we emailed you, or call 07522 124273.');
+  // Scanned at the counter: this booking is complete and can't be changed.
+  if (d.done) return showDone(d);
 
   if (!d.ready) return fail('Your item isn\'t ready to collect yet. We\'ll email you as soon as it is.');
   const jobs = d.jobs || [];
