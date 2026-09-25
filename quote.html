@@ -31,6 +31,8 @@
   .yes:hover { background:var(--navy-dark); }
   .no { background:#fff; border:1px solid var(--line); color:var(--ink); flex:1 1 160px; }
   button:disabled { opacity:.5; cursor:default; }
+  .stepbox { border:2px solid var(--navy); border-radius:10px; padding:16px 18px; margin-top:18px; background:#f8fafc; }
+  .stepno { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:6px; }
   .choice { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 6px; }
   .choice label { flex:1 1 220px; display:flex; gap:10px; align-items:flex-start; border:1px solid var(--line); border-radius:10px; padding:12px 14px; cursor:pointer; font-size:15px; }
   .choice label.on { border-color:var(--navy); background:#eef2f8; }
@@ -83,7 +85,7 @@
           </div>
           <div class="total" id="amount"></div>
           <div class="small" id="postPlus" style="margin-top:2px">+ return postage, charged at cost</div>
-          <p class="small" id="postNote" style="margin:12px 0 0;color:var(--ink)">Your final bill is the repair price plus return postage, at exactly what Royal Mail charges us. Return postage applies on every job, including if the item can't be repaired or you decide not to go ahead.</p>
+          <p class="small" id="postNote" style="margin:12px 0 0;color:var(--ink)">Your final bill is the repair price plus return postage if we post it back, at exactly what Royal Mail charges us. Collect it in person and there's no postage to pay.</p>
         </div>
 
         <div id="photoWrap" style="display:none;margin-bottom:20px">
@@ -92,22 +94,27 @@
           <p class="small" style="margin-top:8px">Tap a photo to see it full size.</p>
         </div>
 
-        <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee and return postage apply, and we'll send your item back.</p>
+        <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee applies (plus return postage if we post it back).</p>
 
-        <div id="returnWrap" style="display:none;margin-top:16px">
-          <div style="font-weight:600;font-size:15px;margin-bottom:8px">How would you like it back?</div>
+        <div id="returnWrap" class="stepbox" style="display:none">
+          <div class="stepno">Step 1</div>
+          <div style="font-weight:700;font-size:16px;color:var(--navy);margin-bottom:10px">Before you approve or decline your quote, please let us know how you'd like your item returned.</div>
           <div class="choice">
-            <label id="retPostL"><input type="radio" name="ret" value="post" id="retPost"><span><strong>Post it back to me</strong><br><span class="small" id="retPostNote">Return postage added</span></span></label>
-            <label id="retColL"><input type="radio" name="ret" value="collect" id="retCol"><span><strong>I'll collect it</strong><br><span class="small">From our workshop in Watford — no postage. You'll book a time once it's ready.</span></span></label>
+            <label id="retPostL"><input type="radio" name="ret" value="post" id="retPost"><span><strong>Post it back to me</strong><br><span class="small" id="retPostNote">Return postage is added to your bill</span></span></label>
+            <label id="retColL"><input type="radio" name="ret" value="collect" id="retCol"><span><strong>I'll collect it</strong><br><span class="small" id="retColNote">From our workshop in Watford — no postage to pay. You'll book a time once it's ready.</span></span></label>
           </div>
+          <div id="retResult" class="small" style="margin-top:10px;font-weight:600;color:var(--navy)"></div>
         </div>
 
-        <label for="note" id="noteLabel" style="font-weight:600;font-size:14px;display:block;margin:16px 0 6px">Anything you'd like to add? (optional)</label>
-        <textarea id="note" placeholder="Questions, or anything we should know."></textarea>
+        <div id="answerWrap">
+          <div class="stepno" id="step2" style="display:none;margin-top:18px">Step 2</div>
+          <label for="note" id="noteLabel" style="font-weight:600;font-size:14px;display:block;margin:6px 0 6px">Anything you'd like to add? (optional)</label>
+          <textarea id="note" placeholder="Questions, or anything we should know."></textarea>
 
-        <div class="btns" id="answerBtns">
-          <button class="yes" id="approveBtn">Approve — go ahead</button>
-          <button class="no" id="declineBtn">Decline</button>
+          <div class="btns" id="answerBtns">
+            <button class="yes" id="approveBtn">Approve — go ahead</button>
+            <button class="no" id="declineBtn">Decline</button>
+          </div>
         </div>
 
         <div id="postBlock" style="display:none">
@@ -192,8 +199,8 @@ function finish(state, jobNo) {
   } else {
     $('doneTitle').textContent = est ? 'Estimate declined' : 'Quote declined';
     $('doneText').textContent = (est || NO_FEE)
-      ? (est ? 'No problem — nothing is owed. We\'ll be in touch about your item for ' + jobNo + '.' : 'No problem. We\'ll send your item for ' + jobNo + ' back — the only charge is return postage, and we\'ll be in touch about it.')
-      : 'No problem. We\'ll send your item for ' + jobNo + ' back and be in touch about the £30 diagnostic fee and return postage.';
+      ? (est ? 'No problem — nothing is owed. We\'ll be in touch about your item for ' + jobNo + '.' : 'No problem — we\'ll be in touch about getting your item for ' + jobNo + ' back to you. The only charge is return postage if we post it.')
+      : 'No problem — we\'ll be in touch about getting your item for ' + jobNo + ' back to you and the £30 diagnostic fee (plus return postage if we post it).';
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -229,7 +236,7 @@ async function start() {
     // No diagnosis was needed, so declining costs nothing.
     NO_FEE = q.diag_fee_applies === false;
     if (NO_FEE && KIND !== 'estimate') {
-      $('feeLine').textContent = 'No further work happens until you decide. There is no diagnostic fee on this job — the fault was clear from the start — so if you decline you only pay return postage.';
+      $('feeLine').textContent = 'No further work happens until you decide. There is no diagnostic fee on this job — the fault was clear from the start — so if you decline, the only charge is return postage if we post it back.';
     }
 
     const shots = q.photos || [];
@@ -261,9 +268,15 @@ async function start() {
     if (KIND !== 'estimate') {
       $('returnWrap').style.display = 'block';
       const p = q.postage == null ? null : Number(q.postage);
-      $('retPostNote').textContent = p > 0 ? 'Return postage £' + p.toFixed(2) : 'Return postage added at cost';
+      $('retPostNote').textContent = p > 0 ? 'Return postage £' + p.toFixed(2) + ' is included in your quote' : 'Return postage is added at cost';
+      $('retColNote').textContent = p > 0
+        ? 'From our workshop in Watford. The £' + p.toFixed(2) + ' return postage will be taken off your quote. You\'ll book a collection time once it\'s ready.'
+        : 'From our workshop in Watford — no postage to pay. You\'ll book a collection time once it\'s ready.';
       if (q.return_method === 'post') $('retPost').checked = true;
       if (q.return_method === 'collect') $('retCol').checked = true;
+      // Step 2 (approve / decline) appears once they've chosen.
+      $('answerWrap').style.display = RET() ? 'block' : 'none';
+      $('step2').style.display = 'block';
     }
     drawPrice();
     if (q.parts_note) { $('parts').textContent = q.parts_note; $('partsWrap').style.display = 'block'; }
@@ -290,6 +303,11 @@ function drawPrice() {
   const postage = ret === 'collect' ? 0 : priced;
   const off = q.trade ? Math.round(labour * 25) / 100 : 0;
   const total = labour + partsAmt + (postage || 0) - off;
+  if (KIND !== 'estimate' && ret) {
+    $('retResult').textContent = (ret === 'collect'
+      ? (priced > 0 ? 'Postage taken off — your quote is now £' + total.toFixed(2) + '.' : 'No postage — your quote is £' + total.toFixed(2) + '.')
+      : 'Your quote is £' + total.toFixed(2) + (priced == null ? ' plus return postage at cost.' : '.')) + ' Now approve or decline below.';
+  }
   const line = (a, b, colour) => '<div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:400' +
     (colour ? ';color:' + colour : '') + '"><span>' + a + '</span><span style="white-space:nowrap">' + b + '</span></div>';
   $('amount').innerHTML =
@@ -305,16 +323,19 @@ function drawPrice() {
   } else if (postage != null) {
     $('postPlus').style.display = 'none';
     $('postNote').textContent = postage > 0
-      ? (KIND === 'estimate' ? 'This includes' : 'That\'s the full price, including') + ' return postage. Return postage applies on every job, including if the item can\'t be repaired or you decide not to go ahead.'
+      ? (KIND === 'estimate' ? 'This includes' : 'That\'s the full price, including') + ' return postage. If we post it back, return postage applies whatever the outcome — even if it can\'t be repaired or you decide not to go ahead. Collect it in person and there\'s no postage to pay.'
       : (KIND === 'estimate' ? 'No return postage included, as you\'re collecting it.' : 'That\'s the full price. There\'s no return postage, as you\'re collecting it.');
   } else {
     $('postPlus').style.display = '';
-    $('postNote').textContent = 'Your final bill is the repair price plus return postage, at exactly what Royal Mail charges us. Return postage applies on every job, including if the item can\'t be repaired or you decide not to go ahead. Collect it in person and there\'s no postage to pay.';
+    $('postNote').textContent = 'Your final bill is the repair price plus return postage if we post it back, at exactly what Royal Mail charges us. Collect it in person and there\'s no postage to pay.';
   }
 }
 document.querySelectorAll('input[name="ret"]').forEach(r => r.addEventListener('change', () => {
   drawPrice();
   $('error').classList.remove('show');
+  const first = $('answerWrap').style.display === 'none';
+  $('answerWrap').style.display = 'block';
+  if (first) $('answerWrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }));
 
 async function respond(answer) {

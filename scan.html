@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scan | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css?v=4">
+<style>
+  .big { font-size: 22px; font-weight: 700; color: var(--navy); margin: 0 0 6px; }
+  .tick { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+  .acts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .acts button { font: inherit; font-weight: 700; font-size: 16px; padding: 14px 20px; border-radius: 8px; cursor: pointer;
+                 border: 1.5px solid var(--navy); background: var(--navy); color: #fff; flex: 1 1 200px; }
+  .acts button.alt { background: #fff; color: var(--navy); }
+  .acts button:disabled { opacity: .6; cursor: default; }
+  .public { max-width: 520px; margin: 40px auto; text-align: center; }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+    <div id="msg" class="msg"></div>
+
+    <!-- Someone without a workshop sign-in (usually the customer) opened the code -->
+    <div id="public" class="card public" style="display:none">
+      <div class="big">This is your <span id="pubWhat">booking</span> code</div>
+      <p>Show it at the counter at 262D Boundary Way, Watford, and we'll scan it.</p>
+      <p class="small">Staff: <a href="workshop.html">sign in to the workshop</a>, then scan the code again.</p>
+    </div>
+
+    <div id="result" class="card" style="display:none">
+      <div class="tick" id="tick"></div>
+      <div class="big" id="title"></div>
+      <p id="line" style="margin:0 0 6px"></p>
+      <p id="sub" class="small" style="margin:0"></p>
+
+      <!-- Collecting with the bill still open: record how they paid -->
+      <div id="payAsk" style="display:none;margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+        <div style="font-weight:700;color:var(--navy)" id="payText"></div>
+        <div class="acts">
+          <button id="payCash">Paid cash</button>
+          <button id="payBank" class="alt">Bank transfer received</button>
+        </div>
+      </div>
+
+      <div id="again" class="acts" style="display:none">
+        <button id="resend" class="alt">Email their receipt and thank-you again</button>
+      </div>
+
+      <p style="margin:18px 0 0"><a id="jobLink" href="#">Open the job</a> · <a href="workshop.html">Workshop</a></p>
+    </div>
+  </div>
+</main>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script type="module">
+import { sb, $, show, money, chrome, SUPABASE_URL, SUPABASE_KEY } from './crm.js';
+import { buildReceiptPdf } from './invoice-pdf.js';
+
+const params = new URLSearchParams(location.search);
+const JOB = (params.get('job') || '').trim().toUpperCase();
+const KEY = (params.get('k') || '').trim();
+const ACT = params.get('a') === 'out' ? 'out' : 'in';
+let R = null;
+
+async function start() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) {
+    // Not you — show a plain page, not the workshop sign-in.
+    $('pubWhat').textContent = ACT === 'in' ? 'drop-off' : 'collection';
+    $('public').style.display = 'block';
+    return;
+  }
+  chrome('');
+  if (!JOB || !KEY) return show($('msg'), 'This code is incomplete — it doesn\'t have a job and key.', 'err');
+
+  const { data: res, error } = await sb.rpc('scan_checkin', { p_job_number: JOB, p_key: KEY, p_action: ACT });
+  if (error) return show($('msg'), error.message, 'err');
+  R = res;
+
+  $('jobLink').href = 'job.html?job=' + encodeURIComponent(R.job_number);
+  $('result').style.display = 'block';
+  const jobs = R.jobs || R.job_number;
+  const who = R.customer_name ? R.customer_name + ' · ' : '';
+  $('line').textContent = who + jobs;
+
+  if (ACT === 'in') {
+    $('tick').textContent = '✓';
+    $('title').textContent = R.changed ? 'Booked in — dropped off' : 'Already booked in';
+    $('sub').textContent = R.changed
+      ? 'Every item on this booking is now marked as arrived.'
+      : 'Nothing changed — these items were already past drop-off.';
+    return;
+  }
+
+  // Collection
+  $('tick').textContent = '✓';
+  $('title').textContent = R.changed ? 'Signed out — collected' : 'Already signed out';
+  if (!R.invoice_id) {
+    $('sub').textContent = 'There\'s no invoice on this job, so no receipt to send.';
+    return;
+  }
+  if (R.invoice_status !== 'paid') {
+    const owed = money(R.invoice_amount);
+    if (R.pay_intent === 'cash') {
+      // They said cash on collection — take it as paid and send the receipt.
+      $('sub').textContent = 'Recording ' + owed + ' cash…';
+      return pay('cash');
+    }
+    $('payText').textContent = owed + ' is still owed on ' + R.invoice_number + '. How did they pay?';
+    $('payAsk').style.display = 'block';
+    $('sub').textContent = R.pay_intent === 'bank'
+      ? 'They told us they\'d paid by bank transfer — check it\'s arrived.'
+      : 'Take payment, then press one of the buttons below. Their receipt and thank-you go out straight away.';
+    return;
+  }
+  if (!R.changed) {
+    $('sub').textContent = 'Paid in full. Their thank-you email went out when you first scanned.';
+    $('again').style.display = 'flex';
+    return;
+  }
+  $('sub').textContent = 'Paid in full. Sending their receipt and thank-you…';
+  await receipt();
+}
+
+async function pay(method) {
+  $('payCash').disabled = true; $('payBank').disabled = true;
+  const { error } = await sb.rpc('mark_invoice_paid', { p_invoice_id: R.invoice_id, p_method: method });
+  if (error) {
+    $('payCash').disabled = false; $('payBank').disabled = false;
+    return show($('msg'), error.message, 'err');
+  }
+  $('payAsk').style.display = 'none';
+  $('sub').textContent = money(R.invoice_amount) + ' paid by ' + method + '. Sending their receipt and thank-you…';
+  await receipt();
+}
+
+// Same receipt PDF as the job page, with the "thanks for collecting" email.
+async function receipt() {
+  try {
+    const { data: inv } = await sb.from('invoices').select('*').eq('id', R.invoice_id).maybeSingle();
+    const { data: job } = await sb.from('job_detail').select('*').eq('id', inv.job_id).maybeSingle();
+    const { data: lineRows } = await sb.from('invoice_lines').select('description,amount').eq('invoice_id', inv.id).order('position');
+    const doc = buildReceiptPdf({
+      invoice_number: inv.invoice_number,
+      receipt_number: inv.receipt_number,
+      lines: lineRows || [],
+      job_number: job?.job_number,
+      issued_at: inv.issued_at,
+      paid_at: inv.paid_at,
+      paid_method: inv.paid_method,
+      description: inv.description,
+      amount: inv.amount,
+      customer_name: job?.customer_name,
+      customer_address: job?.address,
+      item: job?.make_model || job?.device_type
+    });
+    const base64 = doc.output('datauristring').split(',')[1];
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/send-receipt', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: inv.id, pdf_base64: base64, collected: true })
+    });
+    const out = await res.json().catch(() => ({ ok: false, error: 'No reply from the server.' }));
+    if (!out.ok) throw new Error(out.error || 'Email failed.');
+    $('sub').textContent = 'Paid in full. Receipt ' + out.receipt_number + ' and thank-you emailed to ' + out.to + '.';
+    $('again').style.display = 'none';
+  } catch (e) {
+    show($('msg'), 'The receipt email didn\'t send (' + (e.message || e) + '). Try again below, or from the job page.', 'err');
+    $('again').style.display = 'flex';
+  }
+}
+
+$('payCash').addEventListener('click', () => pay('cash'));
+$('payBank').addEventListener('click', () => pay('bank transfer'));
+$('resend').addEventListener('click', async () => {
+  $('resend').disabled = true;
+  $('sub').textContent = 'Sending…';
+  await receipt();
+  $('resend').disabled = false;
+});
+
+start();
+</script>
+
+</body>
+</html>

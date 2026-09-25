@@ -81,7 +81,6 @@
           <p style="margin:12px 0 0">Please let us know which you're doing. We don't watch the bank account in real time, so if you've
             paid by transfer, pressing the button tells us straight away and gets your item back to you sooner.</p>
           <div id="intentMsg" class="msg" style="margin:12px 0 0"></div>
-          <p id="collectLine" style="margin:12px 0 0;display:none">Collecting in person? <a id="collectLink" href="#" style="font-weight:700">Book a collection time</a>.</p>
           <div class="paybtns" id="payBtns">
             <button id="sayBank">I've paid by bank transfer</button>
             <button id="sayCash" class="alt">I'll pay cash on collection</button>
@@ -149,10 +148,6 @@ async function start() {
       : d.description;
     $('amount').textContent = 'Total due: £' + Number(d.amount).toFixed(2);
     $('payRef').textContent = d.job_number;
-    if (d.access_key) {
-      $('collectLink').href = 'collect.html?job=' + encodeURIComponent(d.job_number) + '&k=' + encodeURIComponent(d.access_key);
-      $('collectLine').style.display = 'block';
-    }
     showIntent(d.pay_intent, d.pay_intent_at);
     // Came from a button in the email: highlight it, but they still press it here.
     const say = params.get('say');
@@ -177,7 +172,7 @@ function showIntent(choice, at) {
   if (!choice) return;
   const when = at ? new Date(at).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
   $('intentMsg').textContent = choice === 'bank'
-    ? 'Thanks — you told us ' + (when ? 'on ' + when + ' ' : '') + 'that you\'ve paid by bank transfer. We\'ll check the account and confirm by email once it\'s arrived.'
+    ? 'Thanks — you told us ' + (when ? 'on ' + when + ' ' : '') + 'that you\'ve paid by bank transfer. We\'ll check the account and email your receipt once it\'s arrived. If you\'re collecting, the receipt has a link to book your collection time.'
     : 'Thanks — you told us ' + (when ? 'on ' + when + ' ' : '') + 'that you\'ll pay cash on collection.';
   $('intentMsg').className = 'msg ok show';
   $('sayBank').textContent = choice === 'bank' ? 'I\'ve paid by bank transfer ✓' : 'I\'ve paid by bank transfer';

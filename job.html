@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=3">
+<link rel="stylesheet" href="crm.css?v=4">
 <style>
   /* Only what's special to the job page — everything else comes from crm.css. */
   .wrap { max-width: 980px; }
@@ -43,6 +43,7 @@
   details.sec > summary .count:empty { display: none; }
   details.sec > .secbody { padding: 0 22px 22px; }
   .secbar { font-size: 13px; color: var(--muted); text-align: right; margin-top: -4px; }
+  .subhead { font-size: 14px; color: var(--navy); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 8px; padding-top: 14px; border-top: 1px solid var(--line); }
   .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--navy); cursor: pointer; text-decoration: underline; }
 
   @media (max-width: 640px) {
@@ -110,19 +111,23 @@
       </div>
 
       <details class="card sec">
-        <summary><h2>Booking form</h2></summary>
+        <summary><h2>Booking form</h2><span class="count" data-of="#photos a"></span></summary>
         <div class="secbody">
         <dl class="facts" id="facts"></dl>
+
+        <div id="itemsCard" style="display:none;margin-top:20px">
+          <h3 class="subhead" id="itemsTitle">The item</h3>
+          <div id="itemsList"></div>
+        </div>
+
+        <div id="photoCard" style="display:none;margin-top:20px">
+          <h3 class="subhead">Customer photos</h3>
+          <div class="photos" id="photos"></div>
+        </div>
+
         <p class="sub" style="margin:16px 0 0">
           <a id="trackLink" href="#" target="_blank" rel="noopener">See what the customer sees</a>
         </p>
-        </div>
-      </details>
-
-      <details class="card sec" id="itemsCard" style="display:none">
-        <summary><h2 id="itemsTitle">The item</h2></summary>
-        <div class="secbody">
-        <div id="itemsList"></div>
         </div>
       </details>
 
@@ -131,13 +136,6 @@
         <div class="secbody">
         <p class="sub" id="batchNote"></p>
         <div id="batchList"></div>
-        </div>
-      </details>
-
-      <details class="card sec" id="photoCard" style="display:none">
-        <summary><h2>Customer photos</h2><span class="count" data-of="#photos a"></span></summary>
-        <div class="secbody">
-        <div class="photos" id="photos"></div>
         </div>
       </details>
 
@@ -634,9 +632,11 @@ async function loadQuotes(jobId) {
   const publicUrl = path => SUPABASE_URL + '/storage/v1/object/public/quote-photos/' + path;
 
   $('quoteList').innerHTML = QUOTES.map(q => {
-    const cls = q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
-    const label = q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
-    const kind = (q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote';
+    const isEst = (q.kind || 'quote') === 'estimate';
+    // Estimates don't get an answer — sending the item in is the answer.
+    const cls = isEst ? 'off' : q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
+    const label = isEst ? 'Estimate sent' : q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
+    const kind = isEst ? 'Estimate' : 'Quote';
     return `<div class="quotebox">
       <div class="amt">${kind} · £${Number(q.amount).toFixed(2)} <span class="tag ${cls}" style="margin-left:8px">${label}</span></div>
       ${q.labour != null ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Labour £${Number(q.labour).toFixed(2)}${Number(q.parts) > 0 ? ' · Parts £' + Number(q.parts).toFixed(2) : ''} · ${q.postage == null ? 'Postage at cost' : Number(q.postage) > 0 ? 'Postage £' + Number(q.postage).toFixed(2) : 'No postage'}${TRADE ? ' · before trade discount' : ''}</div>` : ''}
@@ -647,10 +647,28 @@ async function loadQuotes(jobId) {
       }</div>` : ''}
       <div class="when" style="color:var(--muted);font-size:12px;margin-top:8px">Sent ${when(q.sent_at)}${q.responded_at ? ' · answered ' + when(q.responded_at) : ''}</div>
       ${q.response_note ? `<div style="font-size:13px;margin-top:6px">Customer said: ${esc(q.response_note)}</div>` : ''}
+      ${isEst ? `<div class="sendrow"><button class="send" type="button" data-convert="${q.id}">Convert to quote</button></div>` : ''}
     </div>`;
   }).join('');
+  $('quoteList').querySelectorAll('[data-convert]').forEach(b => b.addEventListener('click', () => convertToQuote(b.dataset.convert)));
   loadItems(jobId);
   loadBatch().then(loadUsage).then(fillInvoiceDescription);
+}
+
+// Copy an estimate's details into the quote form, ready to check and send.
+function convertToQuote(id) {
+  const q = QUOTES.find(x => x.id === id);
+  if (!q) return;
+  $('qKind').value = 'quote';
+  setQuoteKind(null);
+  $('qAmount').value = Number(q.labour != null ? q.labour : q.amount).toFixed(2);
+  $('qParts').value = Number(q.parts) > 0 ? Number(q.parts).toFixed(2) : '';
+  $('qPost').value = q.postage == null ? '' : Number(q.postage).toFixed(2);
+  $('qPartsNote').value = q.parts_note || '';
+  $('qWork').value = q.work_summary || '';
+  showTradeQuote();
+  show($('quoteMsg'), 'Estimate copied into a quote below. Check the figures now you have the item, then press "Send quote to customer".', 'ok');
+  $('qKind').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // The invoice description starts from what the job already says, so you are

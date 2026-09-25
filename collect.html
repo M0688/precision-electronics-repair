@@ -97,6 +97,11 @@
           </div>
         </div>
         <div id="bookErr" class="msg err"></div>
+        <div id="qrBox" style="display:none;align-items:center;gap:16px;border:1.5px solid var(--navy);border-radius:10px;padding:14px 16px;margin-bottom:18px;background:#fff">
+          <img id="qrImg" alt="Your collection code" width="140" height="140" style="width:140px;height:140px;flex:none">
+          <div><strong style="color:var(--navy)">Your collection code</strong><br>
+            <span class="small">Show this when you collect — on your phone or printed. We'll scan it to sign your item out to you. It's in your email too.</span></div>
+        </div>
 
         <div id="dueMsg" class="msg info"></div>
         <p style="margin:0 0 18px">Pick a time to collect from our workshop in Watford. Each slot is an hour —
@@ -197,11 +202,15 @@ async function load(keepDay) {
       ? 'Collection confirmed: we\'ll see you on ' + longText(d.booked) + '. To change it, pick another time below.'
       : 'You\'ve asked to collect on ' + longText(d.booked) + '. We\'ll confirm it shortly and email you when we do. To change it, pick another time below.';
     $('cancelBox').style.display = 'block';
+    const scan = 'https://precisionelectronicsrepair.co.uk/scan.html?job=' + encodeURIComponent(JOB) + '&k=' + encodeURIComponent(KEY) + '&a=out';
+    $('qrImg').src = SUPABASE_URL + '/functions/v1/qr?d=' + encodeURIComponent(scan);
+    $('qrBox').style.display = 'flex';
     $('current').className = 'msg show ' + (d.confirmed ? 'ok' : 'info');
     $('current').classList.add('show');
   } else {
     if (!CANCELLED) $('current').classList.remove('show');
     $('cancelBox').style.display = 'none';
+    $('qrBox').style.display = 'none';
   }
   $('cancelAsk').classList.remove('show');
   $('cancelOpen').style.display = '';

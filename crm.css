@@ -28,7 +28,7 @@ h2 { font-size: 16px; color: var(--navy); margin: 0 0 14px; }
 
 label { display: block; font-weight: 600; font-size: 14px; margin: 0 0 5px; }
 input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=search], textarea, select {
-  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  width: 100%; padding: 10px 12px; border: 1.5px solid #97a3b6; border-radius: 8px;
   font: inherit; font-size: 15px; margin-bottom: 14px; background: #fff; color: var(--ink);
 }
 textarea { min-height: 80px; resize: vertical; }
@@ -83,3 +83,7 @@ td .muted, .muted { color: var(--muted); font-size: 13px; }
 .card.foldable.folded > h2.foldhead { margin-bottom: 0; }
 .card.foldable.folded > h2.foldhead::before { transform: rotate(-45deg); margin-bottom: 0; }
 .card.foldable.folded > :not(h2.foldhead) { display: none !important; }
+
+/* Text boxes: a clearer edge, and a light tint so they stand out from the page. */
+input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=search], textarea, select { background: #fbfcfe; }
+input:hover, textarea:hover, select:hover { border-color: #6f7d93; }
