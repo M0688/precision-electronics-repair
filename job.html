@@ -352,7 +352,7 @@
 import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildLabelPdf } from './label-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
-import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail, timerCheck } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail, timerCheck, aiExtras } from './crm.js';
 
 chrome('workshop.html');
 
@@ -1369,7 +1369,7 @@ let AIANSWER = '';
 
 $('aiBtn').addEventListener('click', async () => {
   hide($('aiMsg'));
-  $('aiBtn').disabled = true; $('aiBtn').textContent = 'Thinking…';
+  $('aiBtn').disabled = true; $('aiBtn').textContent = 'Searching and thinking…';
   try {
     const { data: sess } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/ai-diagnose', {
@@ -1381,12 +1381,7 @@ $('aiBtn').addEventListener('click', async () => {
     if (!out.ok) throw new Error(out.error || 'No answer.');
     AIANSWER = out.answer;
     $('aiOut').textContent = out.answer;
-    if (out.sources && out.sources.length) {
-      const note = document.createElement('div');
-      note.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)';
-      note.textContent = 'Used from your library: ' + out.sources.join(', ');
-      $('aiOut').appendChild(note);
-    }
+    $('aiOut').appendChild(aiExtras(out));
     $('aiOut').style.display = 'block';
     $('aiSave').style.display = 'inline-block';
   } catch (e) {

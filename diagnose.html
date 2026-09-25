@@ -75,7 +75,7 @@
 </main>
 
 <script type="module">
-import { sb, SUPABASE_URL, SUPABASE_KEY, $, show, hide, esc, chrome, requireSession } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, $, show, hide, esc, chrome, requireSession, aiExtras } from './crm.js';
 
 chrome('diagnose.html');
 
@@ -115,7 +115,7 @@ $('askBtn').addEventListener('click', async () => {
   }
 
   $('askBtn').disabled = true;
-  $('askBtn').textContent = 'Thinking…';
+  $('askBtn').textContent = 'Searching and thinking…';
   $('out').style.display = 'none';
   $('outActs').style.display = 'none';
 
@@ -137,12 +137,7 @@ $('askBtn').addEventListener('click', async () => {
     ASKED = [item, fault, q].filter(Boolean).join(' · ').slice(0, 120) || 'General question';
 
     $('out').textContent = out.answer;
-    if (out.sources && out.sources.length) {
-      const note = document.createElement('div');
-      note.className = 'used';
-      note.textContent = 'Used from your library: ' + out.sources.join(', ');
-      $('out').appendChild(note);
-    }
+    $('out').appendChild(aiExtras(out));
     $('out').style.display = 'block';
     $('outActs').style.display = 'flex';
     $('saveBtn').style.display = job ? '' : 'none';

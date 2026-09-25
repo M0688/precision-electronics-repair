@@ -158,3 +158,25 @@ export async function requireSession() {
   startMail();
   return data.session;
 }
+
+// Under an assistant answer: which web pages it used, which library items, and
+// Google's search suggestions (Google asks for these to be shown with web-grounded answers).
+export function aiExtras(out) {
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);white-space:normal';
+  const parts = [];
+  if (out.web && out.web.length) {
+    parts.push('<div style="font-weight:700;color:var(--navy);margin-bottom:4px">Searched the web — pages used:</div><ol style="margin:0 0 10px 18px;padding:0">' +
+      out.web.map(w => `<li><a href="${esc(w.uri)}" target="_blank" rel="noopener">${esc(w.title)}</a></li>`).join('') + '</ol>');
+  } else if (out.searched === false) {
+    parts.push('<div style="margin-bottom:8px">Web search wasn\'t available for this answer — library and general knowledge only.</div>');
+  }
+  if (out.sources && out.sources.length) parts.push('<div style="margin-bottom:8px">Used from your library: ' + out.sources.map(esc).join(', ') + '</div>');
+  box.innerHTML = parts.join('');
+  if (out.search_html) {
+    const g = document.createElement('div');
+    g.innerHTML = out.search_html;
+    box.appendChild(g);
+  }
+  return box;
+}
