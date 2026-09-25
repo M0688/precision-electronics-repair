@@ -75,7 +75,7 @@
 </main>
 
 <script type="module">
-import { sb, SUPABASE_URL, SUPABASE_KEY, $, show, hide, esc, chrome, requireSession, aiExtras } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, $, show, hide, esc, chrome, requireSession, aiExtras, mdToHtml, cleanMath } from './crm.js';
 
 chrome('diagnose.html');
 
@@ -133,10 +133,10 @@ $('askBtn').addEventListener('click', async () => {
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'No answer came back.');
 
-    ANSWER = out.answer;
+    ANSWER = cleanMath(out.answer);
     ASKED = [item, fault, q].filter(Boolean).join(' · ').slice(0, 120) || 'General question';
 
-    $('out').textContent = out.answer;
+    $('out').innerHTML = mdToHtml(out.answer);
     $('out').appendChild(aiExtras(out));
     $('out').style.display = 'block';
     $('outActs').style.display = 'flex';
@@ -204,7 +204,7 @@ function renderHistory() {
       <div class="when">${h.at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
       <div class="q">${esc(h.q)}</div>
       <button class="toggle" data-t="${i}">Show answer</button>
-      <div class="a" id="pa-${i}">${esc(h.a)}</div>
+      <div class="a" id="pa-${i}">${mdToHtml(h.a)}</div>
     </div>`).join('');
 
   $('past').querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {

@@ -352,7 +352,7 @@
 import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildLabelPdf } from './label-pdf.js';
 import { buildReportPdf } from './report-pdf.js';
-import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail, timerCheck, aiExtras } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail, timerCheck, aiExtras, mdToHtml, cleanMath } from './crm.js';
 
 chrome('workshop.html');
 
@@ -1379,8 +1379,8 @@ $('aiBtn').addEventListener('click', async () => {
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'No answer.');
-    AIANSWER = out.answer;
-    $('aiOut').textContent = out.answer;
+    AIANSWER = cleanMath(out.answer);
+    $('aiOut').innerHTML = mdToHtml(out.answer);
     $('aiOut').appendChild(aiExtras(out));
     $('aiOut').style.display = 'block';
     $('aiSave').style.display = 'inline-block';

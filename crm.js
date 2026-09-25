@@ -180,3 +180,78 @@ export function aiExtras(out) {
   }
   return box;
 }
+
+// ---------- tidy display of assistant answers ----------
+// Models sometimes write units as LaTeX ($20\,\text{V}$, \Omega). Turn that into plain text.
+export function cleanMath(t) {
+  const sym = { Omega: 'Ω', omega: 'ω', mu: 'µ', le: '≤', leq: '≤', ge: '≥', geq: '≥', sim: '~', approx: '≈',
+    times: '×', pm: '±', to: '→', rightarrow: '→', leftarrow: '←', degree: '°', circ: '°', ohm: 'Ω', cdot: '·', infty: '∞', Delta: 'Δ' };
+  return String(t || '')
+    .replace(/\$\$([\s\S]+?)\$\$/g, '$1')
+    .replace(/\$([^$\n]{1,120})\$/g, '$1')
+    .replace(/\\(?:text|mathrm|mathbf|textbf|operatorname)\{([^}]*)\}/g, '$1')
+    .replace(/\^\{?\\circ\}?/g, '°')
+    .replace(/\\([A-Za-z]+)/g, (m, w) => sym[w] ?? m)
+    .replace(/\\[,;:]/g, ' ').replace(/\\!/g, '').replace(/\\%/g, '%')
+    .replace(/\{([^{}]*)\}/g, '$1');
+}
+
+let mdCss = false;
+function addMdCss() {
+  if (mdCss) return; mdCss = true;
+  const st = document.createElement('style');
+  st.textContent = `
+  .ai-md { white-space: normal !important; font-size: 14px; line-height: 1.6; color: #1f2733; }
+  .ai-md h3 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #fff; background: var(--navy);
+    border-radius: 6px; padding: 6px 12px; margin: 20px 0 10px; }
+  .ai-md h3:first-child { margin-top: 0; }
+  .ai-md h4 { font-size: 14px; color: var(--navy); margin: 14px 0 6px; }
+  .ai-md p { margin: 0 0 10px; }
+  .ai-md ul, .ai-md ol { margin: 0 0 10px; padding-left: 22px; }
+  .ai-md li { margin: 3px 0; }
+  .ai-md li > ul { margin: 4px 0 6px; }
+  .ai-md strong { color: var(--navy); }
+  .ai-md code { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+  .ai-md sup { font-size: 10px; color: var(--muted); }`;
+  document.head.appendChild(st);
+}
+
+function inline(t) {
+  return esc(t)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s.,;:)]|$)/g, '$1<em>$2</em>')
+    .replace(/\[(\d+(?:[–,\-]\s?\d+)*)\]/g, '<sup>[$1]</sup>');
+}
+
+// A small, safe Markdown renderer (headings, bullets, numbered lists, bold) — text is escaped first.
+export function mdToHtml(text) {
+  addMdCss();
+  const lines = cleanMath(text).replace(/\r/g, '').split('\n');
+  const out = []; const stack = []; let para = [];
+  const flushPara = () => { if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; } };
+  const closeTo = (lvl) => { while (stack.length > lvl) out.push(stack.pop() === 'ol' ? '</li></ol>' : '</li></ul>'); };
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, '');
+    if (!line.trim()) { flushPara(); continue; }
+    if (/^\s*([-*_])\1{2,}\s*$/.test(line)) { flushPara(); closeTo(0); continue; }
+    let m = line.match(/^\s*#{1,3}\s+(.*)$/) || line.match(/^\s*(\d+\.\s+[A-Z][A-Z0-9 /&'—–-]{5,}.*)$/);
+    if (m && !/^\s*#{4,}/.test(line)) { flushPara(); closeTo(0); out.push('<h3>' + inline(m[1].replace(/\*\*/g, '')) + '</h3>'); continue; }
+    m = line.match(/^\s*#{4,}\s+(.*)$/);
+    if (m) { flushPara(); closeTo(0); out.push('<h4>' + inline(m[1].replace(/\*\*/g, '')) + '</h4>'); continue; }
+    m = line.match(/^(\s*)([-*•]|\d+[.)])\s+(.*)$/);
+    if (m) {
+      flushPara();
+      const lvl = Math.min(3, Math.floor(m[1].replace(/\t/g, '  ').length / 2) + 1);
+      const type = /\d/.test(m[2]) ? 'ol' : 'ul';
+      if (stack.length < lvl) { while (stack.length < lvl) { out.push(type === 'ol' ? '<ol><li>' : '<ul><li>'); stack.push(type); } }
+      else { closeTo(lvl); out.push('</li><li>'); }
+      out.push(inline(m[3]));
+      continue;
+    }
+    if (stack.length && /^\s{2,}/.test(raw)) { out.push(' ' + inline(line.trim())); continue; }
+    closeTo(0); para.push(line.trim());
+  }
+  flushPara(); closeTo(0);
+  return '<div class="ai-md">' + out.join('') + '</div>';
+}
