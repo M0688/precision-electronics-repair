@@ -61,6 +61,7 @@
         <div style="flex:0 0 200px"><label for="nType">Type</label>
           <select id="nType">
             <option>phone/laptop shop</option>
+            <option>local business</option>
             <option>console repair</option>
             <option>computer repair</option>
             <option>audio / hi-fi</option>
@@ -78,6 +79,13 @@
       <h2>Prospects</h2>
       <div class="row" style="margin-bottom:10px">
         <div style="flex:2 1 240px"><input type="search" id="search" placeholder="Search company, town or contact" style="margin-bottom:0"></div>
+        <div style="flex:0 0 190px">
+          <select id="typeFilter" style="margin-bottom:0">
+            <option value="">All types</option>
+            <option value="shops">Repair shops (trade)</option>
+            <option value="local business">Local businesses</option>
+          </select>
+        </div>
         <div style="flex:0 0 190px">
           <select id="filter" style="margin-bottom:0">
             <option value="open">Open leads</option>
@@ -143,6 +151,31 @@ info@precisionelectronicsrepair.co.uk
 
 If you'd rather I didn't contact you again, just reply saying so and I won't.`;
 
+// Local businesses (not repair shops): their own pitch, email only.
+const LOCAL_SUBJECT = c => 'Broken laptop, phone or tablet at ' + c + '? Local repair in Watford';
+const LOCAL_BODY = c => `Hello,
+
+I run Precision Electronics Repair, a small workshop in Watford that repairs electronics at circuit-board level — laptops that won't power on, phones that won't charge, tablets, liquid damage, broken ports and more. The kind of faults where most places say "replace it".
+
+If a work laptop, phone or tablet at ${c} breaks, I can often repair it for far less than a replacement, and keep the data on it intact. You can drop it off in Watford by appointment, or post it in.
+
+· Free, no-obligation estimate before any work
+· Diagnosis £30, taken off the bill if you go ahead
+· Lifetime warranty on the workmanship, 6 months on parts
+· Prices are on the website: precisionelectronicsrepair.co.uk
+
+Worth keeping this email for the next time something breaks. Any questions, just reply or call 07522 124273.
+
+Mitchell Morris
+Precision Electronics Repair
+07522 124273
+info@precisionelectronicsrepair.co.uk
+262D Boundary Way, Watford, WD25 7SX
+
+If you'd rather not hear from me again, just reply "unsubscribe" and I won't email you again.`;
+const CHECK = 'CHECK LEGAL FORM BEFORE EMAILING. ';
+const needsCheck = r => (r.notes || '').startsWith(CHECK);
+
 // What the follow-up should remind you to do, per stage
 const CHASE = {
   to_contact: r => 'Send the pitch to ' + r.company,
@@ -177,7 +210,10 @@ function render() {
   counts();
   const q = $('search').value.trim().toLowerCase();
   const f = $('filter').value;
+  const t = $('typeFilter').value;
   let rows = ROWS;
+  if (t === 'shops') rows = rows.filter(r => r.type !== 'local business');
+  else if (t) rows = rows.filter(r => r.type === t);
   if (f === 'open') rows = rows.filter(r => !['won', 'lost'].includes(r.status));
   else if (f) rows = rows.filter(r => r.status === f);
   if (q) rows = rows.filter(r => [r.company, r.town, r.contact_name, r.email, r.phone].join(' ').toLowerCase().includes(q));
@@ -206,8 +242,15 @@ function render() {
         Added ${when(r.created_at)}
       </div>
       <div class="acts">
-        ${r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(EMAIL_SUBJECT)}&body=${encodeURIComponent(EMAIL_BODY)}">Email pitch</a>` : ''}
-        ${r.phone ? `<a class="btn-sm wa" data-pitch="${r.id}" data-chan="whatsapp" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
+        ${r.type === 'local business'
+          ? (needsCheck(r)
+              ? `<span class="due">Check legal form before emailing</span>
+                 <a class="btn-sm" target="_blank" rel="noopener" href="https://find-and-update.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(r.company)}">Look up on Companies House</a>
+                 <button class="btn-sm" data-legal="${r.id}" data-ok="1">It's a Ltd / LLP / PLC</button>
+                 <button class="btn-sm" data-legal="${r.id}" data-ok="0">Sole trader / partnership</button>`
+              : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(LOCAL_SUBJECT(r.company))}&body=${encodeURIComponent(LOCAL_BODY(r.company))}">Email pitch</a>` : ''))
+          : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" href="mailto:${esc(r.email)}?subject=${encodeURIComponent(EMAIL_SUBJECT)}&body=${encodeURIComponent(EMAIL_BODY)}">Email pitch</a>` : '')}
+        ${r.phone && r.type !== 'local business' ? `<a class="btn-sm wa" data-pitch="${r.id}" data-chan="whatsapp" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
         ${r.phone ? `<a class="btn-sm" href="tel:${esc(r.phone)}">Call</a>` : ''}
         <button class="btn-sm" data-log="${r.id}">Conversation log</button>
         <button class="btn-sm" data-note="${r.id}">Add note</button>
@@ -323,6 +366,21 @@ function wire() {
     load();
   }));
 
+  // Legal form checked on Companies House.
+  $('listArea').querySelectorAll('[data-legal]').forEach(b => b.addEventListener('click', async () => {
+    const row = ROWS.find(r => r.id === b.dataset.legal);
+    const ok = b.dataset.ok === '1';
+    const stamp = new Date().toLocaleDateString('en-GB');
+    const notes = (row.notes || '').replace(CHECK, '') + '\n' + stamp + ': ' +
+      (ok ? 'Legal form checked — limited company / LLP / PLC, OK to email.' : 'Sole trader / partnership — do not email without consent.');
+    const upd = { notes, updated_at: new Date().toISOString() };
+    if (!ok) { upd.status = 'lost'; upd.next_action = null; }
+    const { error } = await sb.from('leads').update(upd).eq('id', row.id);
+    if (error) return show($('msg'), error.message, 'err');
+    show($('msg'), ok ? row.company + ' can be emailed now.' : row.company + ' marked lost — not to be emailed.', 'ok');
+    load();
+  }));
+
   $('listArea').querySelectorAll('[data-note]').forEach(b => b.addEventListener('click', async () => {
     const row = ROWS.find(r => r.id === b.dataset.note);
     const add = prompt('Add a note for ' + row.company);
@@ -358,6 +416,7 @@ function wire() {
 
 $('search').addEventListener('input', render);
 $('filter').addEventListener('change', render);
+$('typeFilter').addEventListener('change', render);
 
 $('addBtn').addEventListener('click', async () => {
   hide($('msg'));
