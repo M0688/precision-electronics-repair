@@ -113,6 +113,12 @@
           <button type="button" id="timerBtn" style="width:auto;margin:0;padding:8px 18px;border-radius:8px;font:inherit;font-weight:700;cursor:pointer;border:1.5px solid #1c6b3c;background:#1c6b3c;color:#fff">Start</button>
           <span id="timerMsg" style="color:var(--muted);font-size:13px"></span>
         </div>
+        <div id="wsRow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;border-radius:10px">
+          <strong>Warranty sticker:</strong>
+          <input type="text" id="wsInput" placeholder="Sticker ID" style="width:170px;margin:0;text-transform:uppercase">
+          <button type="button" class="send" id="wsSave" style="margin:0">Save</button>
+          <span id="wsMsg" style="color:var(--muted);font-size:13px"></span>
+        </div>
         <div class="secbar"><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></div>
       </div>
 
@@ -235,6 +241,7 @@
         <summary><h2>Invoice</h2><span class="count" data-of="#invList .quotebox"></span></summary>
         <div class="secbody">
         <div id="invMsg" class="msg"></div>
+        <div id="wsAsk" style="display:none;background:#fff4e0;border:2px solid #e0a030;border-radius:10px;padding:14px 16px;margin:0 0 16px"></div>
         <div id="invList"></div>
 
         <label>Lines on this invoice</label>
@@ -392,6 +399,73 @@ function fact(label, value) {
   return `<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`;
 }
 
+// ---------- warranty sticker ----------
+// Once the work is done, every device should leave with a sticker whose ID is on its job.
+const WS_DUE = ['ready', 'invoiced', 'paid', 'returned'];
+function showWs() {
+  const s = JOBROW && JOBROW.warranty_sticker;
+  const due = JOBROW && WS_DUE.includes($('status').value || JOBROW.status);
+  const row = $('wsRow');
+  if (!s && due) {
+    row.style.background = '#fff4e0'; row.style.border = '2px solid #e0a030'; row.style.padding = '8px 12px';
+    $('wsMsg').innerHTML = '<strong style="color:#8a5a00">Fit a warranty sticker and enter its ID.</strong>';
+  } else {
+    row.style.background = ''; row.style.border = ''; row.style.padding = '';
+    $('wsMsg').textContent = s ? 'Fitted ' + when(JOBROW.warranty_sticker_at) : '';
+  }
+}
+async function saveSticker(jobId, value) {
+  const { data, error } = await sb.rpc('set_warranty_sticker', { p_job_id: jobId, p_sticker: value });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, sticker: data.sticker };
+}
+$('wsSave').addEventListener('click', async () => {
+  $('wsSave').disabled = true;
+  const r = await saveSticker(JOBROW.id, $('wsInput').value);
+  $('wsSave').disabled = false;
+  if (!r.ok) { $('wsMsg').innerHTML = '<span style="color:#a33">' + esc(r.error) + '</span>'; return; }
+  JOBROW.warranty_sticker = r.sticker;
+  JOBROW.warranty_sticker_at = r.sticker ? new Date().toISOString() : null;
+  $('wsInput').value = r.sticker || '';
+  showWs();
+  loadNotes(JOBROW.id);
+});
+$('wsInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('wsSave').click(); });
+
+// Straight after an invoice: one box per device on it.
+async function askStickers(jobIds) {
+  const ids = [...new Set(jobIds.filter(Boolean))];
+  const { data } = await sb.from('job_detail').select('id,job_number,make_model,device_type,warranty_sticker').in('id', ids);
+  const rows = (data || []).sort((a, b) => a.job_number.localeCompare(b.job_number));
+  if (!rows.length) return;
+  const box = $('wsAsk');
+  box.innerHTML = `<div style="font-weight:700;color:#8a5a00;font-size:16px;margin-bottom:6px">Reminder: fit a warranty sticker to ${rows.length > 1 ? 'each device' : 'the device'}</div>
+    <p style="margin:0 0 10px;font-size:14px">Then enter the sticker ID so it's saved to the job.</p>` +
+    rows.map(r => `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <span style="min-width:190px;font-weight:600">${esc(r.job_number)} <span style="font-weight:400;color:var(--muted)">${esc(r.make_model || r.device_type || '')}</span></span>
+      <input type="text" data-ws="${r.id}" value="${esc(r.warranty_sticker || '')}" placeholder="Sticker ID" style="width:170px;margin:0;text-transform:uppercase">
+      <span data-wsmsg="${r.id}" style="font-size:13px;color:var(--muted)"></span></div>`).join('') +
+    `<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="primary" id="wsAskSave" style="margin:0">Save sticker IDs</button>
+     <button type="button" class="send" id="wsAskLater" style="margin:0">Later</button></div>`;
+  box.style.display = 'block';
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const first = box.querySelector('input[data-ws]'); if (first) first.focus();
+  $('wsAskLater').addEventListener('click', () => { box.style.display = 'none'; });
+  $('wsAskSave').addEventListener('click', async () => {
+    let allOk = true;
+    for (const inp of box.querySelectorAll('input[data-ws]')) {
+      const id = inp.dataset.ws, msg = box.querySelector(`[data-wsmsg="${id}"]`);
+      if (!inp.value.trim()) { msg.textContent = 'Not entered yet'; allOk = false; continue; }
+      const r = await saveSticker(id, inp.value);
+      if (r.ok) { inp.value = r.sticker; msg.innerHTML = '<span style="color:#1c6b3c">Saved</span>';
+        if (id === JOBROW.id) { JOBROW.warranty_sticker = r.sticker; JOBROW.warranty_sticker_at = new Date().toISOString(); $('wsInput').value = r.sticker; } }
+      else { msg.innerHTML = '<span style="color:#a33">' + esc(r.error) + '</span>'; allOk = false; }
+    }
+    showWs(); loadNotes(JOBROW.id);
+    if (allOk) setTimeout(() => { box.style.display = 'none'; }, 1200);
+  });
+}
+
 async function load() {
   const { data: sess } = await sb.auth.getSession();
   if (!sess.session) { location.href = 'workshop.html'; return; }
@@ -423,6 +497,9 @@ async function load() {
     ? '<dt>Diagnostic fee</dt><dd>None — obvious fault, agreed at booking.</dd>'
     : '';
 
+  $('wsInput').value = data.warranty_sticker || '';
+  showWs();
+
   $('facts').innerHTML = data.has_intake ? [
     fact('Customer', data.customer_name),
     fact('Email', data.customer_email),
@@ -440,8 +517,11 @@ async function load() {
     fact('Email', data.customer_email),
     fact('Phone', data.phone),
     prefRow,
+    fact('Return address', data.address),
     feeRow,
-    '<dt>Status</dt><dd>The customer has not submitted their booking form yet.</dd>'
+    data.booked_by_hand
+      ? '<dt>Booking form</dt><dd>None — booked in by hand' + (data.batch_size > 1 ? ' (item ' + (data.batch_position || 1) + ' of ' + data.batch_size + ')' : '') + '.</dd>'
+      : '<dt>Status</dt><dd>The customer has not submitted their booking form yet.</dd>'
   ].join('');
 
   $('trackLink').href = 'track.html?job=' + encodeURIComponent(data.job_number) + '&k=' + encodeURIComponent(data.access_key);
@@ -1276,6 +1356,9 @@ $('invBtn').addEventListener('click', async () => {
   $('iDesc').value = '';
   LINES = [];
   $('status').value = 'invoiced';
+  JOBROW.status = 'invoiced';
+  showWs();
+  askStickers([JOBROW.id, ...lines.map(l => l.job_ref)]);
   loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id); loadQuotes(JOBROW.id);
   $('invBtn').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
 });
@@ -1410,6 +1493,8 @@ $('statusBtn').addEventListener('click', async () => {
   const { error } = await sb.rpc('set_job_status', { p_job_number: JOB, p_status: $('status').value });
   if (error) return show($('msg'), error.message, 'err');
   show($('msg'), 'Status updated.', 'ok');
+  JOBROW.status = $('status').value;
+  showWs();
   loadNotes(JOBROW.id);
 });
 

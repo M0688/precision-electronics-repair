@@ -22,6 +22,12 @@
   .check { display: flex; gap: 10px; align-items: center; margin: 2px 0 16px; }
   .check input { width: 17px; height: 17px; }
   .check label { font-weight: 400; font-size: 14px; margin: 0; color: var(--muted); }
+  .bhtable { width: 100%; border-collapse: collapse; min-width: 640px; }
+  .bhtable th { font-size: 12px; text-align: left; color: var(--muted); padding: 4px 4px; }
+  .bhtable td { padding: 3px 4px; vertical-align: top; }
+  .bhtable td:first-child { color: var(--muted); font-size: 13px; padding-top: 12px; width: 26px; }
+  .bhtable input { margin: 0; padding: 8px 9px; font-size: 14px; }
+  .bhtable .bhdel { background: none; border: 0; color: #a33; font-size: 18px; cursor: pointer; padding: 6px; }
   .sendrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .send { display: inline-block; background: var(--white); border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; text-decoration: none; }
   .send:hover { background: var(--soft); }
@@ -143,6 +149,48 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2>Book in items by hand</h2>
+        <p style="margin:0 0 14px;color:var(--muted);font-size:14px">For customers who hand you items without a booking form. Every item becomes its own job, grouped as one booking.</p>
+        <div id="bhMsg" class="msg"></div>
+
+        <label for="bhSearch">Customer</label>
+        <input type="text" id="bhSearch" placeholder="Search by name, company, email or number" autocomplete="off">
+        <div id="bhHits"></div>
+        <div id="bhPicked" style="display:none;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;padding:10px 14px;margin:-4px 0 16px;font-size:14px;color:#1c6b3c">
+          <span id="bhPickedName"></span>
+          <button class="send" id="bhClear" style="padding:4px 10px;margin-left:10px">Change</button>
+        </div>
+        <div id="bhNew">
+          <div class="row">
+            <div><label for="bhName">Name</label><input type="text" id="bhName" placeholder="Jane Smith"></div>
+            <div><label for="bhCompany">Company <span style="font-weight:400;color:var(--muted)">— makes it a trade account</span></label><input type="text" id="bhCompany"></div>
+          </div>
+          <div class="row">
+            <div><label for="bhEmail">Email</label><input type="email" id="bhEmail"></div>
+            <div><label for="bhPhone">Mobile number</label><input type="text" id="bhPhone"></div>
+          </div>
+        </div>
+
+        <div class="check"><input type="checkbox" id="bhHere" checked><label for="bhHere">The items are here now (status "Arrived")</label></div>
+        <div class="check"><input type="checkbox" id="bhNoDiag"><label for="bhNoDiag">Obvious faults — no diagnostic fee</label></div>
+
+        <datalist id="bhTypes"><option value="PCB"><option value="Laptop"><option value="Phone"><option value="Tablet"><option value="Games console"><option value="Controller"><option value="Desktop PC"></datalist>
+        <div style="overflow-x:auto;margin:10px 0">
+          <table class="bhtable">
+            <thead><tr><th>#</th><th>Type</th><th>Make / model</th><th>Serial</th><th>Fault</th><th></th></tr></thead>
+            <tbody id="bhRows"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+          <button class="send" id="bhAdd" type="button">+ Add item</button>
+          <button class="send" id="bhCopy" type="button">Copy the last item &times;</button>
+          <input type="number" id="bhCopies" min="1" max="99" value="5" style="width:70px;margin:0" aria-label="How many copies">
+          <span style="color:var(--muted);font-size:13px">(serial left blank on copies)</span>
+        </div>
+        <button class="primary" id="bhBtn">Create jobs</button>
+        <div id="bhDone" style="margin-top:14px"></div>
+      </div>
 
       <div class="card">
         <h2>Jobs</h2>
@@ -400,6 +448,129 @@ $('createBtn').addEventListener('click', async () => {
   $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
   $('noDiag').checked = false;
   clearPick();
+  loadJobs();
+});
+
+// ---------- book in items by hand (no booking form) ----------
+let BH_PICK = null;
+let bhTimer = null;
+const escH = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+function bhRowHtml(v = {}) {
+  return `<tr>
+    <td class="bhn"></td>
+    <td><input list="bhTypes" class="bt" value="${escH(v.device_type)}" placeholder="PCB"></td>
+    <td><input class="bm" value="${escH(v.make_model)}" placeholder="Make / model or board no."></td>
+    <td><input class="bs" value="${escH(v.serial_imei)}"></td>
+    <td><input class="bf" value="${escH(v.fault_description)}" placeholder="What's wrong"></td>
+    <td><button type="button" class="bhdel" title="Remove">&times;</button></td>
+  </tr>`;
+}
+function bhRead() {
+  return [...$('bhRows').querySelectorAll('tr')].map(tr => ({
+    device_type: tr.querySelector('.bt').value.trim(),
+    make_model: tr.querySelector('.bm').value.trim(),
+    serial_imei: tr.querySelector('.bs').value.trim(),
+    fault_description: tr.querySelector('.bf').value.trim()
+  }));
+}
+function bhRenumber() {
+  const rows = [...$('bhRows').querySelectorAll('tr')];
+  rows.forEach((tr, i) => { tr.querySelector('.bhn').textContent = i + 1; });
+  $('bhBtn').textContent = rows.length === 1 ? 'Create 1 job' : 'Create ' + rows.length + ' jobs';
+}
+function bhAdd(v, n = 1) {
+  for (let i = 0; i < n; i++) $('bhRows').insertAdjacentHTML('beforeend', bhRowHtml(v));
+  bhRenumber();
+}
+$('bhRows').addEventListener('click', e => {
+  if (!e.target.classList.contains('bhdel')) return;
+  if ($('bhRows').children.length === 1) return;
+  e.target.closest('tr').remove();
+  bhRenumber();
+});
+$('bhAdd').addEventListener('click', () => { bhAdd({}); $('bhRows').lastElementChild.querySelector('.bt').focus(); });
+$('bhCopy').addEventListener('click', () => {
+  const all = bhRead();
+  const last = all[all.length - 1] || {};
+  const n = Math.max(1, Math.min(99, parseInt($('bhCopies').value, 10) || 1));
+  // Serial numbers differ per item, so copies leave it blank.
+  bhAdd({ ...last, serial_imei: '' }, n);
+});
+bhAdd({});
+
+function bhClearPick() {
+  BH_PICK = null;
+  $('bhPicked').style.display = 'none';
+  $('bhSearch').style.display = '';
+  $('bhSearch').value = '';
+  $('bhHits').innerHTML = '';
+  $('bhNew').style.display = '';
+}
+$('bhClear').addEventListener('click', bhClearPick);
+$('bhSearch').addEventListener('input', () => {
+  clearTimeout(bhTimer);
+  const q = $('bhSearch').value.trim();
+  if (q.length < 2) { $('bhHits').innerHTML = ''; return; }
+  bhTimer = setTimeout(async () => {
+    const { data, error } = await sb.rpc('find_contacts', { p_query: q });
+    if (error) return;
+    const rows = data || [];
+    $('bhHits').innerHTML = rows.length
+      ? rows.map((c, i) => {
+          const who = [c.name, c.company].filter(Boolean).join(' · ') || c.email || c.phone;
+          const sub = [c.email, c.phone].filter(Boolean).join(' · ');
+          return `<div class="hitrow" data-i="${i}" style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;background:#fff">
+            <div style="font-weight:600;font-size:14px">${escH(who)}</div>
+            <div style="font-size:13px;color:var(--muted)">${escH(sub)}</div></div>`;
+        }).join('')
+      : '<p class="empty" style="padding:8px 0">No match — fill in their details below and a new record is made.</p>';
+    $('bhHits').querySelectorAll('[data-i]').forEach(el => el.addEventListener('click', () => {
+      const c = rows[Number(el.dataset.i)];
+      BH_PICK = c;
+      $('bhPickedName').textContent = 'Booking in for ' + ([c.name, c.company].filter(Boolean).join(' · ') || c.email || c.phone) + '.';
+      $('bhPicked').style.display = 'block';
+      $('bhSearch').style.display = 'none';
+      $('bhHits').innerHTML = '';
+      $('bhNew').style.display = 'none';
+    }));
+  }, 250);
+});
+
+$('bhBtn').addEventListener('click', async () => {
+  hide($('bhMsg'));
+  $('bhDone').innerHTML = '';
+  const items = bhRead();
+  const bad = items.findIndex(it => !it.device_type && !it.make_model);
+  if (bad !== -1) return show($('bhMsg'), 'Item ' + (bad + 1) + ' needs a type or make/model — or remove that row.', 'err');
+  const email = $('bhEmail').value.trim(), phone = $('bhPhone').value.trim();
+  if (!BH_PICK && !email && !phone) return show($('bhMsg'), 'Pick a customer, or enter an email address or mobile number.', 'err');
+
+  $('bhBtn').disabled = true; $('bhBtn').textContent = 'Working…';
+  const { data, error } = await sb.rpc('create_manual_jobs', {
+    p_customer_name: BH_PICK ? null : $('bhName').value.trim() || null,
+    p_customer_email: BH_PICK ? null : email || null,
+    p_customer_phone: BH_PICK ? null : phone || null,
+    p_company: BH_PICK ? null : $('bhCompany').value.trim() || null,
+    p_contact_id: BH_PICK ? BH_PICK.id : null,
+    p_preferred: BH_PICK?.preferred_contact || 'email',
+    p_diag_fee: !$('bhNoDiag').checked,
+    p_items: items,
+    p_arrived: $('bhHere').checked
+  });
+  $('bhBtn').disabled = false; bhRenumber();
+  if (error) return show($('bhMsg'), error.message, 'err');
+
+  const made = data.jobs || [];
+  show($('bhMsg'), made.length + (made.length === 1 ? ' job' : ' jobs') + ' created: ' +
+    made[0].job_number + (made.length > 1 ? ' to ' + made[made.length - 1].job_number : '') + '.', 'ok');
+  $('bhDone').innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px">' + made.map(m =>
+    `<a class="send" href="job.html?job=${encodeURIComponent(m.job_number)}" style="text-decoration:none">${escH(m.job_number)} · ${escH(m.item || '')}</a>`).join('') + '</div>';
+
+  $('bhRows').innerHTML = ''; bhAdd({});
+  $('bhName').value = ''; $('bhCompany').value = ''; $('bhEmail').value = ''; $('bhPhone').value = '';
+  $('bhNoDiag').checked = false; $('bhHere').checked = true;
+  bhClearPick();
   loadJobs();
 });
 
