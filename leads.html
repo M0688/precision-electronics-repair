@@ -10,10 +10,16 @@
 <meta name="theme-color" content="#1B2A4A">
 <link rel="stylesheet" href="crm.css?v=5">
 <style>
-  .lead { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
+  .lead { border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; margin-bottom: 4px; background: #fff; }
+  .lead .top { cursor: pointer; align-items: center !important; }
+  .lead .top .muted { font-size: 12px; }
+  .lead .body { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+  .lead .chev { color: var(--muted); font-size: 12px; margin-right: 6px; display: inline-block; transition: transform .15s; }
+  .lead.open .chev { transform: rotate(90deg); }
+  .lead .due-dot { font-size: 11px; font-weight: 700; color: #b3261e; margin-left: 8px; }
   .lead .top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
-  .lead .co { font-weight: 700; color: var(--navy); font-size: 15px; }
-  .lead select { width: auto; margin: 0; padding: 6px 10px; font-size: 13px; }
+  .lead .co { font-weight: 700; color: var(--navy); font-size: 14px; }
+  .lead select { width: auto; margin: 0; padding: 3px 8px; font-size: 13px; }
   .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .due { color: var(--red); font-weight: 600; }
 
@@ -214,6 +220,7 @@ const CHASE = {
 };
 
 let ROWS = [];
+const OPEN = new Set();   // leads expanded by hand; everything else stays one line
 
 async function start() {
   const sess = await requireSession();
@@ -252,17 +259,18 @@ function render() {
   const today = new Date().toISOString().slice(0, 10);
 
   $('listArea').innerHTML = rows.map(r => `
-    <div class="lead s-${esc(r.status)}${r.next_action && r.next_action <= today && !['won','lost'].includes(r.status) ? ' overdue' : ''}">
-      <div class="top">
+    <div class="lead s-${esc(r.status)}${r.next_action && r.next_action <= today && !['won','lost'].includes(r.status) ? ' overdue' : ''}${OPEN.has(r.id) ? ' open' : ''}">
+      <div class="top" data-toggle="${r.id}">
         <div>
-          <div class="co">${esc(r.company)}</div>
-          <div class="muted">${[r.contact_name, r.town, r.type].filter(Boolean).map(esc).join(' · ')}</div>
-          <div class="muted">${[r.email, r.phone].filter(Boolean).map(esc).join(' · ')}</div>
+          <span class="co"><span class="chev">&#9654;</span>${esc(r.company)}</span>
+          <span class="muted" style="margin-left:8px">${[r.town, r.type].filter(Boolean).map(esc).join(' · ')}</span>${r.next_action && r.next_action <= today && !['won','lost'].includes(r.status) ? '<span class="due-dot">Due</span>' : ''}
         </div>
         <select data-status="${r.id}">
           ${STATUSES.map(([k, l]) => `<option value="${k}"${r.status === k ? ' selected' : ''}>${l}</option>`).join('')}
         </select>
       </div>
+      <div class="body"${OPEN.has(r.id) ? '' : ' hidden'}>
+      <div class="muted">${[r.contact_name, r.email, r.phone].filter(Boolean).map(esc).join(' · ')}</div>
       ${r.notes ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(r.notes)}</div>` : ''}
       <div class="muted" style="margin-top:8px">
         ${r.next_action && !['won','lost'].includes(r.status)
@@ -309,6 +317,7 @@ function render() {
         <textarea data-text="${r.id}" placeholder="Spoke to Dave. Said they send board jobs to London, takes 2 weeks. Will try me next time."></textarea>
         <button class="btn-sm" data-save="${r.id}">Save to log</button>
         <ul class="entries" id="entries-${r.id}"></ul>
+      </div>
       </div>
     </div>`).join('');
 
@@ -433,6 +442,15 @@ function wire() {
     await sb.from('follow_ups').insert({ title, due_date: d, lead_id: row.id });
     show($('msg'), 'Follow-up set for ' + when(d) + '.', 'ok');
     load();
+  }));
+
+  $('listArea').querySelectorAll('[data-toggle]').forEach(t => t.addEventListener('click', e => {
+    if (e.target.closest('select')) return;
+    const id = t.dataset.toggle, card = t.parentElement, body = card.querySelector('.body');
+    const opening = body.hidden;
+    body.hidden = !opening;
+    card.classList.toggle('open', opening);
+    opening ? OPEN.add(id) : OPEN.delete(id);
   }));
 
   $('listArea').querySelectorAll('[data-convert]').forEach(b => b.addEventListener('click', async () => {
