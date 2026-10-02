@@ -62,6 +62,7 @@
           <select id="nType">
             <option>phone/laptop shop</option>
             <option>local business</option>
+            <option>air con</option>
             <option>console repair</option>
             <option>computer repair</option>
             <option>audio / hi-fi</option>
@@ -84,6 +85,7 @@
             <option value="">All types</option>
             <option value="shops">Repair shops (trade)</option>
             <option value="local business">Local businesses</option>
+            <option value="air con">Air con firms</option>
           </select>
         </div>
         <div style="flex:0 0 190px">
@@ -142,6 +144,28 @@ How it works:
 · Royal Mail both ways. Return postage goes on the invoice at cost.
 
 No account to set up and no minimum. If there's a board sitting in a drawer you've given up on, send that one and see what you make of the work.
+
+Mitchell Morris
+Precision Electronics Repair
+07522 124273
+info@precisionelectronicsrepair.co.uk
+262D Boundary Way, Watford, WD25 7SX
+
+If you'd rather I didn't contact you again, just reply saying so and I won't.`;
+
+// Air con installers / maintenance firms: board repair instead of replacement, plus their old failed boards.
+const AIRCON_SUBJECT = 'Air con PCBs: repair instead of replace';
+const AIRCON_BODY = c => `Hello,
+
+I'm Mitchell, and I run Precision Electronics Repair in Watford. I repair electronics at component level, and I'd like to offer that to ${c} for air con control boards.
+
+Two ways it could help you:
+
+1. Repair instead of replace. When an indoor or outdoor unit board fails, send it to me rather than ordering a new one. Replacement boards are often expensive, slow to arrive, or no longer made for older units. I'll find the fault, quote before doing any work, and send it back tested.
+
+2. Turn your old boards into profit. Most firms have a box of failed boards from past swap-outs. Send them over. The ones I can fix come back working, ready to keep as spares or sell on at a profit.
+
+No account to set up and no minimum. If you've got a board sitting on the shelf, send that one and see what you make of the work.
 
 Mitchell Morris
 Precision Electronics Repair
@@ -215,7 +239,7 @@ function render() {
   const f = $('filter').value;
   const t = $('typeFilter').value;
   let rows = ROWS;
-  if (t === 'shops') rows = rows.filter(r => r.type !== 'local business');
+  if (t === 'shops') rows = rows.filter(r => !['local business', 'air con'].includes(r.type));
   else if (t) rows = rows.filter(r => r.type === t);
   if (f === 'open') rows = rows.filter(r => !['won', 'lost'].includes(r.status));
   else if (f) rows = rows.filter(r => r.status === f);
@@ -245,7 +269,9 @@ function render() {
         Added ${when(r.created_at)}
       </div>
       <div class="acts">
-        ${r.type === 'local business'
+        ${r.type === 'air con'
+          ? (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" target="_blank" rel="noopener" href="${gmail(r.email, AIRCON_SUBJECT, AIRCON_BODY(r.company))}">Email pitch</a>` : '')
+          : r.type === 'local business'
           ? (needsCheck(r)
               ? `<span class="due">Check legal form before emailing</span>
                  <a class="btn-sm" target="_blank" rel="noopener" href="https://find-and-update.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(r.company)}">Look up on Companies House</a>
@@ -253,7 +279,7 @@ function render() {
                  <button class="btn-sm" data-legal="${r.id}" data-ok="0">Sole trader / partnership</button>`
               : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" target="_blank" rel="noopener" href="${gmail(r.email, LOCAL_SUBJECT(r.company), LOCAL_BODY(r.company))}">Email pitch</a>` : ''))
           : (r.email ? `<a class="btn-sm" data-pitch="${r.id}" data-chan="email" target="_blank" rel="noopener" href="${gmail(r.email, EMAIL_SUBJECT, EMAIL_BODY)}">Email pitch</a>` : '')}
-        ${r.phone && r.type !== 'local business' ? `<a class="btn-sm wa" data-pitch="${r.id}" data-chan="whatsapp" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
+        ${r.phone && !['local business', 'air con'].includes(r.type) ? `<a class="btn-sm wa" data-pitch="${r.id}" data-chan="whatsapp" target="${waTarget}" rel="noopener" href="${waLink(r.phone, PITCH)}">WhatsApp pitch</a>` : ''}
         ${r.phone ? `<a class="btn-sm" href="tel:${esc(r.phone)}">Call</a>` : ''}
         <button class="btn-sm" data-log="${r.id}">Conversation log</button>
         <button class="btn-sm" data-note="${r.id}">Add note</button>
