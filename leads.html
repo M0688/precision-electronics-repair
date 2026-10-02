@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#1B2A4A">
 <link rel="stylesheet" href="crm.css?v=5">
 <style>
+  .btn-sm.danger { color: #b3261e; border-color: #f3c2bd; }
+  .btn-sm.danger:hover { background: #fdf2f1; }
   .lead { border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; margin-bottom: 4px; background: #fff; }
   .lead .top { cursor: pointer; align-items: center !important; }
   .lead .top .muted { font-size: 12px; }
@@ -295,6 +297,7 @@ function render() {
         <button class="btn-sm" data-note="${r.id}">Add note</button>
         <button class="btn-sm" data-next="${r.id}">Set next action</button>
         ${r.status === 'won' ? '' : `<button class="btn-sm" data-convert="${r.id}">Convert to job</button>`}
+        <button class="btn-sm danger" data-del="${r.id}">Delete</button>
       </div>
       <div class="log" id="log-${r.id}" style="display:none">
         <div class="row">
@@ -451,6 +454,16 @@ function wire() {
     body.hidden = !opening;
     card.classList.toggle('open', opening);
     opening ? OPEN.add(id) : OPEN.delete(id);
+  }));
+
+  $('listArea').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    const row = ROWS.find(r => r.id === b.dataset.del);
+    if (!confirm('Delete ' + row.company + ' and its conversation log for good? This can\'t be undone.')) return;
+    const { error } = await sb.rpc('delete_lead', { p_id: row.id });
+    if (error) return show($('msg'), error.message, 'err');
+    OPEN.delete(row.id);
+    show($('msg'), row.company + ' deleted.', 'ok');
+    load();
   }));
 
   $('listArea').querySelectorAll('[data-convert]').forEach(b => b.addEventListener('click', async () => {

@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#1B2A4A">
 <link rel="stylesheet" href="crm.css?v=5">
 <style>
+  .btn-sm.danger { color: #b3261e; border-color: #f3c2bd; }
+  .btn-sm.danger:hover { background: #fdf2f1; }
   /* Only what's special to the job page — everything else comes from crm.css. */
   .wrap { max-width: 980px; }
   h1 { font-size: 24px; margin: 0 0 2px; }
@@ -119,7 +121,8 @@
           <button type="button" class="send" id="wsSave" style="margin:0">Save</button>
           <span id="wsMsg" style="color:var(--muted);font-size:13px"></span>
         </div>
-        <div class="secbar"><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></div>
+        <div class="secbar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></span>
+          <button type="button" class="btn-sm danger" id="delJob" style="margin-left:auto">Delete job</button></div>
       </div>
 
       <details class="card sec">
@@ -1661,6 +1664,13 @@ load();
 (function () {
   const secs = () => document.querySelectorAll('details.sec');
   document.getElementById('openAll').addEventListener('click', () => secs().forEach(d => { d.open = true; }));
+  document.getElementById('delJob').addEventListener('click', async () => {
+    if (!JOBROW) return;
+    if (!confirm('Delete ' + JOBROW.job_number + ' and everything on it (booking form, quotes, notes, log) for good? This can\'t be undone.')) return;
+    const { error } = await sb.rpc('delete_job', { p_id: JOBROW.id });
+    if (error) return show(document.getElementById('msg'), error.message, 'err');
+    location.href = 'workshop.html';
+  });
   document.getElementById('closeAll').addEventListener('click', () => secs().forEach(d => { d.open = false; }));
   function counts() {
     document.querySelectorAll('details.sec .count[data-of]').forEach(el => {

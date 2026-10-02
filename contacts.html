@@ -73,6 +73,7 @@
           <div style="flex:0 0 auto"><a class="btn-sm" id="cEmailBtn">Email</a></div>
           <div style="flex:0 0 auto"><a class="btn-sm wa" id="cWaBtn" target="_blank" rel="noopener">WhatsApp</a></div>
           <div style="flex:0 0 auto"><a class="btn-sm" id="cCallBtn">Call</a></div>
+          <div style="flex:0 0 auto;margin-left:auto"><button class="btn-sm danger" id="cDelBtn" style="color:#b3261e;border-color:#f3c2bd">Delete customer</button></div>
         </div>
       </div>
 
@@ -194,6 +195,15 @@ async function loadContact() {
   $('cWaBtn').target = waTarget;
   ['cEmailBtn','cCallBtn'].forEach(b => { if ($(b).getAttribute('href') === '#') $(b).style.display = 'none'; });
   if (!data.phone) $('cWaBtn').style.display = 'none';
+
+  $('cDelBtn').onclick = async () => {
+    const name = data.company || data.name || 'this customer';
+    if (data.job_count > 0) return show($('msg'), name + ' has ' + data.job_count + ' job' + (data.job_count === 1 ? '' : 's') + '. Delete those jobs first, or keep the customer.', 'err');
+    if (!confirm('Delete ' + name + ' for good? This can\'t be undone.')) return;
+    const { error } = await sb.rpc('delete_contact', { p_id: ID });
+    if (error) return show($('msg'), error.message, 'err');
+    location.href = 'contacts.html';
+  };
 
   loadJobs(); loadComms(); loadFollowUps();
   $('fuDate').value = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
