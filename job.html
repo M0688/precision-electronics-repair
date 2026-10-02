@@ -1655,6 +1655,14 @@ $('qCopy').addEventListener('click', async () => {
   } catch (e) { show($('quoteMsg'), 'Could not copy — select the link and copy it.', 'err'); }
 });
 
+document.getElementById('delJob').addEventListener('click', async () => {
+  if (!JOBROW) return;
+  if (!confirm('Delete ' + JOBROW.job_number + ' and everything on it (booking form, quotes, notes, log) for good? This can\'t be undone.')) return;
+  const { error } = await sb.rpc('delete_job', { p_id: JOBROW.id });
+  if (error) return show(document.getElementById('msg'), error.message, 'err');
+  location.href = 'workshop.html';
+});
+
 load();
 </script>
 
@@ -1664,13 +1672,6 @@ load();
 (function () {
   const secs = () => document.querySelectorAll('details.sec');
   document.getElementById('openAll').addEventListener('click', () => secs().forEach(d => { d.open = true; }));
-  document.getElementById('delJob').addEventListener('click', async () => {
-    if (!JOBROW) return;
-    if (!confirm('Delete ' + JOBROW.job_number + ' and everything on it (booking form, quotes, notes, log) for good? This can\'t be undone.')) return;
-    const { error } = await sb.rpc('delete_job', { p_id: JOBROW.id });
-    if (error) return show(document.getElementById('msg'), error.message, 'err');
-    location.href = 'workshop.html';
-  });
   document.getElementById('closeAll').addEventListener('click', () => secs().forEach(d => { d.open = false; }));
   function counts() {
     document.querySelectorAll('details.sec .count[data-of]').forEach(el => {
