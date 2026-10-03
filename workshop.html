@@ -178,13 +178,14 @@
         <datalist id="bhTypes"><option value="PCB"><option value="Laptop"><option value="Phone"><option value="Tablet"><option value="Games console"><option value="Controller"><option value="Desktop PC"></datalist>
         <div style="overflow-x:auto;margin:10px 0">
           <table class="bhtable">
-            <thead><tr><th>#</th><th>Type</th><th>Make / model</th><th>Serial</th><th>Fault</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Job no.</th><th>Type</th><th>Make / model</th><th>Serial</th><th>Fault</th><th></th></tr></thead>
             <tbody id="bhRows"></tbody>
           </table>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
           <button class="send" id="bhAdd" type="button">+ Add item</button>
           <button class="send" id="bhCopy" type="button">Copy the last item &times;</button>
+          <button class="send" id="bhGen" type="button" style="border-color:var(--navy);font-weight:700">Generate job numbers</button>
           <input type="number" id="bhCopies" min="1" max="99" value="5" style="width:70px;margin:0" aria-label="How many copies">
           <span style="color:var(--muted);font-size:13px">(serial left blank on copies)</span>
         </div>
@@ -459,6 +460,7 @@ const escH = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').r
 function bhRowHtml(v = {}) {
   return `<tr>
     <td class="bhn"></td>
+    <td class="bhj" style="font-weight:800;color:var(--navy);white-space:nowrap;font-size:15px;padding-top:11px">&mdash;</td>
     <td><input list="bhTypes" class="bt" value="${escH(v.device_type)}" placeholder="PCB"></td>
     <td><input class="bm" value="${escH(v.make_model)}" placeholder="Make / model or board no."></td>
     <td><input class="bs" value="${escH(v.serial_imei)}"></td>
@@ -471,7 +473,8 @@ function bhRead() {
     device_type: tr.querySelector('.bt').value.trim(),
     make_model: tr.querySelector('.bm').value.trim(),
     serial_imei: tr.querySelector('.bs').value.trim(),
-    fault_description: tr.querySelector('.bf').value.trim()
+    fault_description: tr.querySelector('.bf').value.trim(),
+    job_number: tr.dataset.jobno || undefined
   }));
 }
 function bhRenumber() {
@@ -496,6 +499,17 @@ $('bhCopy').addEventListener('click', () => {
   const n = Math.max(1, Math.min(99, parseInt($('bhCopies').value, 10) || 1));
   // Serial numbers differ per item, so copies leave it blank.
   bhAdd({ ...last, serial_imei: '' }, n);
+});
+$('bhGen').addEventListener('click', async () => {
+  const need = [...$('bhRows').querySelectorAll('tr')].filter(tr => !tr.dataset.jobno);
+  if (!need.length) return show($('bhMsg'), 'Every item already has a job number.', 'ok');
+  hide($('bhMsg'));
+  $('bhGen').disabled = true;
+  const { data, error } = await sb.rpc('reserve_job_numbers', { p_count: need.length });
+  $('bhGen').disabled = false;
+  if (error) return show($('bhMsg'), error.message, 'err');
+  need.forEach((tr, i) => { tr.dataset.jobno = data[i]; tr.querySelector('.bhj').textContent = data[i]; });
+  show($('bhMsg'), data.length === 1 ? data[0] + ' reserved.' : data[0] + ' to ' + data[data.length - 1] + ' reserved.', 'ok');
 });
 bhAdd({});
 
