@@ -51,6 +51,19 @@
   details.sec > summary .count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--soft); border-radius: 20px; padding: 2px 10px; }
   details.sec > summary .count:empty { display: none; }
   details.sec > .secbody { padding: 0 22px 22px; }
+  /* Tabs: each section is a tab; only the chosen one shows */
+  .jobtabs { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+             background: var(--soft); padding: 8px 0; margin: 0 0 10px; -webkit-overflow-scrolling: touch; }
+  .jobtabs::-webkit-scrollbar { display: none; }
+  .jobtabs button { flex: 0 0 auto; background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 999px;
+                    font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+  .jobtabs button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .jobtabs .n { font-size: 11px; font-weight: 700; margin-left: 6px; background: var(--soft); color: var(--muted); border-radius: 999px; padding: 1px 7px; }
+  .jobtabs button.on .n { background: rgba(255,255,255,.2); color: #fff; }
+  .jobtabs .n:empty { display: none; }
+  .tabbed details.sec > summary { display: none; }
+  .tabbed details.sec > .secbody { padding-top: 22px; }
+  .tabbed details.sec:not(.on) { display: none !important; }
   .secbar { font-size: 13px; color: var(--muted); text-align: right; margin-top: -4px; }
   .subhead { font-size: 14px; color: var(--navy); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 8px; padding-top: 14px; border-top: 1px solid var(--line); }
   .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--navy); cursor: pointer; text-decoration: underline; }
@@ -128,7 +141,7 @@
           <button type="button" class="send" id="wsSave" style="margin:0">Save</button>
           <span id="wsMsg" style="color:var(--muted);font-size:13px"></span>
         </div>
-        <div class="secbar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></span>
+        <div class="secbar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <button type="button" class="btn-sm danger" id="delJob" style="margin-left:auto">Delete job</button></div>
       </div>
 
@@ -1754,21 +1767,62 @@ load();
 </script>
 
 <script>
-// Section headers show how many notes, messages, quotes etc. are inside,
-// so you can tell what's there without opening it.
+// Sections become tabs. Counts (notes, messages, quotes…) show on each tab.
 (function () {
-  const secs = () => document.querySelectorAll('details.sec');
-  document.getElementById('openAll').addEventListener('click', () => secs().forEach(d => { d.open = true; }));
-  document.getElementById('closeAll').addEventListener('click', () => secs().forEach(d => { d.open = false; }));
-  function counts() {
-    document.querySelectorAll('details.sec .count[data-of]').forEach(el => {
-      const n = document.querySelectorAll(el.dataset.of).length;
-      const t = n ? String(n) : '';
-      if (el.textContent !== t) el.textContent = t;
-    });
+  const LABEL = { 'Workshop photos': 'Photos', 'Booking form': 'Booking', 'Price the job': 'Price', 'Parts used': 'Parts',
+                  'Time log': 'Time', 'Invoice': 'Invoice', 'Diagnostic assistant': 'Diagnose', 'Repair report': 'Report',
+                  'Communication': 'Messages', 'Work notes': 'Notes' };
+  const secs = [...document.querySelectorAll('details.sec')];
+  const content = document.getElementById('content');
+  content.classList.add('tabbed');
+  const bar = document.createElement('nav');
+  bar.className = 'jobtabs';
+  secs[0].before(bar);
+
+  const label = d => { const t = d.querySelector('summary h2').textContent.trim(); return d.id === 'batchCard' ? 'Batch' : (LABEL[t] || t); };
+  const btns = secs.map((d, i) => {
+    d.open = true;
+    d.addEventListener('toggle', () => { if (!d.open) d.open = true; });
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span class="t"></span><span class="n"></span>';
+    b.querySelector('.t').textContent = label(d);
+    b.addEventListener('click', () => pick(i, true));
+    bar.appendChild(b);
+    return b;
+  });
+
+  let cur = 0;
+  function pick(i, remember) {
+    cur = i;
+    secs.forEach((d, k) => { d.classList.toggle('on', k === i); btns[k].classList.toggle('on', k === i); });
+    btns[i].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (remember) { try { localStorage.setItem('jobTab', label(secs[i])); } catch (e) {} }
   }
-  new MutationObserver(counts).observe(document.getElementById('content'), { childList: true, subtree: true });
-  counts();
+
+  function sync() {
+    secs.forEach((d, k) => {
+      // a section the page hides (e.g. "booked in together" for a single item) loses its tab
+      const vis = d.style.display === 'none' ? 'none' : '';
+      if (btns[k].style.display !== vis) btns[k].style.display = vis;
+      const tl = btns[k].querySelector('.t'), want = label(d);
+      if (tl.textContent !== want) tl.textContent = want;
+      const c = d.querySelector('.count[data-of]');
+      const n = c ? document.querySelectorAll(c.dataset.of).length : 0;
+      const t = n ? String(n) : '';
+      const nb = btns[k].querySelector('.n');
+      if (nb.textContent !== t) nb.textContent = t;
+      if (c && c.textContent !== t) c.textContent = t;
+    });
+    if (btns[cur].style.display === 'none') pick(0, false);
+  }
+
+  let start = 0;
+  try { const saved = localStorage.getItem('jobTab'); const k = secs.findIndex(d => label(d) === saved); if (k >= 0) start = k; } catch (e) {}
+  pick(start, false);
+  const mo = new MutationObserver(recs => { if (recs.some(r => !bar.contains(r.target))) sync(); });
+  mo.observe(content, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+  sync();
 })();
 </script>
 <script type="module" src="alert.js"></script>
