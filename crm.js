@@ -81,7 +81,7 @@ export function chrome(active) {
 // layout as the job page. Boxes side by side in the same place form one tab bar;
 // only the chosen box shows. Page-title boxes (h1) and job-page <details> are left alone.
 // The last tab used is remembered per page. A box the page hides (display:none) loses
-// its tab; if the page later reveals a box (e.g. a form), its tab is selected.
+// its tab.
 function collapsibleSections() {
   const page = location.pathname.split('/').pop() || 'index';
   const groups = new Map();   // parent element -> { bar, cards: [], btns: [], cur }
@@ -96,7 +96,7 @@ function collapsibleSections() {
   function pick(g, i, remember) {
     g.cur = i;
     g.cards.forEach((c, k) => { c.classList.toggle('tabon', k === i); g.btns[k].classList.toggle('on', k === i); });
-    if (remember) { try { localStorage.setItem(key(g), labelOf(g.cards[i])); } catch (e) {} }
+    if (remember) { try { localStorage.setItem(key(g), String(i)); } catch (e) {} }
   }
 
   function sync(g) {
@@ -105,7 +105,6 @@ function collapsibleSections() {
       if (b.style.display !== vis) b.style.display = vis;
       const want = labelOf(c);
       if (b.textContent !== want) b.textContent = want;
-      if (g.seen && g.wasHidden[k] && !hidden(c)) pick(g, k, false);   // page just revealed it
       g.wasHidden[k] = hidden(c);
     });
     g.seen = true;
@@ -145,7 +144,7 @@ function collapsibleSections() {
         let saved = null; try { saved = localStorage.getItem(key(g)); } catch (e) {}
         setTimeout(() => {
           if (g.picked) return; g.picked = true;
-          let k = g.cards.findIndex(c => labelOf(c) === saved && !hidden(c));
+          let k = saved != null && g.cards[+saved] && !hidden(g.cards[+saved]) ? +saved : -1;
           if (k < 0) k = g.cards.findIndex(c => c.hasAttribute('data-tab-default') && !hidden(c));
           if (k < 0) k = g.cards.findIndex(c => !hidden(c));
           if (k >= 0) pick(g, k, false);
