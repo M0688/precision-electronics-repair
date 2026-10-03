@@ -10,8 +10,6 @@
 <meta name="theme-color" content="#1B2A4A">
 <link rel="stylesheet" href="crm.css?v=6">
 <style>
-  .markup { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .markup input { width: 110px; margin: 0; }
   td.num, th.num { text-align: right; white-space: nowrap; }
   tr.part { cursor: pointer; }
   tr.part:hover td { background: #f8fafc; }
@@ -38,16 +36,6 @@
     </div>
 
     <div class="card">
-      <h2>Markup on parts</h2>
-      <div class="markup">
-        <input type="number" id="markup" min="0" step="0.1"> <strong>%</strong>
-        <button class="primary" id="markupSave">Save</button>
-        <span class="muted" id="markupEx"></span>
-      </div>
-      <p class="muted" style="margin:10px 0 0">The customer's price = cost per unit + this %, rounded up to the penny. You can still change the price on an invoice.</p>
-    </div>
-
-    <div class="card">
       <h2>Add a new part</h2>
       <div id="addPart">
         <div class="row">
@@ -58,9 +46,10 @@
           <div><label for="pCat">Category <span class="muted">(optional)</span></label><input type="text" id="pCat" list="cats" placeholder="Ports, ICs, Capacitors…"></div>
           <div><label for="pLoc">Where it's kept <span class="muted">(optional)</span></label><input type="text" id="pLoc" placeholder="Drawer 3"></div>
           <div style="flex:0 1 160px"><label for="pReorder">Warn me at</label><input type="number" id="pReorder" min="0" step="1" value="0"></div>
+          <div style="flex:0 1 140px"><label for="pMarkup">Markup %</label><input type="number" id="pMarkup" min="0" step="0.1" value="25"></div>
         </div>
         <datalist id="cats"></datalist>
-        <p class="muted" style="margin:-6px 0 14px">"Warn me at": the part is flagged as low when stock drops to this number.</p>
+        <p class="muted" style="margin:-6px 0 14px">"Warn me at": the part is flagged as low when stock drops to this number. "Markup %": the customer's price is cost per unit + this %, rounded up to the penny.</p>
         <button class="primary" id="pAdd">Add part</button>
       </div>
     </div>
@@ -87,12 +76,11 @@ chrome('parts.html');
 
 let PARTS = [];
 let OPEN = null;
-let MARKUP = 0;
 let SUPPLIERS = [];
 
 // Always round UP to the penny.
 const up = n => Math.ceil(Math.round(Number(n) * 1e6) / 1e4) / 100;
-const priceOf = cost => up(cost * (1 + MARKUP / 100));
+const priceOf = (cost, pct) => up(cost * (1 + Number(pct || 0) / 100));
 
 async function start() {
   const sess = await requireSession();
@@ -100,16 +88,13 @@ async function start() {
   $('search').addEventListener('input', render);
   $('lowOnly').addEventListener('change', render);
   $('showArch').addEventListener('change', render);
-  $('markup').addEventListener('input', showMarkupExample);
-  $('markupSave').addEventListener('click', saveMarkup);
   $('pAdd').addEventListener('click', addPart);
   load();
 }
 
 async function load() {
-  const [{ data: parts, error }, { data: set }, { data: sups }] = await Promise.all([
+  const [{ data: parts, error }, { data: sups }] = await Promise.all([
     sb.from('parts_stock').select('*').order('name'),
-    sb.from('app_settings').select('num').eq('key', 'parts_markup_pct').maybeSingle(),
     sb.from('part_purchases').select('supplier').not('supplier', 'is', null)
   ]);
   // Every supplier you've used before, ignoring differences in capitals.
@@ -119,9 +104,6 @@ async function load() {
   if (error) return show($('msg'), error.message, 'err');
   PARTS = parts || [];
   const live = PARTS.filter(p => !p.archived);
-  MARKUP = Number(set?.num || 0);
-  $('markup').value = MARKUP;
-  showMarkupExample();
   $('cats').innerHTML = [...new Set(PARTS.map(p => p.category).filter(Boolean))].sort().map(c => `<option value="${esc(c)}">`).join('');
 
   const inStock = live.reduce((s, p) => s + Number(p.in_stock), 0);
@@ -137,20 +119,6 @@ async function load() {
   render();
 }
 
-function showMarkupExample() {
-  const m = Number($('markup').value || 0);
-  $('markupEx').textContent = 'e.g. a £1.24 part → £' + up(1.24 * (1 + m / 100)).toFixed(2);
-}
-
-async function saveMarkup() {
-  const m = Number($('markup').value);
-  if (!(m >= 0)) return show($('msg'), 'Enter a markup of 0 or more.', 'err');
-  const { error } = await sb.from('app_settings').upsert({ key: 'parts_markup_pct', num: m, updated_at: new Date().toISOString() });
-  if (error) return show($('msg'), error.message, 'err');
-  show($('msg'), 'Markup saved: ' + m + '%. New prices apply to parts you use from now on.', 'ok');
-  load();
-}
-
 async function addPart() {
   hide($('msg'));
   const name = $('pName').value.trim();
@@ -160,11 +128,12 @@ async function addPart() {
     part_number: $('pNumber').value.trim() || null,
     category: $('pCat').value.trim() || null,
     location: $('pLoc').value.trim() || null,
-    reorder_level: parseInt($('pReorder').value, 10) || 0
+    reorder_level: parseInt($('pReorder').value, 10) || 0,
+    markup_pct: Math.max(0, Number($('pMarkup').value) || 0)
   }).select('id').single();
   if (error) return show($('msg'), error.message, 'err');
   ['pName', 'pNumber', 'pCat', 'pLoc'].forEach(id => $(id).value = '');
-  $('pReorder').value = 0;
+  $('pReorder').value = 0; $('pMarkup').value = 25;
   $('list').closest('.card').dispatchEvent(new Event('showtab'));
   OPEN = data.id;
   show($('msg'), name + ' added. Now add what you bought.', 'ok');
@@ -187,7 +156,7 @@ function render() {
           ${p.category ? `<div class="muted">${esc(p.category)}</div>` : ''}</td>
         <td class="num">${p.in_stock}${p.archived ? ' <span class="tag off">Archived</span>' : p.low ? ' <span class="tag hot">Low</span>' : ''}</td>
         <td class="num">${p.next_unit_cost != null ? money(p.next_unit_cost) : '—'}</td>
-        <td class="num">${p.next_unit_cost != null ? money(priceOf(p.next_unit_cost)) : '—'}</td>
+        <td class="num">${p.next_unit_cost != null ? money(priceOf(p.next_unit_cost, p.markup_pct)) : '—'}<div class="muted">+${Number(p.markup_pct)}%</div></td>
         <td class="hide">${esc(p.location || '')}</td>
       </tr>
       ${OPEN === p.id ? `<tr class="detail"><td colspan="5" id="detail"></td></tr>` : ''}`).join('')}
@@ -230,7 +199,7 @@ async function drawDetail(p) {
   const preview = () => {
     const q = parseInt($('bQty').value, 10), t = parseFloat($('bTotal').value);
     $('bPreview').textContent = q > 0 && t >= 0
-      ? 'Cost per unit: ' + money(up(t / q)) + ' · price to customer: ' + money(priceOf(up(t / q)))
+      ? 'Cost per unit: ' + money(up(t / q)) + ' · price to customer: ' + money(priceOf(up(t / q), p.markup_pct)) + ' (+' + Number(p.markup_pct) + '%)'
       : '';
   };
   $('bQty').addEventListener('input', preview);
@@ -328,7 +297,9 @@ function editPart(p) {
       <div><label>Category</label><input type="text" id="eCat" list="cats" value="${esc(p.category || '')}"></div>
       <div><label>Where it's kept</label><input type="text" id="eLoc" value="${esc(p.location || '')}"></div>
       <div style="flex:0 1 160px"><label>Warn me at</label><input type="number" id="eReorder" min="0" value="${p.reorder_level}"></div>
+      <div style="flex:0 1 140px"><label>Markup %</label><input type="number" id="eMarkup" min="0" step="0.1" value="${Number(p.markup_pct)}"></div>
     </div>
+    <p class="muted" style="margin:-6px 0 14px">A new markup applies to this part from the next time you use it on a job. Parts already on jobs keep their price.</p>
     <button class="primary" id="eSave">Save</button> <button class="btn-sm" id="eCancel">Cancel</button>`;
   $('eCancel').addEventListener('click', () => render());
   $('eSave').addEventListener('click', async () => {
@@ -336,7 +307,8 @@ function editPart(p) {
     if (!name) return show($('msg'), 'Give the part a name.', 'err');
     const { error } = await sb.from('parts').update({
       name, part_number: $('eNumber').value.trim() || null, category: $('eCat').value.trim() || null,
-      location: $('eLoc').value.trim() || null, reorder_level: parseInt($('eReorder').value, 10) || 0
+      location: $('eLoc').value.trim() || null, reorder_level: parseInt($('eReorder').value, 10) || 0,
+      markup_pct: Math.max(0, Number($('eMarkup').value) || 0)
     }).eq('id', p.id);
     if (error) return show($('msg'), error.message, 'err');
     load();
