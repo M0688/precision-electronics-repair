@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=5">
+<link rel="stylesheet" href="crm.css?v=6">
 <style>
   .markup { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .markup input { width: 110px; margin: 0; }
@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" data-tab-default>
       <h2>All parts</h2>
       <div class="toolbar">
         <input type="search" id="search" class="search" placeholder="Search parts…">
@@ -165,8 +165,7 @@ async function addPart() {
   if (error) return show($('msg'), error.message, 'err');
   ['pName', 'pNumber', 'pCat', 'pLoc'].forEach(id => $(id).value = '');
   $('pReorder').value = 0;
-  $('addPart').closest('.card').classList.add('folded');
-  $('list').closest('.card').classList.remove('folded');
+  $('list').closest('.card').dispatchEvent(new Event('showtab'));
   OPEN = data.id;
   show($('msg'), name + ' added. Now add what you bought.', 'ok');
   await load();

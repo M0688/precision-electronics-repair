@@ -77,28 +77,91 @@ export function chrome(active) {
   collapsibleSections();
 }
 
-// Every section box (.card) that starts with a heading is collapsed when the
-// page opens; click the heading to open or close it. Sections added later
-// (e.g. after loading) are picked up too. Page-title boxes (h1) stay open.
+// Every page's section boxes (.card starting with an <h2>) become tabs, the same
+// layout as the job page. Boxes side by side in the same place form one tab bar;
+// only the chosen box shows. Page-title boxes (h1) and job-page <details> are left alone.
+// The last tab used is remembered per page. A box the page hides (display:none) loses
+// its tab; if the page later reveals a box (e.g. a form), its tab is selected.
 function collapsibleSections() {
-  const wire = card => {
-    if (card.dataset.fold || card.tagName === 'DETAILS') return;
+  const page = location.pathname.split('/').pop() || 'index';
+  const groups = new Map();   // parent element -> { bar, cards: [], btns: [], cur }
+  const labelOf = card => {
     const h = card.firstElementChild;
-    if (!h || h.tagName !== 'H2') return;
-    card.dataset.fold = '1';
-    card.classList.add('foldable');
-    h.classList.add('foldhead');
-    h.setAttribute('role', 'button');
-    h.tabIndex = 0;
-    card.classList.add('folded');
-    const toggle = () => card.classList.toggle('folded');
-    h.addEventListener('click', toggle);
-    h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    const first = [...h.childNodes].filter(n => n.nodeType === 3 || !n.classList?.contains('muted')).map(n => n.textContent).join('').trim();
+    return first || h.textContent.trim();
   };
-  const scan = () => document.querySelectorAll('.card').forEach(wire);
+  const hidden = card => card.style.display === 'none';
+  const key = (g) => 'subtab:' + page + ':' + [...groups.keys()].indexOf(g.parent);
+
+  function pick(g, i, remember) {
+    g.cur = i;
+    g.cards.forEach((c, k) => { c.classList.toggle('tabon', k === i); g.btns[k].classList.toggle('on', k === i); });
+    if (remember) { try { localStorage.setItem(key(g), labelOf(g.cards[i])); } catch (e) {} }
+  }
+
+  function sync(g) {
+    g.cards.forEach((c, k) => {
+      const b = g.btns[k], vis = hidden(c) ? 'none' : '';
+      if (b.style.display !== vis) b.style.display = vis;
+      const want = labelOf(c);
+      if (b.textContent !== want) b.textContent = want;
+      if (g.seen && g.wasHidden[k] && !hidden(c)) pick(g, k, false);   // page just revealed it
+      g.wasHidden[k] = hidden(c);
+    });
+    g.seen = true;
+    if (g.cur == null || hidden(g.cards[g.cur])) {
+      const k = g.cards.findIndex(c => !hidden(c));
+      if (k >= 0) pick(g, k, false);
+    }
+    g.bar.style.display = g.cards.filter(c => !hidden(c)).length > 1 ? '' : 'none';
+  }
+
+  function scan() {
+    const cards = [...document.querySelectorAll('.card')].filter(c =>
+      c.tagName !== 'DETAILS' && !c.dataset.tab && c.firstElementChild?.tagName === 'H2' &&
+      !c.parentElement.closest('.card'));
+    cards.forEach(card => {
+      const parent = card.parentElement;
+      let g = groups.get(parent);
+      if (!g) {
+        g = { parent, cards: [], btns: [], wasHidden: [], cur: null, seen: false };
+        g.bar = document.createElement('nav');
+        g.bar.className = 'subtabs';
+        card.before(g.bar);
+        groups.set(parent, g);
+      }
+      card.dataset.tab = '1';
+      card.classList.add('subtab');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = labelOf(card);
+      const idx = g.cards.length;
+      b.addEventListener('click', () => pick(g, idx, true));
+      card.addEventListener('showtab', () => { g.picked = true; pick(g, idx, true); });
+      g.cards.push(card); g.btns.push(b); g.wasHidden.push(hidden(card));
+      g.bar.appendChild(b);
+      // first time this group gets a tab chosen: remembered one, else one marked data-tab-default, else first
+      if (g.cur == null) {
+        let saved = null; try { saved = localStorage.getItem(key(g)); } catch (e) {}
+        setTimeout(() => {
+          if (g.picked) return; g.picked = true;
+          let k = g.cards.findIndex(c => labelOf(c) === saved && !hidden(c));
+          if (k < 0) k = g.cards.findIndex(c => c.hasAttribute('data-tab-default') && !hidden(c));
+          if (k < 0) k = g.cards.findIndex(c => !hidden(c));
+          if (k >= 0) pick(g, k, false);
+          sync(g);
+        }, 0);
+      }
+    });
+    groups.forEach(sync);
+  }
+
   const start = () => {
+    document.body.classList.add('subtabbed');
     scan();
-    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(recs => {
+      if (recs.some(r => !(r.target.closest && r.target.closest('.subtabs')))) scan();
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 }

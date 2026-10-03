@@ -89,3 +89,13 @@ td .muted, .muted { color: var(--muted); font-size: 13px; }
 /* Text boxes: a clearer edge, and a light tint so they stand out from the page. */
 input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=search], textarea, select { background: #fbfcfe; }
 input:hover, textarea:hover, select:hover { border-color: #6f7d93; }
+
+/* Sub-tabs: section boxes shown one at a time (built by crm.js) */
+.subtabs { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+           background: var(--soft); padding: 8px 0; margin: 0 0 10px; -webkit-overflow-scrolling: touch; }
+.subtabs::-webkit-scrollbar { display: none; }
+.subtabs button { flex: 0 0 auto; background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 999px;
+                  font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+.subtabs button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.card.subtab:not(.tabon) { display: none !important; }
+.subtabs:not([style*="none"]) ~ .card.subtab > h2:first-child { display: none; }
