@@ -23,6 +23,13 @@
   .facts dd { margin: 0; padding: 9px 0; font-size: 14px; border-bottom: 1px solid var(--line); white-space: pre-wrap; }
 
   .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .wphoto { position: relative; }
+  .wphoto .del { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,.92); border: 1px solid #f3c2bd; color: #b3261e; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 700; padding: 3px 8px; cursor: pointer; }
+  .wphoto .when { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .camrow { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .cambtn { display: inline-flex; align-items: center; gap: 8px; background: var(--navy); color: #fff; border-radius: 10px; font-weight: 700; font-size: 16px; padding: 14px 22px; cursor: pointer; }
+  .cambtn.alt { background: #fff; color: var(--navy); border: 1px solid var(--line); font-size: 15px; }
+  .cambtn input { display: none; }
   .photos a img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
 
   .quotebox { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
@@ -124,6 +131,21 @@
         <div class="secbar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span><button type="button" class="linkbtn" id="openAll">Open all</button> · <button type="button" class="linkbtn" id="closeAll">Close all</button></span>
           <button type="button" class="btn-sm danger" id="delJob" style="margin-left:auto">Delete job</button></div>
       </div>
+
+      <details class="card sec" id="wpSec" open>
+        <summary><h2>Workshop photos</h2><span class="count" data-of="#wpGrid .wphoto"></span></summary>
+        <div class="secbody">
+          <div class="camrow">
+            <label class="cambtn">&#128247; Add photo
+              <input type="file" id="wpCam" accept="image/*" capture="environment"></label>
+            <label class="cambtn alt">Choose from gallery
+              <input type="file" id="wpPick" accept="image/*" multiple></label>
+          </div>
+          <div id="wpMsg" class="msg"></div>
+          <div class="photos" id="wpGrid"></div>
+          <p class="empty" id="wpEmpty" style="margin:0">No photos yet. Only you can see these.</p>
+        </div>
+      </details>
 
       <details class="card sec">
         <summary><h2>Booking form</h2><span class="count" data-of="#photos a"></span></summary>
@@ -533,6 +555,7 @@ async function load() {
   $('qKind').addEventListener('change', () => setQuoteKind(null));
 
   loadPhotos(data.id);
+  loadWorkPhotos(data.id);
   loadNotes(data.id);
   loadQuotes(data.id);
   loadInvoices(data.id);
@@ -678,6 +701,70 @@ async function loadPhotos(jobId) {
   }
   if (out.length) { $('photos').innerHTML = out.join(''); $('photoCard').style.display = 'block'; }
 }
+
+// ---------- Workshop photos (private: only signed-in admin can see them) ----------
+async function loadWorkPhotos(jobId) {
+  const { data, error } = await sb.from('job_photos').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
+  if (error) return show($('wpMsg'), error.message, 'err');
+  const rows = data || [];
+  $('wpEmpty').style.display = rows.length ? 'none' : 'block';
+  if (!rows.length) { $('wpGrid').innerHTML = ''; return; }
+  const { data: signed } = await sb.storage.from('job-photos').createSignedUrls(rows.map(r => r.storage_path), 3600);
+  const url = Object.fromEntries((signed || []).map(x => [x.path, x.signedUrl]));
+  $('wpGrid').innerHTML = rows.map(r => url[r.storage_path] ? `
+    <div class="wphoto">
+      <a href="${url[r.storage_path]}" target="_blank" rel="noopener"><img src="${url[r.storage_path]}" alt="Workshop photo" loading="lazy"></a>
+      <button type="button" class="del" data-wpdel="${r.id}">Delete</button>
+      <div class="when">${new Date(r.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+    </div>` : '').join('');
+  $('wpGrid').querySelectorAll('[data-wpdel]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Delete this photo for good?')) return;
+    const row = rows.find(r => r.id === b.dataset.wpdel);
+    await sb.storage.from('job-photos').remove([row.storage_path]);
+    const { error } = await sb.from('job_photos').delete().eq('id', row.id);
+    if (error) return show($('wpMsg'), error.message, 'err');
+    loadWorkPhotos(jobId);
+  }));
+}
+
+// Phone photos are often 4–12 MB. Shrink to max 2000px JPEG before upload so it's quick on mobile data.
+// If the browser can't read the format (e.g. HEIC on some phones), the original goes up instead.
+async function shrinkPhoto(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
+    if (blob && blob.size < file.size) return { blob, ext: 'jpg', type: 'image/jpeg' };
+  } catch (e) { /* fall through to the original */ }
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'jpg';
+  return { blob: file, ext, type: file.type || 'image/jpeg' };
+}
+
+async function addWorkPhotos(input) {
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length || !JOBROW) return;
+  hide($('wpMsg'));
+  let ok = 0;
+  for (let i = 0; i < files.length; i++) {
+    show($('wpMsg'), 'Uploading ' + (i + 1) + ' of ' + files.length + '…', 'ok');
+    const { blob, ext, type } = await shrinkPhoto(files[i]);
+    const path = `${JOBROW.id}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await sb.storage.from('job-photos').upload(path, blob, { contentType: type });
+    if (error) { show($('wpMsg'), 'Upload failed: ' + error.message, 'err'); continue; }
+    const { error: rowErr } = await sb.from('job_photos').insert({ job_id: JOBROW.id, storage_path: path });
+    if (rowErr) { await sb.storage.from('job-photos').remove([path]); show($('wpMsg'), rowErr.message, 'err'); continue; }
+    ok++;
+  }
+  if (ok === files.length) show($('wpMsg'), ok === 1 ? 'Photo added.' : ok + ' photos added.', 'ok');
+  else if (ok) show($('wpMsg'), ok + ' of ' + files.length + ' photos added.', 'err');
+  loadWorkPhotos(JOBROW.id);
+}
+$('wpCam').addEventListener('change', e => addWorkPhotos(e.target));
+$('wpPick').addEventListener('change', e => addWorkPhotos(e.target));
 
 async function loadNotes(jobId) {
   const { data } = await sb.from('job_notes').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
