@@ -82,7 +82,7 @@ function fmtDate(d) {
 // A to-do can be attached to a job, a lead or a customer. Link straight to it.
 function refLink(f) {
   if (f.job_id) return `<a class="ref" href="job.html?id=${f.job_id}">Job</a>`;
-  if (f.lead_id) return `<a class="ref" href="leads.html?id=${f.lead_id}">Lead</a>`;
+
   if (f.contact_id) return `<a class="ref" href="contacts.html?id=${f.contact_id}">Customer</a>`;
   return '';
 }

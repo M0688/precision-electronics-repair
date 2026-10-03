@@ -50,7 +50,6 @@ export function chrome(active) {
     ['invoices.html', 'Invoices'],
     ['todo.html', 'To do'],
     ['contacts.html', 'Contacts'],
-    ['leads.html', 'Leads'],
     ['parts.html', 'Parts'],
     ['stock.html', 'Stock'],
     ['diagnose.html', 'Diagnostic'],
