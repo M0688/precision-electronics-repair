@@ -52,7 +52,6 @@ export function chrome(active) {
     ['contacts.html', 'Contacts'],
     ['parts.html', 'Parts'],
     ['stock.html', 'Stock'],
-    ['diagnose.html', 'Diagnostic'],
     ['knowledge.html', 'Knowledge'],
     ['reports.html', 'Reports'],
     ['settings.html', 'Settings']
