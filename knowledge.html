@@ -41,12 +41,12 @@
 
       <div class="drop" id="drop">
         <strong>Drop a file here</strong> or click to choose one<br>
-        PDF, photo or screenshot &middot; up to about 10MB
+        PDF, photo or screenshot &middot; big PDFs are read a few pages at a time
       </div>
       <div id="fileName" class="muted" style="margin:-6px 0 14px;display:none"></div>
 
       <label for="url">Or a web page to read <span style="font-weight:400;color:var(--muted)">— a datasheet page, a repair guide, a forum thread with the fix on it</span></label>
-      <input type="url" id="url" placeholder="https://…">
+      <input type="text" inputmode="url" id="url" placeholder="https://…">
 
 
       <div class="row">
@@ -60,6 +60,7 @@
 
       <button class="primary" id="addBtn">Add to library</button>
       <div class="bar" id="bar"><i></i></div>
+      <div id="prog" class="muted" style="margin-top:6px;font-size:13px"></div>
     </div>
 
     <div class="card">
@@ -81,6 +82,7 @@
   </div>
 </main>
 
+<script src="vendor/pdf-lib.min.js"></script>
 <script type="module">
 import { sb, SUPABASE_URL, SUPABASE_KEY, $, show, hide, esc, when, chrome, requireSession } from './crm.js';
 
@@ -130,7 +132,11 @@ drop.addEventListener('drop', ev => takeFile(ev.dataTransfer.files[0]));
 
 function takeFile(f) {
   if (!f) return;
-  if (f.size > 10 * 1024 * 1024) return show($('msg'), 'That file is over 10MB — too big to read in one go.', 'err');
+  const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+  const isImg = /^image\//.test(f.type);
+  if (isPdf && f.size > 300 * 1024 * 1024) return show($('msg'), 'That PDF is over 300MB — split it first.', 'err');
+  if (!isPdf && !isImg && f.size > 10 * 1024 * 1024) return show($('msg'), 'That file is over 10MB. PDFs and photos of any size are fine; other files need to be under 10MB.', 'err');
+  hide($('msg'));
   FILE = f;
   $('fileName').textContent = f.name + ' · ' + Math.round(f.size / 1024) + 'KB — remove';
   $('fileName').style.display = 'block';
@@ -142,6 +148,47 @@ $('fileName').addEventListener('click', () => {
   FILE = null;
   $('fileName').style.display = 'none';
 });
+
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+// Photos over ~9MB are shrunk to max 3000px JPEG so they can be read in one go.
+async function shrinkImage(file) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const scale = Math.min(1, 3000 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
+  return { mime: 'image/jpeg', data: bytesToBase64(new Uint8Array(await blob.arrayBuffer())) };
+}
+
+// A big PDF goes in a few pages at a time: each part is read on its own,
+// so nothing gets cut off and no single upload is too large.
+const PAGES_PER_PART = 8;
+const PART_LIMIT = 9 * 1024 * 1024;
+async function pdfParts(file) {
+  const src = await PDFLib.PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const parts = [];
+  const make = async (from, to) => {           // pages from..to, 0-based inclusive
+    const out = await PDFLib.PDFDocument.create();
+    const pages = await out.copyPages(src, Array.from({ length: to - from + 1 }, (_, k) => from + k));
+    pages.forEach(pg => out.addPage(pg));
+    const bytes = await out.save();
+    if (bytes.length > PART_LIMIT && to > from) {   // too heavy: split it again
+      const mid = Math.floor((from + to) / 2);
+      await make(from, mid); await make(mid + 1, to);
+    } else {
+      parts.push({ from: from + 1, to: to + 1, bytes, tooBig: bytes.length > PART_LIMIT });
+    }
+  };
+  for (let p = 0; p < total; p += PAGES_PER_PART) await make(p, Math.min(p + PAGES_PER_PART, total) - 1);
+  return { total, parts };
+}
 
 function readAsBase64(file) {
   return new Promise((resolve, reject) => {
@@ -188,11 +235,19 @@ $('addBtn').addEventListener('click', async () => {
     source: $('source').value.trim() || null,
     tags: $('tags').value.split(',').map(t => t.trim()).filter(Boolean)
   };
-  if (FILE) payload.file = { mime: FILE.type || 'application/pdf', data: await readAsBase64(FILE) };
-  else if (url) payload.url = url;
-  else payload.text = text;
-
-  const out = await callKnowledge(payload);
+  const isPdf = FILE && (FILE.type === 'application/pdf' || /\.pdf$/i.test(FILE.name));
+  let out;
+  if (isPdf) {
+    out = await addPdf(FILE, payload);
+  } else {
+    if (FILE) payload.file = /^image\//.test(FILE.type) && FILE.size > PART_LIMIT
+      ? await shrinkImage(FILE)
+      : { mime: FILE.type || 'application/pdf', data: await readAsBase64(FILE) };
+    else if (url) payload.url = url;
+    else payload.text = text;
+    out = await callKnowledge(payload);
+  }
+  $('prog').textContent = '';
 
   $('addBtn').disabled = false;
   $('addBtn').textContent = 'Add to library';
@@ -200,12 +255,43 @@ $('addBtn').addEventListener('click', async () => {
 
   if (!out.ok) return show($('msg'), out.error || 'That did not work.', 'err');
 
-  show($('msg'), `Added "${title || url}" — ${out.chunks} section${out.chunks === 1 ? '' : 's'} from ${out.chars.toLocaleString()} characters.`, 'ok');
+  show($('msg'), `Added "${title || url}" — ${out.chunks} section${out.chunks === 1 ? '' : 's'} from ${out.chars.toLocaleString()} characters.` +
+    (out.missed && out.missed.length ? ` Couldn't read pages ${out.missed.join(', ')} — the rest is in.` : ''), out.missed && out.missed.length ? 'err' : 'ok');
   ['title', 'source', 'tags', 'text', 'url'].forEach(i => $(i).value = '');
   FILE = null;
   $('fileName').style.display = 'none';
   loadDocs();
 });
+
+async function addPdf(file, payload) {
+  $('prog').textContent = 'Splitting the PDF into parts…';
+  let split;
+  try { split = await pdfParts(file); }
+  catch (e) { return { ok: false, error: 'That PDF could not be opened (it may be password-protected or damaged).' }; }
+  const { total, parts } = split;
+  let docId = null, chunks = 0, chars = 0;
+  const missed = [];
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    const pages = p.from === p.to ? 'page ' + p.from : 'pages ' + p.from + '–' + p.to;
+    $('prog').textContent = `Reading ${pages} of ${total} (part ${i + 1} of ${parts.length})…`;
+    if (p.tooBig) { missed.push(p.from === p.to ? String(p.from) : p.from + '–' + p.to); continue; }
+    const body = { ...payload, file: { mime: 'application/pdf', data: bytesToBase64(p.bytes) } };
+    if (docId) body.append_to = docId;
+    let r = await callKnowledge(body);
+    if (!r.ok && !/title/i.test(r.error || '')) r = await callKnowledge(body);   // one retry
+    if (!r.ok) {
+      // the first part must work to create the document; later parts are skipped and reported
+      if (!docId && /No readable text/i.test(r.error || '')) { missed.push(p.from + '–' + p.to); continue; }
+      if (!docId) return r;
+      missed.push(p.from === p.to ? String(p.from) : p.from + '–' + p.to);
+      continue;
+    }
+    docId = r.doc_id; chunks += r.chunks; chars += r.chars;
+  }
+  if (!docId) return { ok: false, error: 'No readable text found in that PDF.' };
+  return { ok: true, doc_id: docId, chunks, chars, missed };
+}
 
 /* ---------- searching ---------- */
 
