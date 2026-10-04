@@ -52,7 +52,6 @@ export function chrome(active) {
     ['contacts.html', 'Contacts'],
     ['parts.html', 'Parts'],
     ['stock.html', 'Stock'],
-    ['knowledge.html', 'Knowledge'],
     ['reports.html', 'Reports'],
     ['settings.html', 'Settings']
   ];
@@ -73,29 +72,6 @@ export function chrome(active) {
 
   $('signOut').addEventListener('click', async () => { await sb.auth.signOut(); location.href = 'workshop.html'; });
   collapsibleSections();
-  setTimeout(learnFromJobs, 4000);
-}
-
-// Finished jobs (fixed, no-fix, declined) are queued in the database. This quietly
-// turns them into knowledge-library entries in the background, a few at a time,
-// at most once every few minutes. Nothing shows on screen; errors are ignored.
-async function learnFromJobs() {
-  try {
-    const last = Number(localStorage.getItem('learnRun') || 0);
-    if (Date.now() - last < 5 * 60 * 1000) return;
-    localStorage.setItem('learnRun', String(Date.now()));
-  } catch (e) { /* no storage: still run */ }
-  const { data } = await sb.auth.getSession();
-  if (!data?.session) return;
-  for (let round = 0; round < 4; round++) {
-    const res = await fetch(SUPABASE_URL + '/functions/v1/learn-jobs', {
-      method: 'POST',
-      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + data.session.access_token, 'Content-Type': 'application/json' },
-      body: '{}'
-    }).catch(() => null);
-    const out = res ? await res.json().catch(() => null) : null;
-    if (!out?.ok || !out.remaining || (out.learned + out.skipped) === 0) break;
-  }
 }
 
 // Every page's section boxes (.card starting with an <h2>) become tabs, the same
