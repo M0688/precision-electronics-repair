@@ -652,11 +652,42 @@ async function loadItems(jobId) {
     ${it.fault_description ? `<div style="font-size:14px;margin-top:8px;white-space:pre-wrap">${esc(it.fault_description)}</div>` : ''}
     ${it.fault_history ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">History: ${esc(it.fault_history)}</div>` : ''}
     ${it.accessories ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Sent with it: ${esc(it.accessories)}</div>` : ''}
+    ${it.id ? `<button type="button" class="send" id="itemEdit" style="margin-top:10px;padding:7px 14px;font-size:13px">Edit item details</button>` : ''}
+    <div id="itemForm" style="display:none;margin-top:12px">
+      <div class="row">
+        <div><label for="ieType">Type</label><input type="text" id="ieType" list="ieTypes" value="${esc(it.device_type || '')}"></div>
+        <div style="flex:2 1 240px"><label for="ieModel">Make / model or board / part no.</label><input type="text" id="ieModel" value="${esc(it.make_model || '')}"></div>
+      </div>
+      <div class="row">
+        <div><label for="ieSerial">Serial / IMEI</label><input type="text" id="ieSerial" value="${esc(it.serial_imei || '')}"></div>
+        <div><label for="ieAcc">Sent with it</label><input type="text" id="ieAcc" value="${esc(it.accessories || '')}"></div>
+      </div>
+      <label for="ieFault">Fault</label><textarea id="ieFault" style="min-height:70px">${esc(it.fault_description || '')}</textarea>
+      <datalist id="ieTypes"><option value="PCB"><option value="Laptop"><option value="Phone"><option value="Tablet"><option value="Games console"><option value="Controller"><option value="Desktop PC"></datalist>
+      <button type="button" class="primary" id="ieSave" style="margin:0">Save</button>
+      <button type="button" class="send" id="ieCancel" style="margin:0 0 0 6px">Cancel</button>
+    </div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:400;font-size:13px;color:var(--muted)">
       <input type="checkbox" id="jobFee" ${JOBROW.diag_fee_applies === false ? '' : 'checked'} style="width:16px;height:16px;margin:0">
       Diagnostic fee applies to this job
     </label>
   </div>`;
+
+  if (it.id) {
+    $('itemEdit').addEventListener('click', () => { $('itemForm').style.display = 'block'; $('itemEdit').style.display = 'none'; $('ieModel').focus(); });
+    $('ieCancel').addEventListener('click', () => { $('itemForm').style.display = 'none'; $('itemEdit').style.display = ''; });
+    $('ieSave').addEventListener('click', async () => {
+      const v = id => $(id).value.trim() || null;
+      const patch = { device_type: v('ieType'), make_model: v('ieModel'), serial_imei: v('ieSerial'),
+                      accessories: v('ieAcc'), fault_description: v('ieFault') };
+      if (!patch.device_type && !patch.make_model) return show($('msg'), 'Give the item a type or a make / model.', 'err');
+      $('ieSave').disabled = true;
+      const { error } = await sb.from('intake_items').update(patch).eq('id', it.id);
+      $('ieSave').disabled = false;
+      if (error) return show($('msg'), error.message, 'err');
+      location.reload();
+    });
+  }
 
   $('jobFee').addEventListener('change', async () => {
     const on = $('jobFee').checked;
