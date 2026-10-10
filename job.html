@@ -1688,7 +1688,7 @@ function openNotViable() {
 }
 
 $('nvBtn').addEventListener('click', openNotViable);
-$('nvCancel').addEventListener('click', () => { $('nvPanel').style.display = 'none'; });
+$('nvCancel').addEventListener('click', () => { $('nvPanel').style.display = 'none'; $('status').value = JOBROW.status; });
 $('nvSave').addEventListener('click', async () => {
   const picked = document.querySelector('input[name=nvr]:checked');
   if (!picked) return show($('nvMsg'), 'Pick a reason.', 'err');
@@ -1713,13 +1713,20 @@ $('nvSave').addEventListener('click', async () => {
   });
   $('nvSave').disabled = false;
   $('nvPanel').style.display = 'none';
-  show($('msg'), 'Marked as repair not viable: ' + reason + '.', 'ok');
+  show($('msg'), 'Status set to Unrepairable. Reason: ' + reason + '.', 'ok');
+  if (typeof showWs === 'function') showWs();
   loadNotViable();
   loadNotes(JOBROW.id);
 });
 
 $('statusBtn').addEventListener('click', async () => {
   hide($('msg'));
+  // Unrepairable needs a reason: open the not-viable picker instead
+  if ($('status').value === 'unrepairable' && JOBROW.status !== 'unrepairable') {
+    openNotViable();
+    $('nvPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return show($('nvMsg'), 'Pick a reason, then click Mark as not viable. That sets the status to Unrepairable.', 'ok');
+  }
   const { error } = await sb.rpc('set_job_status', { p_job_number: JOB, p_status: $('status').value });
   if (error) return show($('msg'), error.message, 'err');
   show($('msg'), 'Status updated.', 'ok');
