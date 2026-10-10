@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tests | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="stylesheet" href="crm.css?v=6">
+<style>
+  .view { display: none; }
+  .view.on { display: block; }
+  .plist .p { display: flex; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; background: #fff; flex-wrap: wrap; }
+  .plist .p .t { flex: 1 1 240px; }
+  .plist .p .t strong { display: block; font-size: 15px; }
+  .plist .p .t span { font-size: 13px; color: var(--muted); }
+  .back { display: inline-block; margin-bottom: 12px; font-size: 14px; }
+
+  /* editor */
+  .estep { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .estep.head { background: var(--soft); }
+  .estep .top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .estep .num { font-weight: 700; color: var(--navy); min-width: 26px; }
+  .estep .top select { width: auto; margin: 0; padding: 6px 8px; font-size: 14px; }
+  .estep .top .sp { flex: 1; }
+  .estep textarea { min-height: 54px; }
+  .estep .refs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .estep .refs > div { flex: 1 1 120px; }
+  .estep label { font-size: 13px; }
+
+  /* runner */
+  .rstage { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--navy); font-weight: 700; margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--navy); }
+  .rstep { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .rstep.pass { border-left-color: var(--green); }
+  .rstep.fail { border-left-color: var(--red); background: #fdf6f5; }
+  .rstep.done { border-left-color: var(--green); }
+  .rstep .ins { white-space: pre-wrap; font-size: 15px; margin-bottom: 8px; }
+  .rstep .ins b.n { color: var(--navy); margin-right: 6px; }
+  .rstep .mrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .rstep .mrow label { margin: 0; font-weight: 600; }
+  .rstep .mrow input { width: 150px; margin: 0; font-size: 17px; }
+  .rstep .ref { font-size: 13px; color: var(--muted); }
+  .verdict { font-weight: 700; font-size: 13px; padding: 3px 9px; border-radius: 6px; }
+  .verdict.pass { background: #e6f2ea; color: var(--green); }
+  .verdict.fail { background: #fbe4e2; color: var(--red); }
+  .verdict.none { background: var(--soft); color: var(--muted); }
+  .known { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .pf button { margin: 0 6px 0 0; }
+  .pf button.on.p { background: var(--green); color: #fff; border-color: var(--green); }
+  .pf button.on.f { background: var(--red); color: #fff; border-color: var(--red); }
+  .summary { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 4px; }
+  .summary div { font-size: 14px; color: var(--muted); }
+  .summary strong { display: block; font-size: 24px; color: var(--navy); }
+  .summary .f strong { color: var(--red); }
+  .summary .p strong { color: var(--green); }
+  .saved { font-size: 13px; color: var(--muted); }
+  .tag.pass { background: #e6f2ea; color: var(--green); }
+  .tag.fail { background: #fbe4e2; color: var(--red); }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+
+    <!-- ============ LIST ============ -->
+    <div class="view" id="listView">
+      <div class="card">
+        <h1 style="margin:0 0 6px">Test procedures</h1>
+        <p class="sub">Step-by-step tests for boards and devices. Type in what you measure and it's
+        checked against the reference values. Known-good boards become the reference for next time.</p>
+        <div id="listMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Procedures</h2>
+        <div class="row">
+          <div><input type="search" id="pSearch" placeholder="Search by board, part number or model" style="margin-bottom:14px"></div>
+          <div style="flex:0 0 auto"><button class="primary" id="newProc" style="margin-bottom:14px">New procedure</button></div>
+        </div>
+        <div class="plist" id="pList"><p class="empty">Loading…</p></div>
+      </div>
+
+      <div class="card">
+        <h2>Tests done</h2>
+        <div id="runList"><p class="empty">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ============ EDITOR ============ -->
+    <div class="view" id="editView">
+      <div class="card">
+        <a href="tests.html" class="back">&larr; All procedures</a>
+        <h1 style="margin:0 0 14px" id="eHead">New procedure</h1>
+        <label for="eTitle">Name</label>
+        <input type="text" id="eTitle" placeholder="e.g. Fujitsu outdoor filter board K03BX-C-A">
+        <label for="eApplies">Board / part numbers / models it covers</label>
+        <input type="text" id="eApplies" placeholder="e.g. K03BX-C-A, EZ-0035HUE-P, AO54UJBMR">
+        <label for="eNotes">Notes <span style="font-weight:400;color:var(--muted)">(safety, equipment, sources)</span></label>
+        <textarea id="eNotes" style="min-height:70px"></textarea>
+
+        <h3 style="margin:18px 0 6px;color:var(--navy)">Steps</h3>
+        <p class="sub" style="margin:0 0 12px;font-size:13.5px">Reference values accept 4.7k, 1M, 220m, 3.3u, OL (open). Leave Min or Max blank for no limit.
+        Leave both blank if you don't have a reference yet. A known-good board can fill them in later.</p>
+        <div id="eSteps"></div>
+        <button type="button" class="btn-sm" data-add="measure">+ Measurement</button>
+        <button type="button" class="btn-sm" data-add="passfail">+ Pass / fail check</button>
+        <button type="button" class="btn-sm" data-add="step">+ Instruction</button>
+        <button type="button" class="btn-sm" data-add="text">+ Record a note</button>
+        <button type="button" class="btn-sm" data-add="heading">+ Stage heading</button>
+
+        <div style="margin-top:22px;border-top:1px solid var(--line);padding-top:16px">
+          <button class="primary" id="eSave" style="margin:0">Save procedure</button>
+          <button type="button" class="btn-sm" id="eDelete" style="margin-left:8px;color:var(--red);display:none">Delete procedure</button>
+          <div id="eMsg" class="msg" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ RUN ============ -->
+    <div class="view" id="runView">
+      <div class="card">
+        <a href="tests.html" class="back">&larr; All procedures</a>
+        <h1 style="margin:0 0 4px" id="rTitle"></h1>
+        <p class="sub" id="rApplies" style="margin:0 0 10px"></p>
+        <div id="rNotes" style="white-space:pre-wrap;font-size:14px;background:var(--soft);border-radius:8px;padding:10px 12px;margin-bottom:14px;display:none"></div>
+        <div class="row">
+          <div><label for="rBoard">Board serial / label</label><input type="text" id="rBoard" placeholder="e.g. Board 2, or serial"></div>
+          <div><label for="rJob">Job number <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="text" id="rJob" placeholder="PER-2432"></div>
+        </div>
+        <div class="summary" id="rSummary"></div>
+        <div class="saved" id="rSaved"></div>
+        <div id="rMsg" class="msg"></div>
+      </div>
+
+      <div class="card" style="padding-top:8px">
+        <div id="rSteps"></div>
+
+        <label for="rRunNotes" style="margin-top:18px">Notes on this test</label>
+        <textarea id="rRunNotes" style="min-height:60px"></textarea>
+
+        <div style="border-top:1px solid var(--line);padding-top:14px;margin-top:6px">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer">
+            <input type="checkbox" id="rRef" style="width:18px;height:18px;margin:0"> This is a known-good board (log its readings as reference)</label>
+          <p class="sub" style="font-size:13px;margin:4px 0 12px">Its readings show under each step on future tests. </p>
+          <div id="fillRefBox" style="display:none;background:var(--soft);border-radius:8px;padding:10px 12px;margin-bottom:14px">
+            <div style="font-size:14px;margin-bottom:8px"><strong id="fillCount"></strong> measurement(s) have no reference yet. Set them from this board's readings?</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label for="fillTol" style="margin:0;font-weight:400">Allow &plusmn;</label>
+              <input type="number" id="fillTol" value="10" min="0" step="1" style="width:80px;margin:0"> %
+              <button type="button" class="btn-sm" id="fillRefs">Set reference values</button>
+            </div>
+          </div>
+          <button class="primary" id="rFinish" style="margin:0">Finish test</button>
+          <button type="button" class="btn-sm" id="rDelete" style="margin-left:8px;color:var(--red)">Delete this test</button>
+          <div id="rMsg2" class="msg" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { sb, $, show, hide, esc, chrome, requireSession, when } from './crm.js';
+
+chrome('tests.html');
+const session = await requireSession();
+const QS = new URLSearchParams(location.search);
+
+const KINDS = {
+  measure:  'Measurement',
+  passfail: 'Pass / fail check',
+  step:     'Instruction',
+  text:     'Record a note',
+  heading:  'Stage heading'
+};
+const newId = () => 's' + Math.random().toString(36).slice(2, 10);
+
+/* ---------- values: 4.7k, 1M, 220m, 3.3u, 4k7, OL ---------- */
+const PREFIX = { p: 1e-12, n: 1e-9, u: 1e-6, 'µ': 1e-6, 'μ': 1e-6, m: 1e-3, k: 1e3, K: 1e3, M: 1e6, G: 1e9 };
+function parseVal(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim().replace(/,/g, '');
+  if (!s) return null;
+  if (/^(ol|o\.l\.?|open|inf|∞|open circuit)$/i.test(s)) return Infinity;
+  let m = s.match(/^(-?\d+)([pnuµμmkKMGR])(\d+)/);            // 4k7 style
+  if (m) return parseFloat(m[1] + '.' + m[3]) * (m[2] === 'R' ? 1 : PREFIX[m[2]]);
+  m = s.match(/^(-?\d*\.?\d+(?:e-?\d+)?)\s*([pnuµμmkKMG])?/);
+  if (!m) return null;
+  const v = parseFloat(m[1]);
+  if (isNaN(v)) return null;
+  // a lone "m" followed by a unit letter is milli; "M" is mega
+  return m[2] ? v * PREFIX[m[2]] : v;
+}
+function fmtSI(v) {
+  if (v === Infinity) return 'OL';
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  const list = [[1e9, 'G'], [1e6, 'M'], [1e3, 'k'], [1, ''], [1e-3, 'm'], [1e-6, 'u'], [1e-9, 'n'], [1e-12, 'p']];
+  for (const [f, p] of list) if (a >= f) return +(v / f).toPrecision(3) + p;
+  return String(+v.toPrecision(3));
+}
+function judge(step, raw) {
+  const v = parseVal(raw);
+  if (v == null) return null;
+  const lo = parseVal(step.ref_min), hi = parseVal(step.ref_max);
+  if (lo == null && hi == null) return 'none';
+  if (lo != null && v < lo) return 'fail';
+  if (hi != null && v > hi) return 'fail';
+  return 'pass';
+}
+function refText(step) {
+  const u = step.unit ? ' ' + step.unit : '';
+  const lo = (step.ref_min || '').trim(), hi = (step.ref_max || '').trim();
+  if (!lo && !hi) return 'No reference yet';
+  if (lo && hi) return `Expect ${lo} to ${hi}${u}`;
+  if (lo) return `Expect at least ${lo}${u}`;
+  return `Expect no more than ${hi}${u}`;
+}
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === id));
+  window.scrollTo(0, 0);
+}
+
+/* =================== LIST =================== */
+let PROCS = [];
+async function loadList() {
+  showView('listView');
+  const [{ data: procs, error }, { data: runs }] = await Promise.all([
+    sb.from('test_procedures').select('id,title,applies_to,steps,updated_at').order('title'),
+    sb.from('test_runs').select('id,procedure_id,board_label,outcome,is_reference,created_at,job_id,jobs(job_number)').order('created_at', { ascending: false }).limit(100)
+  ]);
+  if (error) return show($('listMsg'), error.message, 'err');
+  PROCS = procs || [];
+  const counts = {};
+  (runs || []).forEach(r => { counts[r.procedure_id] = (counts[r.procedure_id] || 0) + 1; });
+  PROCS.forEach(p => p.runs = counts[p.id] || 0);
+  drawProcs();
+
+  const name = id => (PROCS.find(p => p.id === id) || {}).title || '';
+  $('runList').innerHTML = (runs || []).length ? `<table><thead><tr><th>Date</th><th>Procedure</th><th>Board</th><th class="hide">Job</th><th>Result</th></tr></thead><tbody>${
+    runs.map(r => `<tr style="cursor:pointer" data-run="${r.id}">
+      <td>${when(r.created_at)}</td>
+      <td>${esc(name(r.procedure_id))}</td>
+      <td>${esc(r.board_label || '')}${r.is_reference ? ' <span class="tag">reference</span>' : ''}</td>
+      <td class="hide">${r.jobs ? esc(r.jobs.job_number) : ''}</td>
+      <td>${outcomeTag(r.outcome)}</td></tr>`).join('')
+  }</tbody></table>` : '<p class="empty">No tests done yet.</p>';
+  $('runList').querySelectorAll('[data-run]').forEach(tr => tr.addEventListener('click', () => go({ run: tr.dataset.run })));
+}
+function outcomeTag(o) {
+  if (o === 'pass') return '<span class="tag pass">Pass</span>';
+  if (o === 'fail') return '<span class="tag fail">Fail</span>';
+  if (o === 'incomplete') return '<span class="tag wait">Incomplete</span>';
+  return '<span class="tag wait">In progress</span>';
+}
+function drawProcs() {
+  const q = $('pSearch').value.trim().toLowerCase();
+  const rows = PROCS.filter(p => !q || (p.title + ' ' + (p.applies_to || '')).toLowerCase().includes(q));
+  $('pList').innerHTML = rows.length ? rows.map(p => {
+    const n = (p.steps || []).filter(s => s.kind !== 'heading').length;
+    return `<div class="p">
+      <div class="t"><strong>${esc(p.title)}</strong><span>${esc(p.applies_to || '')}${p.applies_to ? ' · ' : ''}${n} steps · tested ${p.runs} time${p.runs === 1 ? '' : 's'}</span></div>
+      <button class="primary" style="margin:0" data-start="${p.id}">Start test</button>
+      <button class="btn-sm" data-edit="${p.id}">Edit</button>
+    </div>`;
+  }).join('') : `<p class="empty">${PROCS.length ? 'Nothing matches.' : 'No procedures yet. Click New procedure.'}</p>`;
+  $('pList').querySelectorAll('[data-start]').forEach(b => b.addEventListener('click', () => startRun(b.dataset.start)));
+  $('pList').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => go({ edit: b.dataset.edit })));
+}
+$('pSearch').addEventListener('input', drawProcs);
+$('newProc').addEventListener('click', () => go({ edit: 'new' }));
+
+function go(params) {
+  const u = new URL(location.href);
+  u.search = new URLSearchParams(params).toString();
+  location.href = u.toString();
+}
+
+async function startRun(procId, jobNumber) {
+  let job_id = null;
+  if (jobNumber) {
+    const { data: j } = await sb.from('jobs').select('id').eq('job_number', jobNumber).maybeSingle();
+    job_id = j?.id || null;
+  }
+  const { data, error } = await sb.from('test_runs').insert({
+    procedure_id: procId, job_id, created_by: session?.user?.email
+  }).select('id').single();
+  if (error) return alert(error.message);
+  go({ run: data.id });
+}
+
+/* =================== EDITOR =================== */
+let EP = null;   // procedure being edited
+async function loadEditor(id) {
+  showView('editView');
+  if (id === 'new') {
+    EP = { title: '', applies_to: '', notes: '', steps: [] };
+  } else {
+    const { data, error } = await sb.from('test_procedures').select('*').eq('id', id).single();
+    if (error) return show($('eMsg'), error.message, 'err');
+    EP = data;
+    $('eHead').textContent = 'Edit procedure';
+    $('eDelete').style.display = '';
+  }
+  $('eTitle').value = EP.title || '';
+  $('eApplies').value = EP.applies_to || '';
+  $('eNotes').value = EP.notes || '';
+  drawSteps();
+}
+
+function stepNumbers(steps) {
+  let n = 0;
+  return steps.map(s => s.kind === 'heading' ? '' : ++n);
+}
+
+function drawSteps() {
+  const nums = stepNumbers(EP.steps);
+  $('eSteps').innerHTML = EP.steps.length ? EP.steps.map((s, i) => `
+    <div class="estep${s.kind === 'heading' ? ' head' : ''}" data-i="${i}">
+      <div class="top">
+        <span class="num">${nums[i]}</span>
+        <select data-f="kind">${Object.entries(KINDS).map(([k, l]) => `<option value="${k}"${k === s.kind ? ' selected' : ''}>${l}</option>`).join('')}</select>
+        <span class="sp"></span>
+        <button type="button" class="btn-sm" data-mv="-1" title="Move up">&uarr;</button>
+        <button type="button" class="btn-sm" data-mv="1" title="Move down">&darr;</button>
+        <button type="button" class="btn-sm" data-del style="color:var(--red)">Remove</button>
+      </div>
+      ${s.kind === 'heading'
+        ? `<input type="text" data-f="text" value="${esc(s.text)}" placeholder="e.g. Stage 2: Unpowered checks" style="margin:0">`
+        : `<textarea data-f="text" placeholder="${s.kind === 'measure' ? 'What to measure and where, e.g. Resistance across VA201 (the blue disc next to F201), red probe on the left leg' : 'What to do or check'}">${esc(s.text)}</textarea>`}
+      ${s.kind === 'measure' ? `
+        <div class="refs">
+          <div><label>Reading name</label><input type="text" data-f="label" value="${esc(s.label)}" placeholder="VA201" style="margin-bottom:6px"></div>
+          <div><label>Unit</label><input type="text" data-f="unit" value="${esc(s.unit)}" placeholder="Ω, V AC, µF" style="margin-bottom:6px"></div>
+          <div><label>Min</label><input type="text" data-f="ref_min" value="${esc(s.ref_min)}" placeholder="—" style="margin-bottom:6px"></div>
+          <div><label>Max</label><input type="text" data-f="ref_max" value="${esc(s.ref_max)}" placeholder="—" style="margin-bottom:6px"></div>
+        </div>
+        <input type="text" data-f="ref_source" value="${esc(s.ref_source)}" placeholder="Where the reference came from (manual page, known-good board…)" style="margin:0;font-size:13.5px">` : ''}
+    </div>`).join('') : '<p class="empty">No steps yet. Add the first one below.</p>';
+
+  $('eSteps').querySelectorAll('.estep').forEach(box => {
+    const i = +box.dataset.i;
+    box.querySelectorAll('[data-f]').forEach(el => {
+      const f = el.dataset.f;
+      el.addEventListener(f === 'kind' ? 'change' : 'input', () => {
+        EP.steps[i][f] = el.value;
+        if (f === 'kind') drawSteps();
+      });
+    });
+    box.querySelectorAll('[data-mv]').forEach(b => b.addEventListener('click', () => {
+      const j = i + +b.dataset.mv;
+      if (j < 0 || j >= EP.steps.length) return;
+      [EP.steps[i], EP.steps[j]] = [EP.steps[j], EP.steps[i]];
+      drawSteps();
+    }));
+    box.querySelector('[data-del]').addEventListener('click', () => {
+      if (!confirm('Remove this step?')) return;
+      EP.steps.splice(i, 1);
+      drawSteps();
+    });
+  });
+}
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
+  EP.steps.push({ id: newId(), kind: b.dataset.add, text: '', label: '', unit: '', ref_min: '', ref_max: '', ref_source: '' });
+  drawSteps();
+  const last = $('eSteps').lastElementChild;
+  last?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  last?.querySelector('[data-f=text]')?.focus();
+}));
+
+$('eSave').addEventListener('click', async () => {
+  hide($('eMsg'));
+  const title = $('eTitle').value.trim();
+  if (!title) return show($('eMsg'), 'Give the procedure a name.', 'err');
+  const bad = EP.steps.findIndex(s => s.kind === 'measure' && ((s.ref_min && parseVal(s.ref_min) == null) || (s.ref_max && parseVal(s.ref_max) == null)));
+  if (bad >= 0) return show($('eMsg'), `Step ${stepNumbers(EP.steps)[bad]}: Min or Max isn't a number I can read.`, 'err');
+  const row = {
+    title, applies_to: $('eApplies').value.trim() || null, notes: $('eNotes').value.trim() || null,
+    steps: EP.steps, updated_at: new Date().toISOString()
+  };
+  $('eSave').disabled = true;
+  const res = EP.id
+    ? await sb.from('test_procedures').update(row).eq('id', EP.id).select('id').single()
+    : await sb.from('test_procedures').insert(row).select('id').single();
+  $('eSave').disabled = false;
+  if (res.error) return show($('eMsg'), res.error.message, 'err');
+  if (!EP.id) { EP.id = res.data.id; history.replaceState(null, '', '?edit=' + EP.id); $('eDelete').style.display = ''; $('eHead').textContent = 'Edit procedure'; }
+  show($('eMsg'), 'Saved.', 'ok');
+});
+
+$('eDelete').addEventListener('click', async () => {
+  if (!confirm('Delete this procedure and every test done with it? This can\'t be undone.')) return;
+  const { error } = await sb.from('test_procedures').delete().eq('id', EP.id);
+  if (error) return show($('eMsg'), error.message, 'err');
+  location.href = 'tests.html';
+});
+
+/* =================== RUN =================== */
+let RUN = null, PROC = null, KNOWN = {};
+async function loadRun(id) {
+  showView('runView');
+  const { data: run, error } = await sb.from('test_runs').select('*, jobs(job_number)').eq('id', id).single();
+  if (error) return show($('rMsg'), error.message, 'err');
+  RUN = run;
+  RUN.results = RUN.results || {};
+  const { data: proc } = await sb.from('test_procedures').select('*').eq('id', run.procedure_id).single();
+  PROC = proc;
+
+  // readings from known-good boards on earlier tests
+  const { data: refs } = await sb.from('test_runs').select('id,board_label,results,created_at')
+    .eq('procedure_id', PROC.id).eq('is_reference', true).neq('id', RUN.id).order('created_at', { ascending: false }).limit(20);
+  KNOWN = {};
+  (refs || []).forEach(r => Object.entries(r.results || {}).forEach(([sid, v]) => {
+    if (v && v.value !== '' && v.value != null) (KNOWN[sid] = KNOWN[sid] || []).push({ v: v.value, b: r.board_label || when(r.created_at) });
+  }));
+
+  $('rTitle').textContent = PROC.title;
+  $('rApplies').textContent = PROC.applies_to || '';
+  if (PROC.notes) { $('rNotes').textContent = PROC.notes; $('rNotes').style.display = 'block'; }
+  $('rBoard').value = RUN.board_label || '';
+  $('rJob').value = RUN.jobs?.job_number || (QS.get('job') || '');
+  $('rRunNotes').value = RUN.notes || '';
+  $('rRef').checked = !!RUN.is_reference;
+  drawRun();
+}
+
+function drawRun() {
+  const nums = stepNumbers(PROC.steps);
+  $('rSteps').innerHTML = PROC.steps.map((s, i) => {
+    if (s.kind === 'heading') return `<div class="rstage">${esc(s.text)}</div>`;
+    const r = RUN.results[s.id] || {};
+    const u = s.unit ? esc(s.unit) : '';
+    let body = '';
+    if (s.kind === 'measure') {
+      const known = KNOWN[s.id];
+      body = `<div class="mrow">
+          <label for="m_${s.id}">${esc(s.label || 'Reading')}</label>
+          <input type="text" inputmode="decimal" id="m_${s.id}" data-sid="${s.id}" value="${esc(r.value ?? '')}" autocomplete="off"> <span>${u}</span>
+          <span class="verdict" id="v_${s.id}"></span>
+        </div>
+        <div class="ref">${esc(refText(s))}${s.ref_source ? ' · ' + esc(s.ref_source) : ''}</div>
+        ${known ? `<div class="known">Known-good boards: ${known.slice(0, 6).map(k => `<strong>${esc(k.v)}</strong>${u ? ' ' + u : ''} (${esc(k.b)})`).join(', ')}</div>` : ''}`;
+    } else if (s.kind === 'passfail') {
+      body = `<div class="pf" data-sid="${s.id}">
+          <button type="button" class="btn-sm p${r.value === 'pass' ? ' on' : ''}" data-pf="pass">Pass</button>
+          <button type="button" class="btn-sm f${r.value === 'fail' ? ' on' : ''}" data-pf="fail">Fail</button></div>`;
+    } else if (s.kind === 'text') {
+      body = `<input type="text" data-sid="${s.id}" value="${esc(r.value ?? '')}" placeholder="Write what you found" style="margin:0">`;
+    } else {
+      body = `<label style="display:flex;gap:8px;align-items:center;margin:0;cursor:pointer;font-weight:600">
+          <input type="checkbox" data-sid="${s.id}" ${r.value === 'done' ? 'checked' : ''} style="width:18px;height:18px;margin:0"> Done</label>`;
+    }
+    return `<div class="rstep" id="st_${s.id}"><div class="ins"><b class="n">${nums[i]}.</b>${esc(s.text)}</div>${body}</div>`;
+  }).join('') || '<p class="empty">This procedure has no steps yet. Edit it to add some.</p>';
+
+  $('rSteps').querySelectorAll('input[data-sid]').forEach(el => {
+    const sid = el.dataset.sid;
+    if (el.type === 'checkbox') el.addEventListener('change', () => setResult(sid, el.checked ? 'done' : ''));
+    else el.addEventListener('input', () => setResult(sid, el.value));
+  });
+  $('rSteps').querySelectorAll('.pf').forEach(box => box.querySelectorAll('[data-pf]').forEach(b => b.addEventListener('click', () => {
+    const cur = (RUN.results[box.dataset.sid] || {}).value;
+    const val = cur === b.dataset.pf ? '' : b.dataset.pf;
+    box.querySelectorAll('[data-pf]').forEach(x => x.classList.toggle('on', x.dataset.pf === val));
+    setResult(box.dataset.sid, val);
+  })));
+  PROC.steps.forEach(s => paintStep(s));
+  drawSummary();
+}
+
+function verdictOf(s) {
+  const r = RUN.results[s.id];
+  if (!r || r.value === '' || r.value == null) return null;
+  if (s.kind === 'measure') return judge(s, r.value);
+  if (s.kind === 'passfail') return r.value;
+  return 'done';
+}
+function paintStep(s) {
+  if (s.kind === 'heading') return;
+  const box = $('st_' + s.id); if (!box) return;
+  const v = verdictOf(s);
+  box.className = 'rstep' + (v === 'pass' ? ' pass' : v === 'fail' ? ' fail' : v === 'done' || v === 'none' ? ' done' : '');
+  const tag = $('v_' + s.id);
+  if (tag) {
+    const raw = (RUN.results[s.id] || {}).value;
+    if (raw && parseVal(raw) == null) { tag.className = 'verdict fail'; tag.textContent = 'Not a number'; }
+    else if (v === 'pass') { tag.className = 'verdict pass'; tag.textContent = 'PASS'; }
+    else if (v === 'fail') { tag.className = 'verdict fail'; tag.textContent = 'FAIL'; }
+    else if (v === 'none') { tag.className = 'verdict none'; tag.textContent = 'Logged'; }
+    else { tag.className = ''; tag.textContent = ''; }
+  }
+}
+function tally() {
+  const t = { total: 0, done: 0, pass: 0, fail: 0, noref: 0 };
+  PROC.steps.forEach(s => {
+    if (s.kind === 'heading') return;
+    t.total++;
+    const v = verdictOf(s);
+    if (v) t.done++;
+    if (v === 'pass') t.pass++;
+    if (v === 'fail') t.fail++;
+    if (s.kind === 'measure' && !(s.ref_min || '').trim() && !(s.ref_max || '').trim()) t.noref++;
+  });
+  return t;
+}
+function drawSummary() {
+  const t = tally();
+  $('rSummary').innerHTML = `<div><strong>${t.done}/${t.total}</strong>steps done</div>
+    <div class="p"><strong>${t.pass}</strong>pass</div><div class="f"><strong>${t.fail}</strong>fail</div>`;
+  // offer to fill missing references from this board
+  const fillable = PROC.steps.filter(s => s.kind === 'measure' && !(s.ref_min || '').trim() && !(s.ref_max || '').trim()
+    && parseVal((RUN.results[s.id] || {}).value) != null);
+  $('fillRefBox').style.display = $('rRef').checked && fillable.length ? 'block' : 'none';
+  $('fillCount').textContent = fillable.length;
+}
+
+/* autosave */
+let saveT = null;
+function setResult(sid, value) {
+  RUN.results[sid] = { value, at: new Date().toISOString() };
+  const s = PROC.steps.find(x => x.id === sid);
+  if (s) paintStep(s);
+  drawSummary();
+  queueSave();
+}
+function queueSave() {
+  $('rSaved').textContent = 'Saving…';
+  clearTimeout(saveT);
+  saveT = setTimeout(saveRun, 700);
+}
+async function saveRun(extra = {}) {
+  clearTimeout(saveT);
+  const row = {
+    results: RUN.results, board_label: $('rBoard').value.trim() || null,
+    notes: $('rRunNotes').value.trim() || null, is_reference: $('rRef').checked,
+    updated_at: new Date().toISOString(), ...extra
+  };
+  const jn = $('rJob').value.trim().toUpperCase();
+  if (jn !== (RUN.jobs?.job_number || '')) {
+    if (!jn) { row.job_id = null; RUN.jobs = null; }
+    else {
+      const { data: j } = await sb.from('jobs').select('id,job_number').eq('job_number', jn).maybeSingle();
+      if (j) { row.job_id = j.id; RUN.jobs = { job_number: j.job_number }; }
+      else show($('rMsg'), 'No job ' + jn + ' found. The test is saved without a job.', 'err');
+    }
+  }
+  const { error } = await sb.from('test_runs').update(row).eq('id', RUN.id);
+  if (error) { $('rSaved').textContent = ''; show($('rMsg'), 'Not saved: ' + error.message, 'err'); return false; }
+  Object.assign(RUN, row);
+  $('rSaved').textContent = 'Saved ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return true;
+}
+['rBoard', 'rRunNotes'].forEach(id => $(id).addEventListener('input', queueSave));
+$('rJob').addEventListener('change', () => { hide($('rMsg')); saveRun(); });
+$('rRef').addEventListener('change', () => { drawSummary(); queueSave(); });
+
+$('fillRefs').addEventListener('click', async () => {
+  const tol = Math.max(0, parseFloat($('fillTol').value) || 0) / 100;
+  let n = 0;
+  PROC.steps.forEach(s => {
+    if (s.kind !== 'measure' || (s.ref_min || '').trim() || (s.ref_max || '').trim()) return;
+    const v = parseVal((RUN.results[s.id] || {}).value);
+    if (v == null) return;
+    if (v === Infinity) { s.ref_min = 'OL'; s.ref_max = ''; }
+    else {
+      const a = v * (1 - tol), b = v * (1 + tol);
+      s.ref_min = fmtSI(Math.min(a, b)); s.ref_max = fmtSI(Math.max(a, b));
+    }
+    s.ref_source = `Known-good board ${$('rBoard').value.trim() || ''} (${new Date().toLocaleDateString('en-GB')})${tol ? ', ±' + Math.round(tol * 100) + '%' : ''}`.replace('  ', ' ');
+    n++;
+  });
+  const { error } = await sb.from('test_procedures').update({ steps: PROC.steps, updated_at: new Date().toISOString() }).eq('id', PROC.id);
+  if (error) return show($('rMsg2'), error.message, 'err');
+  drawRun();
+  show($('rMsg2'), `${n} reference value${n === 1 ? '' : 's'} saved to the procedure.`, 'ok');
+});
+
+$('rFinish').addEventListener('click', async () => {
+  const t = tally();
+  const outcome = t.fail ? 'fail' : t.done < t.total ? 'incomplete' : 'pass';
+  const ok = await saveRun({ outcome });
+  if (!ok) return;
+  // log it on the job
+  if (RUN.job_id) {
+    const fails = PROC.steps.filter(s => verdictOf(s) === 'fail')
+      .map(s => `${s.label || s.text.slice(0, 40)}: ${RUN.results[s.id].value}${s.unit ? ' ' + s.unit : ''} (${refText(s).replace('Expect ', 'expected ')})`);
+    await sb.from('job_notes').insert({
+      job_id: RUN.job_id,
+      note: `Test procedure "${PROC.title}"${RUN.board_label ? ' on ' + RUN.board_label : ''}: ${outcome.toUpperCase()} — ${t.pass} pass, ${t.fail} fail, ${t.done}/${t.total} steps done.` + (fails.length ? '\nFailed: ' + fails.join('; ') : ''),
+      created_by: session?.user?.email
+    });
+  }
+  show($('rMsg2'), `Test finished: ${outcome === 'pass' ? 'PASS' : outcome === 'fail' ? 'FAIL' : 'incomplete'}.${RUN.job_id ? ' Logged on the job.' : ''}`, outcome === 'fail' ? 'err' : 'ok');
+});
+
+$('rDelete').addEventListener('click', async () => {
+  if (!confirm('Delete this test and its readings?')) return;
+  const { error } = await sb.from('test_runs').delete().eq('id', RUN.id);
+  if (error) return show($('rMsg2'), error.message, 'err');
+  location.href = 'tests.html';
+});
+
+/* =================== route =================== */
+if (QS.get('edit')) loadEditor(QS.get('edit'));
+else if (QS.get('run')) loadRun(QS.get('run'));
+else if (QS.get('start')) startRun(QS.get('start'), QS.get('job'));
+else loadList();
+</script>
+</body>
+</html>

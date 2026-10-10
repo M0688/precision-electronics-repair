@@ -333,6 +333,18 @@
         </div>
       </details>
 
+      <details class="card sec" id="testSec">
+        <summary><h2>Tests</h2><span class="count" data-of="#testList tr[data-run]"></span></summary>
+        <div class="secbody">
+          <div class="row">
+            <div><label for="testPick">Test procedure</label><select id="testPick"><option value="">Loading…</option></select></div>
+            <div style="flex:0 0 auto"><button class="primary" id="testStart" style="margin-bottom:14px">Start test</button></div>
+          </div>
+          <div id="testList"></div>
+          <p style="font-size:13px;margin:8px 0 0"><a href="tests.html">Manage procedures</a></p>
+        </div>
+      </details>
+
       <details class="card sec">
         <summary><h2>Repair report</h2></summary>
         <div class="secbody">
@@ -582,6 +594,7 @@ async function load() {
   loadPhotos(data.id);
   loadWorkPhotos(data.id);
   loadNotViable();
+  loadTests(data.id);
   loadNotes(data.id);
   loadQuotes(data.id);
   loadInvoices(data.id);
@@ -1634,6 +1647,31 @@ $('aiSave').addEventListener('click', async () => {
   if (error) return show($('aiMsg'), error.message, 'err');
   show($('aiMsg'), 'Saved to work notes.', 'ok');
   loadNotes(JOBROW.id);
+});
+
+/* ---------- test procedures ---------- */
+async function loadTests(jobId) {
+  const [{ data: procs }, { data: runs }] = await Promise.all([
+    sb.from('test_procedures').select('id,title,applies_to').order('title'),
+    sb.from('test_runs').select('id,procedure_id,board_label,outcome,created_at').eq('job_id', jobId).order('created_at', { ascending: false })
+  ]);
+  const P = procs || [];
+  $('testPick').innerHTML = P.length
+    ? P.map(p => `<option value="${p.id}">${esc(p.title)}${p.applies_to ? ' (' + esc(p.applies_to) + ')' : ''}</option>`).join('')
+    : '<option value="">No procedures yet</option>';
+  const name = id => (P.find(p => p.id === id) || {}).title || '';
+  const tag = o => o === 'pass' ? '<span class="tag" style="background:#e6f2ea;color:var(--green)">Pass</span>'
+    : o === 'fail' ? '<span class="tag" style="background:#fbe4e2;color:var(--red)">Fail</span>'
+    : `<span class="tag wait">${o === 'incomplete' ? 'Incomplete' : 'In progress'}</span>`;
+  $('testList').innerHTML = (runs || []).length
+    ? `<table><tbody>${runs.map(r => `<tr data-run="${r.id}" style="cursor:pointer"><td>${new Date(r.created_at).toLocaleDateString('en-GB')}</td><td>${esc(name(r.procedure_id))}${r.board_label ? ' · ' + esc(r.board_label) : ''}</td><td>${tag(r.outcome)}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="empty" style="margin:0">No tests run on this job yet.</p>';
+  $('testList').querySelectorAll('tr[data-run]').forEach(tr => tr.addEventListener('click', () => { location.href = 'tests.html?run=' + tr.dataset.run; }));
+}
+$('testStart').addEventListener('click', () => {
+  const id = $('testPick').value;
+  if (!id) { location.href = 'tests.html?edit=new'; return; }
+  location.href = 'tests.html?start=' + id + '&job=' + encodeURIComponent(JOB);
 });
 
 /* ---------- repair not viable ---------- */
