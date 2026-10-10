@@ -137,6 +137,31 @@ export function buildReportPdf(d) {
     y += lines.length * 5.5 + 20;
   }
 
+  if (d.not_viable && d.not_viable.reason) {
+    const RED = [179, 38, 30];
+    const rl = doc.splitTextToSize('Reason: ' + d.not_viable.reason, W - 10);
+    const nl = d.not_viable.note ? doc.splitTextToSize(String(d.not_viable.note), W - 10) : [];
+    const h = 14 + rl.length * 5.5 + (nl.length ? nl.length * 5 + 3 : 0);
+    room(h + 6);
+    doc.setFillColor(253, 242, 241);
+    doc.setDrawColor(...RED);
+    doc.setLineWidth(0.6);
+    doc.rect(L, y, W, h, 'FD');
+    doc.setLineWidth(0.2);
+    doc.setTextColor(...RED);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('REPAIR NOT VIABLE', L + 5, y + 8);
+    doc.setTextColor(...INK);
+    doc.setFontSize(10.5);
+    doc.text(rl, L + 5, y + 14);
+    if (nl.length) {
+      doc.setFont('helvetica', 'normal');
+      doc.text(nl, L + 5, y + 14 + rl.length * 5.5 + 2);
+    }
+    y += h + 10;
+  }
+
   block('The fault', d.fault);
 
   if (d.work) {
@@ -168,7 +193,8 @@ export function buildReportPdf(d) {
   block('Outcome', d.outcome);
   block('Worth knowing', d.notes);
 
-  // warranty strip
+  // warranty strip (not shown when the repair wasn't viable)
+  if (!(d.not_viable && d.not_viable.reason)) {
   room(26);
   doc.setDrawColor(226, 230, 236);
   doc.setFillColor(244, 246, 249);
@@ -182,6 +208,7 @@ export function buildReportPdf(d) {
   doc.setFontSize(9.5);
   doc.text('Our workmanship on this repair is guaranteed for as long as you own the device.', L + 4, y + 14);
   doc.text(`Replacement parts are covered for 6 months. Full terms: ${BUSINESS.site}/terms.html`, L + 4, y + 19);
+  }
 
   footer();
   return doc;

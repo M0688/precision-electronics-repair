@@ -116,6 +116,18 @@
             </select>
           </div>
           <div style="flex:0 0 auto"><button class="primary" id="statusBtn" style="margin-bottom:14px">Save status</button></div>
+          <div style="flex:0 0 auto"><button type="button" class="send" id="nvBtn" style="margin-bottom:14px;color:#b3261e;border-color:#f3c2bd">Repair not viable</button></div>
+        </div>
+        <div id="nvBanner" style="display:none;background:#fdf2f1;border:1px solid #f3c2bd;border-radius:10px;padding:10px 14px;margin:0 0 12px"></div>
+        <div id="nvPanel" style="display:none;border:1px solid #f3c2bd;border-radius:10px;padding:14px 16px;margin:0 0 14px">
+          <div style="font-weight:700;color:#b3261e;margin-bottom:8px">Why isn't the repair viable?</div>
+          <div id="nvReasons" style="display:grid;gap:6px;margin-bottom:10px"></div>
+          <input type="text" id="nvOther" placeholder="Type the reason" style="display:none">
+          <label for="nvNote" style="margin-top:4px">Details <span style="font-weight:400;color:var(--muted)">(optional, goes on the report)</span></label>
+          <textarea id="nvNote" style="min-height:60px" placeholder="e.g. heavy corrosion under the main IC, tracks eaten through"></textarea>
+          <button type="button" class="primary" id="nvSave" style="margin:0;background:#b3261e;border-color:#b3261e">Mark as not viable</button>
+          <button type="button" class="send" id="nvCancel" style="margin:0 0 0 6px">Cancel</button>
+          <div id="nvMsg" class="msg" style="margin-top:10px"></div>
         </div>
         <label id="tradeRow" style="display:none;align-items:center;gap:10px;font-weight:600;margin:0 0 10px">
           <input type="checkbox" id="tradeBox" style="width:18px;height:18px"> Trade account
@@ -569,6 +581,7 @@ async function load() {
 
   loadPhotos(data.id);
   loadWorkPhotos(data.id);
+  loadNotViable();
   loadNotes(data.id);
   loadQuotes(data.id);
   loadInvoices(data.id);
@@ -1558,7 +1571,8 @@ $('repPdf').addEventListener('click', () => {
     fault: $('rFault').value.trim(),
     work: $('rWork').value.trim(),
     outcome: $('rOutcome').value.trim(),
-    notes: $('rNotes').value.trim()
+    notes: $('rNotes').value.trim(),
+    not_viable: JOBROW.status === 'unrepairable' && NV ? { reason: NV.reason, note: NV.note || '' } : null
   });
   doc.save(REPORTJOB.job_number + ' repair report.pdf');
 });
@@ -1622,12 +1636,95 @@ $('aiSave').addEventListener('click', async () => {
   loadNotes(JOBROW.id);
 });
 
+/* ---------- repair not viable ---------- */
+const NV_REASONS = [
+  'Protective coating on the board',
+  'Excessive corrosion',
+  'Not economical to repair',
+  'Parts unavailable or obsolete',
+  'Board too badly damaged (burnt or delaminated)',
+  'Liquid damage too extensive',
+  'Previous repair attempt or tampering',
+  'Fault not found within the diagnosis time',
+  'Other'
+];
+let NV = null;   // { reason, note, at } once set
+
+async function loadNotViable() {
+  const { data } = await sb.from('jobs').select('not_viable_reason, not_viable_note, not_viable_at').eq('id', JOBROW.id).maybeSingle();
+  NV = data && data.not_viable_reason ? { reason: data.not_viable_reason, note: data.not_viable_note, at: data.not_viable_at } : null;
+  if (NV && JOBROW.status === 'unrepairable') {
+    $('nvBanner').innerHTML = `<strong style="color:#b3261e">Repair not viable:</strong> ${esc(NV.reason)}` +
+      (NV.note ? `<div style="font-size:14px;margin-top:4px;white-space:pre-wrap">${esc(NV.note)}</div>` : '') +
+      ` <button type="button" class="linkbtn" id="nvChange" style="margin-left:6px">Change</button>`;
+    $('nvBanner').style.display = 'block';
+    $('nvBtn').style.display = 'none';
+    $('nvChange').addEventListener('click', openNotViable);
+  } else {
+    $('nvBanner').style.display = 'none';
+    $('nvBtn').style.display = '';
+  }
+}
+
+function openNotViable() {
+  $('nvReasons').innerHTML = NV_REASONS.map((r, i) => `
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:0;cursor:pointer">
+      <input type="radio" name="nvr" value="${esc(r)}" style="width:16px;height:16px;margin:0"> ${esc(r)}</label>`).join('');
+  const known = NV && NV_REASONS.includes(NV.reason);
+  if (NV) {
+    const pick = known ? NV.reason : 'Other';
+    const el = [...document.querySelectorAll('input[name=nvr]')].find(x => x.value === pick);
+    if (el) el.checked = true;
+    $('nvOther').value = known ? '' : NV.reason;
+    $('nvNote').value = NV.note || '';
+  }
+  $('nvOther').style.display = (NV && !known) ? 'block' : 'none';
+  document.querySelectorAll('input[name=nvr]').forEach(x => x.addEventListener('change', () => {
+    $('nvOther').style.display = x.value === 'Other' && x.checked ? 'block' : 'none';
+    if (x.value === 'Other' && x.checked) $('nvOther').focus();
+  }));
+  hide($('nvMsg'));
+  $('nvPanel').style.display = 'block';
+}
+
+$('nvBtn').addEventListener('click', openNotViable);
+$('nvCancel').addEventListener('click', () => { $('nvPanel').style.display = 'none'; });
+$('nvSave').addEventListener('click', async () => {
+  const picked = document.querySelector('input[name=nvr]:checked');
+  if (!picked) return show($('nvMsg'), 'Pick a reason.', 'err');
+  const reason = picked.value === 'Other' ? $('nvOther').value.trim() : picked.value;
+  if (!reason) return show($('nvMsg'), 'Type the reason.', 'err');
+  const note = $('nvNote').value.trim() || null;
+  $('nvSave').disabled = true;
+  const { error: e1 } = await sb.from('jobs').update({ not_viable_reason: reason, not_viable_note: note, not_viable_at: new Date().toISOString() }).eq('id', JOBROW.id);
+  if (e1) { $('nvSave').disabled = false; return show($('nvMsg'), e1.message, 'err'); }
+  if (JOBROW.status !== 'unrepairable') {
+    const { error: e2 } = await sb.rpc('set_job_status', { p_job_number: JOB, p_status: 'unrepairable' });
+    if (e2) { $('nvSave').disabled = false; return show($('nvMsg'), e2.message, 'err'); }
+    JOBROW.status = 'unrepairable';
+    $('status').value = 'unrepairable';
+  }
+  const { data: sess } = await sb.auth.getSession();
+  await sb.from('job_notes').insert({
+    job_id: JOBROW.id,
+    note: 'Repair not viable — ' + reason + (note ? '\n' + note : ''),
+    stage: 'unrepairable',
+    created_by: sess?.session?.user?.email
+  });
+  $('nvSave').disabled = false;
+  $('nvPanel').style.display = 'none';
+  show($('msg'), 'Marked as repair not viable: ' + reason + '.', 'ok');
+  loadNotViable();
+  loadNotes(JOBROW.id);
+});
+
 $('statusBtn').addEventListener('click', async () => {
   hide($('msg'));
   const { error } = await sb.rpc('set_job_status', { p_job_number: JOB, p_status: $('status').value });
   if (error) return show($('msg'), error.message, 'err');
   show($('msg'), 'Status updated.', 'ok');
   JOBROW.status = $('status').value;
+  loadNotViable();
   showWs();
   loadNotes(JOBROW.id);
 });
