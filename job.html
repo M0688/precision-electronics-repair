@@ -228,6 +228,19 @@
             <input type="number" id="qPost" min="0" step="0.01" placeholder="at cost">
           </div>
         </div>
+
+        <div class="osBox" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 14px;background:var(--soft)">
+          <strong style="color:var(--navy)">On-site visit</strong>
+          <span style="font-size:13px;color:var(--muted)">— £75 callout incl. first hour, then £12.50 per 15 min. Can't fix: £37.50.</span>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:0 0 150px"><label for="qOsMins" style="font-size:13px">Minutes on site</label>
+              <input type="number" id="qOsMins" min="0" step="1" placeholder="e.g. 95" style="margin-bottom:8px"></div>
+            <div style="flex:0 0 190px"><label for="qOsFixed" style="font-size:13px">Outcome</label>
+              <select id="qOsFixed" style="margin-bottom:8px"><option value="yes">Fixed</option><option value="no">Couldn't fix it</option></select></div>
+            <div style="flex:0 0 auto"><button class="send" type="button" id="qOsUse" style="margin-bottom:8px">Use as labour</button></div>
+          </div>
+          <div id="qOsOut" style="font-size:14px;font-weight:600;color:var(--navy)"></div>
+        </div>
         <label for="qPartsNote">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
         <input type="text" id="qPartsNote" placeholder="e.g. Charging IC, SMD capacitor">
         <div class="row" id="qStockRow" style="margin:-4px 0 6px">
@@ -300,6 +313,20 @@
         <div class="sendrow" style="margin:0 0 16px">
           <button class="send" id="iAddLine" type="button">Add a line</button>
           <span id="iTotal" style="align-self:center;font-weight:700;color:var(--navy)"></span>
+        </div>
+
+
+        <div class="osBox" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 14px;background:var(--soft)">
+          <strong style="color:var(--navy)">On-site visit</strong>
+          <span style="font-size:13px;color:var(--muted)">— £75 callout incl. first hour, then £12.50 per 15 min. Can't fix: £37.50.</span>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:0 0 150px"><label for="iOsMins" style="font-size:13px">Minutes on site</label>
+              <input type="number" id="iOsMins" min="0" step="1" placeholder="e.g. 95" style="margin-bottom:8px"></div>
+            <div style="flex:0 0 190px"><label for="iOsFixed" style="font-size:13px">Outcome</label>
+              <select id="iOsFixed" style="margin-bottom:8px"><option value="yes">Fixed</option><option value="no">Couldn't fix it</option></select></div>
+            <div style="flex:0 0 auto"><button class="send" type="button" id="iOsUse" style="margin-bottom:8px">Add on-site lines</button></div>
+          </div>
+          <div id="iOsOut" style="font-size:14px;font-weight:600;color:var(--navy)"></div>
         </div>
 
         <label for="iDesc">Note on the invoice <span style="font-weight:400;color:var(--muted)">— optional</span></label>
@@ -1326,6 +1353,40 @@ function showTotal() {
              : 'Invoice total: £' + t.toFixed(2))
     : '';
 }
+
+// ---------- on-site visits: £75 callout incl. first hour, then £12.50 per 15 min; can't fix = 50% callout ----------
+const ONSITE = { callout: 75, block: 12.5, blockMins: 15, included: 60 };
+function onsiteLines(mins, fixed) {
+  if (!fixed) return [{ description: 'On-site visit, unable to repair (50% of callout)', amount: ONSITE.callout / 2 }];
+  const out = [{ description: 'On-site callout, including the first hour\'s labour', amount: ONSITE.callout }];
+  const blocks = Math.ceil(Math.max(0, (Number(mins) || 0) - ONSITE.included) / ONSITE.blockMins);
+  if (blocks) out.push({ description: `Further on-site labour: ${blocks} × 15 minutes at £${ONSITE.block.toFixed(2)}`, amount: blocks * ONSITE.block });
+  return out;
+}
+function onsiteShow(pre) {
+  const fixed = $(pre + 'Fixed').value === 'yes';
+  const ls = onsiteLines($(pre + 'Mins').value, fixed);
+  const total = ls.reduce((a, l) => a + l.amount, 0);
+  $(pre + 'Out').textContent = (ls.length > 1 ? ls.map(l => '£' + l.amount.toFixed(2)).join(' + ') + ' = ' : '') + '£' + total.toFixed(2) + ' labour' + (fixed ? ', plus any parts.' : '.');
+  return { ls, total };
+}
+['qOs', 'iOs'].forEach(pre => {
+  $(pre + 'Mins').addEventListener('input', () => onsiteShow(pre));
+  $(pre + 'Fixed').addEventListener('change', () => onsiteShow(pre));
+});
+$('qOsUse').addEventListener('click', () => {
+  const { total } = onsiteShow('qOs');
+  $('qAmount').value = total.toFixed(2);
+  $('qPost').value = '0';
+  ['qAmount', 'qPost'].forEach(id => $(id).dispatchEvent(new Event('input')));
+});
+$('iOsUse').addEventListener('click', () => {
+  const { ls } = onsiteShow('iOs');
+  // replace an empty placeholder line rather than leaving it at £0
+  if (LINES.length === 1 && !(Number(LINES[0].amount) > 0)) LINES = [];
+  ls.forEach(l => LINES.push({ ...l, kind: 'labour', quote_id: null, job_ref: JOBROW.id }));
+  drawLines();
+});
 
 $('iAddLine').addEventListener('click', () => {
   LINES.push({ description: '', amount: 0, quote_id: null, job_ref: JOBROW ? JOBROW.id : null });
