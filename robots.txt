@@ -12,5 +12,15 @@ Disallow: /leads.html
 Disallow: /diagnose.html
 Disallow: /knowledge.html
 Disallow: /reports.html
+Disallow: /book.html
+Disallow: /collect.html
+Disallow: /track.html
+Disallow: /scan.html
+Disallow: /settings.html
+Disallow: /stock.html
+Disallow: /todo.html
+Disallow: /invoices.html
+Disallow: /parts.html
+Disallow: /tests.html
 
 Sitemap: https://precisionelectronicsrepair.co.uk/sitemap.xml
