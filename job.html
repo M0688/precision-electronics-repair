@@ -1398,7 +1398,9 @@ const toLocalInput = ts => { if (!ts) return ''; const d = new Date(ts); d.setMi
 async function loadSite() {
   RATES = await loadRates();
   const { data } = await sb.from('jobs').select('on_site, site_address, visit_at').eq('id', JOBROW.id).maybeSingle();
-  SITE = { on: !!data?.on_site, address: data?.site_address || '', at: data?.visit_at || null };
+  SITE = { on: !!data?.on_site, address: data?.site_address || '', at: data?.visit_at || null, block: null };
+  const { data: blk } = await sb.from('away_periods').select('id, starts_at, ends_at').like('note', 'Site visit ' + JOBROW.job_number + '%').order('starts_at').limit(1);
+  if (blk && blk[0]) SITE.block = blk[0];
   $('siteBox').checked = SITE.on;
   if (data === null) $('siteBoxMsg').textContent = '(needs the stage 32 database update)';
   await loadVisits();
@@ -1425,7 +1427,8 @@ function drawSite() {
   if (!SITE.on) return;
   $('siteInfo').innerHTML = (SITE.address ? '<strong>Site:</strong> ' + esc(SITE.address).replace(/\n/g, ', ') : '<span style="color:var(--muted)">No site address saved.</span>') +
     ` <button type="button" class="linkbtn" id="siteEdit" style="margin-left:6px">Edit</button>` +
-    (SITE.at ? `<br><strong>Booked for:</strong> ${esc(dmy(SITE.at))} ${esc(clockT(SITE.at))}` : '');
+    (SITE.at ? `<br><strong>Booked for:</strong> ${esc(dmy(SITE.at))} ${esc(clockT(SITE.at))}` : '') +
+    (SITE.block ? `<br><span style="color:var(--muted);font-size:14px">Drop-offs and collections blocked ${esc(dmy(SITE.block.starts_at))} ${esc(clockT(SITE.block.starts_at))}–${esc(clockT(SITE.block.ends_at))}</span>` : '');
   $('siteEdit').addEventListener('click', editSite);
   const r = RATES;
   $('siteRateNote').textContent = `£${r.callout_fee.toFixed(2)} callout includes the first ${r.callout_includes_mins} min, then £${(r.onsite_hourly * r.onsite_block_mins / 60).toFixed(2)} per ${r.onsite_block_mins} min started. Couldn't fix: ${r.unfixed_callout_pct}% of the callout.`;
@@ -1454,15 +1457,38 @@ function drawSite() {
   $('visitList').querySelectorAll('[data-vedit]').forEach(b => b.addEventListener('click', () => editVisit(b.dataset.vedit)));
 }
 
+function blockDur() {
+  if (!SITE.block) return SITE.at ? '0' : '120';
+  const a = new Date(SITE.block.starts_at), b = new Date(SITE.block.ends_at);
+  if (a.getHours() === 0 && a.getMinutes() === 0 && b.getHours() === 23 && b.getMinutes() === 59) return 'day';
+  return String(Math.round((b - a) / 60000));
+}
+
 function editSite() {
   $('siteInfo').innerHTML = `<label for="seAddr">Site address</label><textarea id="seAddr" style="min-height:60px">${esc(SITE.address)}</textarea>
-    <label for="seAt">Booked for</label><input type="datetime-local" id="seAt" value="${toLocalInput(SITE.at)}" style="width:auto;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;margin-bottom:10px"><br>
+    <label for="seAt">Booked for</label><input type="datetime-local" id="seAt" value="${toLocalInput(SITE.at)}" style="width:auto;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;margin-bottom:10px">
+    <label for="seBlock">Block drop-offs and collections for</label>
+    <select id="seBlock" style="width:auto;margin-bottom:12px">${[['0', "Don't block"], ['60', '1 hour'], ['90', '1½ hours'], ['120', '2 hours'], ['180', '3 hours'], ['240', '4 hours'], ['360', '6 hours'], ['480', '8 hours'], ['day', 'The whole day']]
+      .map(([v, t]) => `<option value="${v}"${v === blockDur() ? ' selected' : ''}>${t}</option>`).join('')}</select><br>
     <button type="button" class="primary" id="seSave" style="margin:0">Save</button> <button type="button" class="send" id="seCancel">Cancel</button>`;
   $('seCancel').addEventListener('click', drawSite);
   $('seSave').addEventListener('click', async () => {
     const upd = { site_address: $('seAddr').value.trim() || null, visit_at: $('seAt').value ? new Date($('seAt').value).toISOString() : null };
     const { error } = await sb.from('jobs').update(upd).eq('id', JOBROW.id);
     if (error) return show($('siteMsg'), error.message, 'err');
+    // replace the calendar block for this visit
+    await sb.from('away_periods').delete().like('note', 'Site visit ' + JOBROW.job_number + '%');
+    SITE.block = null;
+    const dur = $('seBlock').value;
+    if (upd.visit_at && dur !== '0') {
+      let a = new Date(upd.visit_at), b;
+      if (dur === 'day') { b = new Date(a); b.setHours(23, 59, 0, 0); a = new Date(a); a.setHours(0, 0, 0, 0); }
+      else b = new Date(a.getTime() + Number(dur) * 60000);
+      const who = JOBROW.customer_name || '';
+      const { data: nb, error: eb } = await sb.from('away_periods').insert({ starts_at: a.toISOString(), ends_at: b.toISOString(), note: 'Site visit ' + JOBROW.job_number + (who ? ' · ' + who : '') }).select('id, starts_at, ends_at').single();
+      if (eb) return show($('siteMsg'), 'Saved, but the calendar block didn\'t: ' + eb.message, 'err');
+      SITE.block = nb;
+    }
     SITE.address = upd.site_address || ''; SITE.at = upd.visit_at;
     hide($('siteMsg')); drawSite();
   });

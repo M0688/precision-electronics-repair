@@ -47,6 +47,7 @@
   .calkey .k { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 6px; }
   .k.drop { background: #fff1d6; border: 2px solid #d99a1e; }
   .k.coll { background: #e3edfb; border: 2px solid #3d6fb6; }
+  .k.site { background: #efe6fb; border: 2px solid #6b3fb6; }
   .k.req { background: #fff; border: 2px dashed #b3261e; }
   .k.shut { background: repeating-linear-gradient(45deg, #eef0f4, #eef0f4 4px, #e2e6ec 4px, #e2e6ec 8px); border: 1px solid #d9dee6; }
   .calwrap { overflow-x: auto; }
@@ -61,6 +62,7 @@
   .bk { display: block; border-radius: 6px; padding: 4px 6px; font-size: 12px; line-height: 1.35; text-decoration: none; color: var(--ink); margin-bottom: 3px; }
   .bk.drop { background: #fff1d6; border-left: 4px solid #d99a1e; }
   .bk.coll { background: #e3edfb; border-left: 4px solid #3d6fb6; }
+  .bk.site { background: #efe6fb; border-left: 4px solid #6b3fb6; }
   .bk.req { outline: 2px dashed #b3261e; outline-offset: -2px; }
   .bk strong { display: block; font-size: 12px; color: var(--navy); }
   .bk .bkline { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -97,7 +99,7 @@
           <button class="send" id="calToday" type="button">This week</button>
           <button class="send" id="calNext" type="button">Next &rarr;</button>
           <strong id="calTitle"></strong>
-          <span class="calkey"><span class="k drop"></span>Drop-off <span class="k coll"></span>Collection <span class="k req"></span>Needs confirming <span class="k shut"></span>Closed / away</span>
+          <span class="calkey"><span class="k drop"></span>Drop-off <span class="k coll"></span>Collection <span class="k site"></span>Site visit <span class="k req"></span>Needs confirming <span class="k shut"></span>Closed / away</span>
         </div>
         <div class="calwrap"><div id="calGrid" class="calgrid"></div></div>
       </div>
@@ -161,6 +163,15 @@
             <div><label for="siteAddr">Site address</label><textarea id="siteAddr" style="min-height:70px" placeholder="Where you're going"></textarea></div>
             <div style="flex:0 0 230px"><label for="siteWhen">Visit booked for <span style="font-weight:400;color:var(--muted)">— optional</span></label>
               <input type="datetime-local" id="siteWhen" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px"></div>
+          </div>
+          <div class="row" style="margin-top:-4px">
+            <div style="flex:0 0 260px"><label for="siteBlock">Block drop-offs and collections for</label>
+              <select id="siteBlock" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px">
+                <option value="0">Don't block</option><option value="60">1 hour</option><option value="90">1½ hours</option>
+                <option value="120" selected>2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option>
+                <option value="360">6 hours</option><option value="480">8 hours</option><option value="day">The whole day</option>
+              </select></div>
+            <div><p class="sub" style="font-size:13px;margin:26px 0 0">From the booked time. Shows on the bookings calendar.</p></div>
           </div>
           <p class="sub" id="siteRates" style="margin:-4px 0 12px;font-size:13px"></p>
         </div>
@@ -552,6 +563,11 @@ $('bhBtn').addEventListener('click', async () => {
   if (error) { $('bhBtn').disabled = false; bhRenumber(); return show($('newMsg'), error.message, 'err'); }
   const made = data.jobs || [];
 
+  let blockMsg = '';
+  if (site && $('siteWhen').value && $('siteBlock').value !== '0') {
+    const { error: eb } = await blockForVisit(made[0].job_number, PICKED ? (PICKED.company || PICKED.name) : ($('custCompany').value.trim() || $('custName').value.trim()), new Date($('siteWhen').value), $('siteBlock').value);
+    blockMsg = eb ? ' The calendar block didn\'t save: ' + eb.message : ' Drop-offs and collections are blocked for the visit.';
+  }
   if (site) {
     const when = $('siteWhen').value ? new Date($('siteWhen').value).toISOString() : null;
     const { error: e2 } = await sb.from('jobs').update({ on_site: true, site_address: addr, visit_at: when })
@@ -561,17 +577,26 @@ $('bhBtn').addEventListener('click', async () => {
   $('bhBtn').disabled = false; bhRenumber();
 
   show($('newMsg'), (site ? 'Site visit job ' : made.length + (made.length === 1 ? ' job' : ' jobs') + ' created: ') +
-    made[0].job_number + (made.length > 1 ? ' to ' + made[made.length - 1].job_number : '') + (site ? ' created. Open it to press Arrived when you get there.' : '.'), 'ok');
+    made[0].job_number + (made.length > 1 ? ' to ' + made[made.length - 1].job_number : '') + (site ? ' created. Open it to press Arrived when you get there.' + blockMsg : '.'), 'ok');
   $('bhDone').innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px">' + made.map(m =>
     `<a class="send" href="job.html?job=${encodeURIComponent(m.job_number)}" style="text-decoration:none">${escH(m.job_number)} · ${escH(m.item || '')}</a>`).join('') + '</div>';
 
   $('bhRows').innerHTML = ''; bhAdd({});
   $('custName').value = ''; $('custCompany').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
-  $('siteAddr').value = ''; $('siteWhen').value = '';
+  $('siteAddr').value = ''; $('siteWhen').value = ''; $('siteBlock').value = '120';
   $('bhNoDiag').checked = false; $('bhHere').checked = true;
   clearPick();
   loadJobs();
+  loadCalendar();
 });
+
+// A site visit blocks drop-off and collection slots by adding a "Site visit" away period.
+async function blockForVisit(jobNo, who, start, dur) {
+  let end;
+  if (dur === 'day') { end = new Date(start); end.setHours(23, 59, 0, 0); start = new Date(start); start.setHours(0, 0, 0, 0); }
+  else end = new Date(start.getTime() + Number(dur) * 60000);
+  return sb.from('away_periods').insert({ starts_at: start.toISOString(), ends_at: end.toISOString(), note: 'Site visit ' + jobNo + (who ? ' · ' + who : '') });
+}
 
 // ---------- which kind of new job ----------
 const MODE = () => (document.querySelector('input[name=mode]:checked') || {}).value || 'form';
@@ -652,7 +677,7 @@ async function loadCalendar() {
     sb.from('appointments').select('starts_at, confirmed_at, kind, batch_id, jobs(job_number, customer_phone, batch_size)')
       .is('cancelled_at', null).gte('starts_at', from).lt('starts_at', to).order('starts_at'),
     sb.from('opening_hours').select('*'),
-    sb.from('away_periods').select('starts_at, ends_at').lt('starts_at', to).gt('ends_at', from),
+    sb.from('away_periods').select('starts_at, ends_at, note').lt('starts_at', to).gt('ends_at', from),
     sb.from('job_list').select('job_number, customer_name')
   ]);
   const nameOf = Object.fromEntries((names || []).map(n => [n.job_number, n.customer_name]));
@@ -668,6 +693,15 @@ async function loadCalendar() {
     const p = ukParts(new Date(a.starts_at));
     (byCell[p.ymd + ' ' + p.hour] = byCell[p.ymd + ' ' + p.hour] || []).push(a);
   });
+  // Site visits sit in the hour they start, purple, linked to the job.
+  const siteByCell = {};
+  (away || []).filter(w => /^Site visit /.test(w.note || '')).forEach(w => {
+    const p = ukParts(new Date(w.starts_at));
+    const m = (w.note || '').match(/^Site visit (\S+)(?: · (.*))?$/) || [];
+    (siteByCell[p.ymd + ' ' + p.hour] = siteByCell[p.ymd + ' ' + p.hour] || []).push({ ...w, job: m[1] || '', who: m[2] || '' });
+  });
+  let siteCount = 0;
+  const tm = d => new Date(d).toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' });
   const isAway = (ymd, hr) => (away || []).some(w => {
     const a = ukParts(new Date(w.starts_at)), b = ukParts(new Date(w.ends_at));
     const key = ymd + String(hr).padStart(2, '0'), s = a.ymd + String(a.hour).padStart(2, '0'), e = b.ymd + String(b.hour).padStart(2, '0');
@@ -686,7 +720,13 @@ async function loadCalendar() {
       const shut = !h || !h.is_open || hr < h.open_hour || hr >= h.close_hour || isAway(ymd, hr);
       const past = (ymd + String(hr).padStart(2, '0')) < nowKey;
       const list = byCell[ymd + ' ' + hr] || [];
-      html += `<div class="cell${shut ? ' shut' : ''}${past ? ' past' : ''}">` + list.map(a => {
+      const visits = siteByCell[ymd + ' ' + hr] || [];
+      siteCount += visits.length;
+      html += `<div class="cell${shut ? ' shut' : ''}${past ? ' past' : ''}">` + visits.map(v => `<a class="bk site" href="job.html?job=${esc2(v.job)}">
+          <strong>Site visit</strong>
+          <span class="bkline">${esc2(v.who || nameOf[v.job] || 'Customer')}</span>
+          <span class="bkline">${tm(v.starts_at)}–${tm(v.ends_at)}</span>
+          <span class="bkline">${esc2(v.job)}</span></a>`).join('') + list.map(a => {
         count++;
         const j = a.jobs || {}, col = a.kind === 'collection';
         if (!a.confirmed_at) pending++;
@@ -708,7 +748,7 @@ async function loadCalendar() {
   const last7 = addDays(mon, 6);
   $('calTitle').textContent = mon.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' }) + ' – ' +
     last7.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }) +
-    (count ? ` · ${count} booking${count === 1 ? '' : 's'}${pending ? `, ${pending} to confirm` : ''}` : ' · no bookings');
+    ((count + siteCount) ? ` · ${count + siteCount} booking${count + siteCount === 1 ? '' : 's'}${pending ? `, ${pending} to confirm` : ''}` : ' · no bookings');
   let note = $('calNote');
   if (!note) { note = document.createElement('p'); note.id = 'calNote'; note.className = 'calnote'; $('calGrid').parentElement.after(note); }
   note.textContent = outside.length ? outside.length + ' booking(s) this week fall outside your current opening hours — check the job pages.' : '';
