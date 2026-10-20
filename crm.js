@@ -355,9 +355,10 @@ export function visitMins(v) {
 }
 
 
-// ---------- typing history on text boxes ----------
-// Every text box remembers what you've typed (on this device) and offers it again as you type.
-// Common fields share one list across pages, and are also filled from what's already in the system.
+// ---------- saved entries on text boxes ----------
+// Every text box offers what's been typed in it before, from the database, so the same list
+// shows on every device. Anything new you type is saved for next time.
+// Common fields share one list across pages, topped up with what's already in jobs and parts.
 const HIST_PAGE = (location.pathname.split('/').pop() || 'index.html');
 const HIST_ALIAS = {
   'workshop.html#bt': 'type', 'job.html#ieType': 'type',
@@ -378,41 +379,61 @@ function histKey(el) {
   if (!name) return '';
   return HIST_ALIAS[HIST_PAGE + '#' + name] || (HIST_PAGE + '#' + name);
 }
-function histRead(key) { try { return JSON.parse(localStorage.getItem('hist:' + key) || '[]'); } catch (e) { return []; } }
-function histSave(key, val) {
+
+let SAVED = {};   // field -> values, most recently used first
+let SEEDS = {};   // field -> values already in jobs / parts
+let HIST_READY = null;
+
+function refreshLists() { document.querySelectorAll('datalist[data-histkey]').forEach(dl => fillList(dl, dl.dataset.histkey)); }
+
+async function histSave(key, val) {
   val = String(val || '').trim();
   if (!val || val.length > 200) return;
-  const list = histRead(key).filter(v => v.toLowerCase() !== val.toLowerCase());
-  list.unshift(val);
-  try { localStorage.setItem('hist:' + key, JSON.stringify(list.slice(0, HIST_MAX))); } catch (e) {}
-  const dl = document.getElementById('hist-' + key.replace(/[^a-z0-9]/gi, '_'));
-  if (dl) fillList(dl, key);
+  SAVED[key] = [val, ...(SAVED[key] || []).filter(v => v.toLowerCase() !== val.toLowerCase())];
+  refreshLists();
+  await sb.rpc('remember_entry', { p_field: key, p_value: val });
 }
 
-// Values already in the system, loaded once per page.
-let SEEDS = null;
-async function loadSeeds() {
-  if (SEEDS) return SEEDS;
-  SEEDS = {};
-  const uniq = arr => [...new Set(arr.map(v => String(v || '').trim()).filter(Boolean))];
-  try {
-    const [{ data: jobs }, { data: parts }] = await Promise.all([
+function loadHistory() {
+  if (HIST_READY) return HIST_READY;
+  HIST_READY = (async () => {
+    const { data: sess } = await sb.auth.getSession();
+    if (!sess?.session) return;
+    const uniq = arr => [...new Set(arr.map(v => String(v || '').trim()).filter(Boolean))];
+    const [saved, { data: jobs }, { data: parts }] = await Promise.all([
+      sb.from('saved_entries').select('field, value').order('last_used', { ascending: false }).limit(10000),
       sb.from('job_list').select('make_model, device_type, fault_description').order('created_at', { ascending: false }).limit(500),
       sb.from('parts_stock').select('name, part_number, location')
     ]);
-    SEEDS.model = uniq((jobs || []).map(j => j.make_model));
-    SEEDS.type = uniq([...(jobs || []).map(j => j.device_type), 'PCB', 'Laptop', 'Phone', 'Tablet', 'Games console', 'Controller', 'Desktop PC', 'Arcade machine']);
-    SEEDS.fault = uniq((jobs || []).map(j => j.fault_description)).filter(v => v.length <= 120);
-    SEEDS.partname = uniq((parts || []).map(p => p.name));
-    SEEDS.partno = uniq((parts || []).map(p => p.part_number));
-    SEEDS.location = uniq((parts || []).map(p => p.location));
-  } catch (e) {}
-  document.querySelectorAll('datalist[data-histkey]').forEach(dl => fillList(dl, dl.dataset.histkey));
-  return SEEDS;
+    SAVED = {};
+    (saved.data || []).forEach(r => (SAVED[r.field] = SAVED[r.field] || []).push(r.value));
+    SEEDS = {
+      model: uniq((jobs || []).map(j => j.make_model)),
+      type: uniq([...(jobs || []).map(j => j.device_type), 'PCB', 'Laptop', 'Phone', 'Tablet', 'Games console', 'Controller', 'Desktop PC', 'Arcade machine']),
+      fault: uniq((jobs || []).map(j => j.fault_description)).filter(v => v.length <= 120),
+      partname: uniq((parts || []).map(p => p.name)),
+      partno: uniq((parts || []).map(p => p.part_number)),
+      location: uniq((parts || []).map(p => p.location))
+    };
+    refreshLists();
+    // Anything the earlier version kept on this device moves into the database, then is cleared.
+    if (!saved.error) {
+      try {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('hist:'));
+        for (const k of keys) {
+          const vals = JSON.parse(localStorage.getItem(k) || '[]').reverse();
+          for (const v of vals) await sb.rpc('remember_entry', { p_field: k.slice(5), p_value: v });
+          localStorage.removeItem(k);
+        }
+      } catch (e) {}
+    }
+  })();
+  return HIST_READY;
 }
+
 function fillList(dl, key) {
   const seen = new Set(), out = [];
-  [...histRead(key), ...((SEEDS && SEEDS[key]) || [])].forEach(v => { const k = v.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(v); } });
+  [...(SAVED[key] || []), ...(SEEDS[key] || [])].forEach(v => { const k = v.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(v); } });
   dl.innerHTML = out.slice(0, HIST_MAX).map(v => `<option value="${esc(v)}"></option>`).join('');
 }
 function wireHistory(el) {
@@ -433,7 +454,8 @@ function wireHistory(el) {
 export function autoHistory() {
   const scan = root => (root.querySelectorAll ? root.querySelectorAll('input') : []).forEach(wireHistory);
   scan(document);
-  loadSeeds();
+  loadHistory();
+  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_IN' && !Object.keys(SAVED).length) { HIST_READY = null; loadHistory(); } });
   new MutationObserver(recs => recs.forEach(r => r.addedNodes.forEach(n => {
     if (n.nodeType !== 1) return;
     if (n.tagName === 'INPUT') wireHistory(n); else scan(n);
