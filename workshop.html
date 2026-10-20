@@ -27,6 +27,11 @@
   .bhtable td { padding: 3px 4px; vertical-align: top; }
   .bhtable td:first-child { color: var(--muted); font-size: 13px; padding-top: 12px; width: 26px; }
   .bhtable input { margin: 0; padding: 8px 9px; font-size: 14px; }
+  .modes { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+  .modes label { flex: 1 1 180px; display: flex; gap: 10px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; font-weight: 400; font-size: 13px; color: var(--muted); margin: 0; background: #fff; }
+  .modes label strong { color: var(--navy); font-size: 15px; }
+  .modes label.on { border-color: var(--navy); background: var(--soft); }
+  .modes input { width: 17px; height: 17px; margin: 2px 0 0; flex: none; }
   .bhtable .bhdel { background: none; border: 0; color: #a33; font-size: 18px; cursor: pointer; padding: 6px; }
   .sendrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .send { display: inline-block; background: var(--white); border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; text-decoration: none; }
@@ -101,96 +106,92 @@
         <h2>New job</h2>
         <div id="newMsg" class="msg"></div>
 
-        <label for="custSearch">Dealt with them before?</label>
-        <input type="text" id="custSearch" placeholder="Search by name, company, email or number" autocomplete="off">
+        <label for="custSearch">Customer</label>
+        <input type="text" id="custSearch" placeholder="Dealt with them before? Search by name, company, email or number" autocomplete="off">
         <div id="custHits"></div>
         <div id="custPicked" style="display:none;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;padding:10px 14px;margin:-4px 0 16px;font-size:14px;color:#1c6b3c">
           <span id="custPickedName"></span>
           <button class="send" id="custClear" style="padding:4px 10px;margin-left:10px">Change</button>
         </div>
-
-        <div class="row">
-          <div>
-            <label for="custName">Customer name</label>
-            <input type="text" id="custName" placeholder="Jane Smith">
-          </div>
-          <div>
-            <label for="custEmail">Customer email <span style="font-weight:400;color:var(--muted)">— optional</span></label>
-            <input type="email" id="custEmail" placeholder="jane@example.com">
-          </div>
-          <div>
-            <label for="custPhone">Mobile number <span style="font-weight:400;color:var(--muted)">— optional</span></label>
-            <input type="text" id="custPhone" placeholder="07700 900123">
-          </div>
-        </div>
-        <div class="row">
-          <div style="flex:0 0 240px">
-            <label for="prefContact">How do they prefer to be contacted?</label>
-            <select id="prefContact" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px">
-              <option value="email">Email</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="sms">Text message</option>
-              <option value="call">Phone call</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="check"><input type="checkbox" id="emailIt" checked><label for="emailIt">Email the link automatically (needs an email address)</label></div>
-        <div class="check"><input type="checkbox" id="noDiag"><label for="noDiag">Obvious fault — no diagnostic fee (cracked screen, dead port, and the like)</label></div>
-        <button class="primary" id="createBtn">Create job &amp; get link</button>
-
-        <div id="sendArea" style="display:none">
-          <div class="linkbox" id="newLink"></div>
-          <div class="sendrow">
-            <button class="send" id="copyBtn">Copy link</button>
-            <a class="send wa" id="waBtn" target="_blank" rel="noopener">Send on WhatsApp</a>
-            <a class="send" id="smsBtn">Send by text</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Book in items by hand</h2>
-        <p style="margin:0 0 14px;color:var(--muted);font-size:14px">For customers who hand you items without a booking form. Every item becomes its own job, grouped as one booking.</p>
-        <div id="bhMsg" class="msg"></div>
-
-        <label for="bhSearch">Customer</label>
-        <input type="text" id="bhSearch" placeholder="Search by name, company, email or number" autocomplete="off">
-        <div id="bhHits"></div>
-        <div id="bhPicked" style="display:none;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;padding:10px 14px;margin:-4px 0 16px;font-size:14px;color:#1c6b3c">
-          <span id="bhPickedName"></span>
-          <button class="send" id="bhClear" style="padding:4px 10px;margin-left:10px">Change</button>
-        </div>
-        <div id="bhNew">
+        <div id="custNew">
           <div class="row">
-            <div><label for="bhName">Name</label><input type="text" id="bhName" placeholder="Jane Smith"></div>
-            <div><label for="bhCompany">Company <span style="font-weight:400;color:var(--muted)">— makes it a trade account</span></label><input type="text" id="bhCompany"></div>
+            <div><label for="custName">Name</label><input type="text" id="custName" placeholder="Jane Smith"></div>
+            <div><label for="custCompany">Company <span style="font-weight:400;color:var(--muted)">— makes it a trade account</span></label><input type="text" id="custCompany"></div>
           </div>
           <div class="row">
-            <div><label for="bhEmail">Email</label><input type="email" id="bhEmail"></div>
-            <div><label for="bhPhone">Mobile number</label><input type="text" id="bhPhone"></div>
+            <div><label for="custEmail">Email</label><input type="email" id="custEmail" placeholder="jane@example.com"></div>
+            <div><label for="custPhone">Mobile number</label><input type="text" id="custPhone" placeholder="07700 900123"></div>
+            <div style="flex:0 0 210px">
+              <label for="prefContact">Prefers</label>
+              <select id="prefContact" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px">
+                <option value="email">Email</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="sms">Text message</option>
+                <option value="call">Phone call</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div class="check"><input type="checkbox" id="bhHere" checked><label for="bhHere">The items are here now (status "Arrived")</label></div>
-        <div class="check"><input type="checkbox" id="bhNoDiag"><label for="bhNoDiag">Obvious faults — no diagnostic fee</label></div>
+        <label>What kind of job?</label>
+        <div class="modes" id="modes">
+          <label><input type="radio" name="mode" value="form" checked><span><strong>Send a booking form</strong><br>They fill it in, then post or drop off</span></label>
+          <label><input type="radio" name="mode" value="hand"><span><strong>Book items in now</strong><br>They've handed you the items</span></label>
+          <label><input type="radio" name="mode" value="site"><span><strong>Site visit</strong><br>You go to them</span></label>
+        </div>
 
-        <datalist id="bhTypes"><option value="PCB"><option value="Laptop"><option value="Phone"><option value="Tablet"><option value="Games console"><option value="Controller"><option value="Desktop PC"></datalist>
-        <div style="overflow-x:auto;margin:10px 0">
-          <table class="bhtable">
-            <thead><tr><th>#</th><th>Job no.</th><th>Type</th><th>Make / model</th><th>Serial</th><th>Fault</th><th></th></tr></thead>
-            <tbody id="bhRows"></tbody>
-          </table>
+        <!-- booking form -->
+        <div data-mode="form">
+          <div class="check"><input type="checkbox" id="emailIt" checked><label for="emailIt">Email the link automatically (needs an email address)</label></div>
+          <div class="check"><input type="checkbox" id="noDiag"><label for="noDiag">Obvious fault — no diagnostic fee (cracked screen, dead port, and the like)</label></div>
+          <button class="primary" id="createBtn">Create job &amp; get link</button>
+          <div id="sendArea" style="display:none">
+            <div class="linkbox" id="newLink"></div>
+            <div class="sendrow">
+              <button class="send" id="copyBtn">Copy link</button>
+              <a class="send wa" id="waBtn" target="_blank" rel="noopener">Send on WhatsApp</a>
+              <a class="send" id="smsBtn">Send by text</a>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
-          <button class="send" id="bhAdd" type="button">+ Add item</button>
-          <button class="send" id="bhCopy" type="button">Copy the last item &times;</button>
-          <button class="send" id="bhGen" type="button" style="border-color:var(--navy);font-weight:700">Generate job numbers</button>
-          <input type="number" id="bhCopies" min="1" max="99" value="5" style="width:70px;margin:0" aria-label="How many copies">
-          <span style="color:var(--muted);font-size:13px">(serial left blank on copies)</span>
+
+        <!-- site visit -->
+        <div data-mode="site" style="display:none">
+          <div class="row">
+            <div><label for="siteAddr">Site address</label><textarea id="siteAddr" style="min-height:70px" placeholder="Where you're going"></textarea></div>
+            <div style="flex:0 0 230px"><label for="siteWhen">Visit booked for <span style="font-weight:400;color:var(--muted)">— optional</span></label>
+              <input type="datetime-local" id="siteWhen" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;margin-bottom:14px"></div>
+          </div>
+          <p class="sub" id="siteRates" style="margin:-4px 0 12px;font-size:13px"></p>
         </div>
-        <button class="primary" id="bhBtn">Create jobs</button>
-        <div id="bhDone" style="margin-top:14px"></div>
+
+        <!-- items: book in by hand, and site visit -->
+        <div data-mode="hand site" style="display:none">
+          <div class="check" data-mode="hand"><input type="checkbox" id="bhHere" checked><label for="bhHere">The items are here now (status "Arrived")</label></div>
+          <div class="check" data-mode="hand"><input type="checkbox" id="bhNoDiag"><label for="bhNoDiag">Obvious faults — no diagnostic fee</label></div>
+
+          <datalist id="bhTypes"><option value="PCB"><option value="Laptop"><option value="Phone"><option value="Tablet"><option value="Games console"><option value="Controller"><option value="Desktop PC"><option value="Arcade machine"></datalist>
+          <p class="sub" data-mode="site" style="margin:0 0 4px;font-size:13px">What you're going to repair. One site visit job covers everything at that visit.</p>
+          <div style="overflow-x:auto;margin:10px 0">
+            <table class="bhtable">
+              <thead><tr><th>#</th><th>Job no.</th><th>Type</th><th>Make / model</th><th>Serial</th><th>Fault</th><th></th></tr></thead>
+              <tbody id="bhRows"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+            <span data-mode="hand" style="display:contents">
+              <button class="send" id="bhAdd" type="button">+ Add item</button>
+              <button class="send" id="bhCopy" type="button">Copy the last item &times;</button>
+            </span>
+            <button class="send" id="bhGen" type="button" style="border-color:var(--navy);font-weight:700">Generate job number<span data-mode="hand">s</span></button>
+            <span data-mode="hand" style="display:contents">
+              <input type="number" id="bhCopies" min="1" max="99" value="5" style="width:70px;margin:0" aria-label="How many copies">
+              <span style="color:var(--muted);font-size:13px">(serial left blank on copies)</span>
+            </span>
+          </div>
+          <button class="primary" id="bhBtn">Create jobs</button>
+          <div id="bhDone" style="margin-top:14px"></div>
+        </div>
       </div>
 
       <div class="card" data-tab-default>
@@ -205,7 +206,7 @@
 </main>
 
 <script type="module">
-import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
+import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail, loadRates } from './crm.js';
 
 // Tabs stay hidden until you're signed in.
 document.body.classList.add('signed-out');
@@ -329,7 +330,7 @@ function clearPick() {
 
 $('custClear').addEventListener('click', () => {
   clearPick();
-  $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
+  $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = ''; $('custCompany').value = '';
 });
 
 $('custSearch').addEventListener('input', () => {
@@ -359,9 +360,9 @@ $('custSearch').addEventListener('input', () => {
       $('custName').value = c.name || '';
       $('custEmail').value = c.email || '';
       $('custPhone').value = c.phone || '';
+      $('custCompany').value = c.company || '';
       if (c.preferred_contact) $('prefContact').value = c.preferred_contact;
-      $('custPickedName').textContent = 'Using ' + ([c.name, c.company].filter(Boolean).join(' · ') || c.email) +
-        '. Their details will already be on the booking form.';
+      $('custPickedName').textContent = 'Using ' + ([c.name, c.company].filter(Boolean).join(' · ') || c.email || c.phone) + '.';
       $('custPicked').style.display = 'block';
       $('custSearch').style.display = 'none';
       $('custHits').innerHTML = '';
@@ -392,7 +393,7 @@ $('createBtn').addEventListener('click', async () => {
     p_customer_name: name,
     p_customer_email: email || null,
     p_customer_phone: phone || null,
-    p_company: PICKED?.company || null,
+    p_company: PICKED?.company || $('custCompany').value.trim() || null,
     p_contact_id: PICKED?.id || null,
     p_preferred: preferred,
     p_diag_fee: !$('noDiag').checked
@@ -446,15 +447,13 @@ $('createBtn').addEventListener('click', async () => {
 
   $('createBtn').disabled = false;
   $('createBtn').textContent = 'Create job & get link';
-  $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
+  $('custName').value = ''; $('custEmail').value = ''; $('custPhone').value = ''; $('custCompany').value = '';
   $('noDiag').checked = false;
   clearPick();
   loadJobs();
 });
 
 // ---------- book in items by hand (no booking form) ----------
-let BH_PICK = null;
-let bhTimer = null;
 const escH = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 function bhRowHtml(v = {}) {
@@ -480,7 +479,8 @@ function bhRead() {
 function bhRenumber() {
   const rows = [...$('bhRows').querySelectorAll('tr')];
   rows.forEach((tr, i) => { tr.querySelector('.bhn').textContent = i + 1; });
-  $('bhBtn').textContent = rows.length === 1 ? 'Create 1 job' : 'Create ' + rows.length + ' jobs';
+  $('bhBtn').textContent = (document.querySelector('input[name=mode]:checked') || {}).value === 'site' ? 'Create site visit job'
+    : rows.length === 1 ? 'Create 1 job' : 'Create ' + rows.length + ' jobs';
 }
 function bhAdd(v, n = 1) {
   for (let i = 0; i < n; i++) $('bhRows').insertAdjacentHTML('beforeend', bhRowHtml(v));
@@ -502,91 +502,84 @@ $('bhCopy').addEventListener('click', () => {
 });
 $('bhGen').addEventListener('click', async () => {
   const need = [...$('bhRows').querySelectorAll('tr')].filter(tr => !tr.dataset.jobno);
-  if (!need.length) return show($('bhMsg'), 'Every item already has a job number.', 'ok');
-  hide($('bhMsg'));
+  if (!need.length) return show($('newMsg'), 'Every item already has a job number.', 'ok');
+  hide($('newMsg'));
   $('bhGen').disabled = true;
   const { data, error } = await sb.rpc('reserve_job_numbers', { p_count: need.length });
   $('bhGen').disabled = false;
-  if (error) return show($('bhMsg'), error.message, 'err');
+  if (error) return show($('newMsg'), error.message, 'err');
   need.forEach((tr, i) => { tr.dataset.jobno = data[i]; tr.querySelector('.bhj').textContent = data[i]; });
-  show($('bhMsg'), data.length === 1 ? data[0] + ' reserved.' : data[0] + ' to ' + data[data.length - 1] + ' reserved.', 'ok');
+  show($('newMsg'), data.length === 1 ? data[0] + ' reserved.' : data[0] + ' to ' + data[data.length - 1] + ' reserved.', 'ok');
 });
 bhAdd({});
 
-function bhClearPick() {
-  BH_PICK = null;
-  $('bhPicked').style.display = 'none';
-  $('bhSearch').style.display = '';
-  $('bhSearch').value = '';
-  $('bhHits').innerHTML = '';
-  $('bhNew').style.display = '';
-}
-$('bhClear').addEventListener('click', bhClearPick);
-$('bhSearch').addEventListener('input', () => {
-  clearTimeout(bhTimer);
-  const q = $('bhSearch').value.trim();
-  if (q.length < 2) { $('bhHits').innerHTML = ''; return; }
-  bhTimer = setTimeout(async () => {
-    const { data, error } = await sb.rpc('find_contacts', { p_query: q });
-    if (error) return;
-    const rows = data || [];
-    $('bhHits').innerHTML = rows.length
-      ? rows.map((c, i) => {
-          const who = [c.name, c.company].filter(Boolean).join(' · ') || c.email || c.phone;
-          const sub = [c.email, c.phone].filter(Boolean).join(' · ');
-          return `<div class="hitrow" data-i="${i}" style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;background:#fff">
-            <div style="font-weight:600;font-size:14px">${escH(who)}</div>
-            <div style="font-size:13px;color:var(--muted)">${escH(sub)}</div></div>`;
-        }).join('')
-      : '<p class="empty" style="padding:8px 0">No match — fill in their details below and a new record is made.</p>';
-    $('bhHits').querySelectorAll('[data-i]').forEach(el => el.addEventListener('click', () => {
-      const c = rows[Number(el.dataset.i)];
-      BH_PICK = c;
-      $('bhPickedName').textContent = 'Booking in for ' + ([c.name, c.company].filter(Boolean).join(' · ') || c.email || c.phone) + '.';
-      $('bhPicked').style.display = 'block';
-      $('bhSearch').style.display = 'none';
-      $('bhHits').innerHTML = '';
-      $('bhNew').style.display = 'none';
-    }));
-  }, 250);
-});
-
 $('bhBtn').addEventListener('click', async () => {
-  hide($('bhMsg'));
+  const site = MODE() === 'site';
+  hide($('newMsg'));
   $('bhDone').innerHTML = '';
   const items = bhRead();
   const bad = items.findIndex(it => !it.device_type && !it.make_model);
-  if (bad !== -1) return show($('bhMsg'), 'Item ' + (bad + 1) + ' needs a type or make/model — or remove that row.', 'err');
-  const email = $('bhEmail').value.trim(), phone = $('bhPhone').value.trim();
-  if (!BH_PICK && !email && !phone) return show($('bhMsg'), 'Pick a customer, or enter an email address or mobile number.', 'err');
+  if (bad !== -1) return show($('newMsg'), (site ? 'Say what you\'re repairing (type or make/model).' : 'Item ' + (bad + 1) + ' needs a type or make/model — or remove that row.'), 'err');
+  const email = $('custEmail').value.trim(), phone = $('custPhone').value.trim();
+  if (!PICKED && !email && !phone) return show($('newMsg'), 'Pick a customer, or enter an email address or mobile number.', 'err');
+  const addr = $('siteAddr').value.trim();
+  if (site && !addr) return show($('newMsg'), 'Enter the site address.', 'err');
 
   $('bhBtn').disabled = true; $('bhBtn').textContent = 'Working…';
   const { data, error } = await sb.rpc('create_manual_jobs', {
-    p_customer_name: BH_PICK ? null : $('bhName').value.trim() || null,
-    p_customer_email: BH_PICK ? null : email || null,
-    p_customer_phone: BH_PICK ? null : phone || null,
-    p_company: BH_PICK ? null : $('bhCompany').value.trim() || null,
-    p_contact_id: BH_PICK ? BH_PICK.id : null,
-    p_preferred: BH_PICK?.preferred_contact || 'email',
-    p_diag_fee: !$('bhNoDiag').checked,
+    p_customer_name: PICKED ? null : $('custName').value.trim() || null,
+    p_customer_email: PICKED ? null : email || null,
+    p_customer_phone: PICKED ? null : phone || null,
+    p_company: PICKED ? null : $('custCompany').value.trim() || null,
+    p_contact_id: PICKED ? PICKED.id : null,
+    p_preferred: PICKED?.preferred_contact || $('prefContact').value || 'email',
+    p_diag_fee: site ? false : !$('bhNoDiag').checked,
     p_items: items,
-    p_arrived: $('bhHere').checked
+    p_arrived: site ? false : $('bhHere').checked
   });
-  $('bhBtn').disabled = false; bhRenumber();
-  if (error) return show($('bhMsg'), error.message, 'err');
-
+  if (error) { $('bhBtn').disabled = false; bhRenumber(); return show($('newMsg'), error.message, 'err'); }
   const made = data.jobs || [];
-  show($('bhMsg'), made.length + (made.length === 1 ? ' job' : ' jobs') + ' created: ' +
-    made[0].job_number + (made.length > 1 ? ' to ' + made[made.length - 1].job_number : '') + '.', 'ok');
+
+  if (site) {
+    const when = $('siteWhen').value ? new Date($('siteWhen').value).toISOString() : null;
+    const { error: e2 } = await sb.from('jobs').update({ on_site: true, site_address: addr, visit_at: when })
+      .in('job_number', made.map(m => m.job_number));
+    if (e2) { $('bhBtn').disabled = false; bhRenumber(); return show($('newMsg'), 'Job ' + made.map(m => m.job_number).join(', ') + ' was created, but it couldn\'t be marked as a site visit: ' + e2.message, 'err'); }
+  }
+  $('bhBtn').disabled = false; bhRenumber();
+
+  show($('newMsg'), (site ? 'Site visit job ' : made.length + (made.length === 1 ? ' job' : ' jobs') + ' created: ') +
+    made[0].job_number + (made.length > 1 ? ' to ' + made[made.length - 1].job_number : '') + (site ? ' created. Open it to press Arrived when you get there.' : '.'), 'ok');
   $('bhDone').innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px">' + made.map(m =>
     `<a class="send" href="job.html?job=${encodeURIComponent(m.job_number)}" style="text-decoration:none">${escH(m.job_number)} · ${escH(m.item || '')}</a>`).join('') + '</div>';
 
   $('bhRows').innerHTML = ''; bhAdd({});
-  $('bhName').value = ''; $('bhCompany').value = ''; $('bhEmail').value = ''; $('bhPhone').value = '';
+  $('custName').value = ''; $('custCompany').value = ''; $('custEmail').value = ''; $('custPhone').value = '';
+  $('siteAddr').value = ''; $('siteWhen').value = '';
   $('bhNoDiag').checked = false; $('bhHere').checked = true;
-  bhClearPick();
+  clearPick();
   loadJobs();
 });
+
+// ---------- which kind of new job ----------
+const MODE = () => (document.querySelector('input[name=mode]:checked') || {}).value || 'form';
+function showMode() {
+  const m = MODE();
+  document.querySelectorAll('#modes label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+  document.querySelectorAll('[data-mode]').forEach(el => {
+    el.style.display = el.dataset.mode.split(' ').includes(m) ? '' : 'none';
+  });
+  // a site visit is one job: keep just the first row
+  if (m === 'site') [...$('bhRows').querySelectorAll('tr')].slice(1).forEach(tr => tr.remove());
+  $('bhRows').querySelectorAll('.bhdel').forEach(b => b.style.visibility = m === 'site' ? 'hidden' : '');
+  bhRenumber();
+}
+document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', showMode));
+showMode();
+function showSiteRates() { loadRates().then(r => {
+  const each = (r.onsite_hourly * r.onsite_block_mins / 60).toFixed(2);
+  $('siteRates').textContent = `Billed from your Arrived and Finished times: £${Number(r.callout_fee).toFixed(2)} callout incl. the first ${r.callout_includes_mins} min, then £${each} per ${r.onsite_block_mins} min. Can't fix: ${r.unfixed_callout_pct}% of the callout. Change these in Settings.`;
+}).catch(() => {}); }
 
 // ---------- drop-offs ----------
 const dropText = ts => new Date(ts).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -728,6 +721,7 @@ async function start() {
     document.body.classList.remove('signed-out');
     loadJobs();
     loadCalendar();
+    showSiteRates();
   } else {
     $('login').style.display = 'block';
   }

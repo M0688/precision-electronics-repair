@@ -315,3 +315,40 @@ export function mdToHtml(text) {
   flushPara(); closeTo(0);
   return '<div class="ai-md">' + out.join('') + '</div>';
 }
+
+// ---------- on-site billing (rates set on the Settings page) ----------
+export const RATE_DEFAULTS = { callout_fee: 75, callout_includes_mins: 60, onsite_hourly: 50, onsite_block_mins: 15, unfixed_callout_pct: 50 };
+
+export async function loadRates() {
+  const { data } = await sb.from('business_settings').select('*').eq('id', 1).maybeSingle();
+  const r = { ...RATE_DEFAULTS };
+  if (data) Object.keys(RATE_DEFAULTS).forEach(k => { if (data[k] != null) r[k] = Number(data[k]); });
+  return r;
+}
+
+const pounds = n => Math.round(n * 100) / 100;
+const minsText = m => { const h = Math.floor(m / 60), r = m % 60; return [h ? h + 'h' : '', r || !h ? r + 'm' : ''].filter(Boolean).join(' '); };
+const firstText = m => m === 60 ? 'first hour' : m % 60 === 0 ? `first ${m / 60} hours` : `first ${minsText(m)}`;
+
+// One visit's time -> invoice lines. Any started block is charged as a full block.
+export function visitLines(mins, fixed, rates, label = '') {
+  const r = rates || RATE_DEFAULTS;
+  const pre = label ? label + ': ' : '';
+  if (fixed === false) {
+    return [{ description: `${pre}On-site visit, unable to repair (${r.unfixed_callout_pct}% of callout)`, amount: pounds(r.callout_fee * r.unfixed_callout_pct / 100) }];
+  }
+  const m = Math.max(0, Math.round(Number(mins) || 0));
+  const out = [{ description: `${pre}On-site callout, includes the ${firstText(r.callout_includes_mins)}` + (m ? ` (time on site ${minsText(m)})` : ''), amount: pounds(r.callout_fee) }];
+  const blocks = Math.ceil(Math.max(0, m - r.callout_includes_mins) / r.onsite_block_mins);
+  if (blocks) {
+    const each = pounds(r.onsite_hourly * r.onsite_block_mins / 60);
+    out.push({ description: `${pre}Further on-site labour: ${blocks} × ${r.onsite_block_mins} min at £${each.toFixed(2)} (£${Number(r.onsite_hourly).toFixed(2)}/hour)`, amount: pounds(blocks * each) });
+  }
+  return out;
+}
+
+// Minutes between arrived and finished, rounded down to whole minutes.
+export function visitMins(v) {
+  if (!v.arrived_at || !v.finished_at) return null;
+  return Math.max(0, Math.floor((new Date(v.finished_at) - new Date(v.arrived_at)) / 60000));
+}
