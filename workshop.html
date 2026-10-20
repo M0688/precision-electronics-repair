@@ -272,13 +272,25 @@ async function loadJobs() {
   }
   // Drop-off day and time, right under the status.
   const DROP = await dropoffsByJob();
+  // Site visit jobs: shown as "Site visit" until you've been, with the booked time.
+  const SITE = {};
+  const { data: sv } = await sb.from('jobs').select('job_number, visit_at').eq('on_site', true);
+  (sv || []).forEach(x => { SITE[x.job_number] = x; });
+  const PRE_VISIT = ['awaiting_intake', 'intake_received', 'estimated'];
+  const statusCell = j => {
+    const site = SITE[j.job_number];
+    if (site && PRE_VISIT.includes(j.status)) return `<span class="tag in">Site visit</span>` +
+      (site.visit_at ? `<br><span style="font-size:13px;font-weight:600;color:#1B2A4A">${dropText(site.visit_at)}</span>` : '');
+    return `<span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(STATUS_TEXT[j.status] || j.status_label || j.status || '').replace(/</g, '&lt;')}</span>` +
+      (site ? `<br><span style="font-size:13px;color:#5a6474">Site visit</span>` : '') +
+      (DROP[j.job_number] && /^dropoff_/.test(j.status) ? `<br><span style="font-size:13px;font-weight:600;color:#1B2A4A">${dropText(DROP[j.job_number].starts_at)}</span>` : '');
+  };
   const rows = data.map(j => `
     <tr>
       <td class="jobno"><a href="job.html?job=${j.job_number}" style="text-decoration:none">${j.job_number}</a></td>
       <td>${j.customer_name || '<span style="color:#5a6474">—</span>'}${j.customer_email ? `<br><span style="color:#5a6474;font-size:13px">${j.customer_email}</span>` : ''}</td>
-      <td class="hide">${j.make_model || ''}${j.fault_description ? `<br><span style="color:#5a6474;font-size:13px">${j.fault_description.slice(0, 60)}${j.fault_description.length > 60 ? '…' : ''}</span>` : ''}</td>
-      <td><span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(STATUS_TEXT[j.status] || j.status_label || j.status || '').replace(/</g, '&lt;')}</span>${
-        DROP[j.job_number] && /^dropoff_/.test(j.status) ? `<br><span style="font-size:13px;font-weight:600;color:#1B2A4A">${dropText(DROP[j.job_number].starts_at)}</span>` : ''}</td>
+      <td class="hide">${j.make_model || j.device_type || ''}${j.fault_description ? `<br><span style="color:#5a6474;font-size:13px">${j.fault_description.slice(0, 60)}${j.fault_description.length > 60 ? '…' : ''}</span>` : ''}</td>
+      <td>${statusCell(j)}</td>
       <td class="hide">${fmt(j.submitted_at || j.created_at)}</td>
     </tr>`).join('');
   $('jobsArea').innerHTML = `<table>
