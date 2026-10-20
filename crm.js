@@ -73,6 +73,7 @@ export function chrome(active) {
 
   $('signOut').addEventListener('click', async () => { await sb.auth.signOut(); location.href = 'workshop.html'; });
   collapsibleSections();
+  autoHistory();
 }
 
 // Every page's section boxes (.card starting with an <h2>) become tabs, the same
@@ -351,4 +352,90 @@ export function visitLines(mins, fixed, rates, label = '') {
 export function visitMins(v) {
   if (!v.arrived_at || !v.finished_at) return null;
   return Math.max(0, Math.floor((new Date(v.finished_at) - new Date(v.arrived_at)) / 60000));
+}
+
+
+// ---------- typing history on text boxes ----------
+// Every text box remembers what you've typed (on this device) and offers it again as you type.
+// Common fields share one list across pages, and are also filled from what's already in the system.
+const HIST_PAGE = (location.pathname.split('/').pop() || 'index.html');
+const HIST_ALIAS = {
+  'workshop.html#bt': 'type', 'job.html#ieType': 'type',
+  'workshop.html#bm': 'model', 'job.html#ieModel': 'model', 'stock.html#cModel': 'model', 'stock.html#nModel': 'model',
+  'workshop.html#bf': 'fault', 'stock.html#cFault': 'fault', 'stock.html#nFault': 'fault',
+  'parts.html#pName': 'partname', 'parts.html#eName': 'partname', 'job.html#qPartsNote': 'partname',
+  'parts.html#pNumber': 'partno', 'parts.html#eNumber': 'partno', 'stock.html#cPart': 'partno',
+  'parts.html#pLoc': 'location', 'parts.html#eLoc': 'location',
+  'tests.html#eApplies': 'partno'
+};
+// Never offered: one-off values (serials, stickers, job numbers), searches and readings.
+const HIST_SKIP = /search|phone|email|serial|sticker|wsInput|^bs$|ieSerial|rBoard|rJob|^m_|^s[a-z0-9]{8}$/i;
+const HIST_MAX = 300;
+
+function histKey(el) {
+  if (el.dataset.hist) return el.dataset.hist;
+  const name = el.id || [...el.classList][0] || el.getAttribute('placeholder') || '';
+  if (!name) return '';
+  return HIST_ALIAS[HIST_PAGE + '#' + name] || (HIST_PAGE + '#' + name);
+}
+function histRead(key) { try { return JSON.parse(localStorage.getItem('hist:' + key) || '[]'); } catch (e) { return []; } }
+function histSave(key, val) {
+  val = String(val || '').trim();
+  if (!val || val.length > 200) return;
+  const list = histRead(key).filter(v => v.toLowerCase() !== val.toLowerCase());
+  list.unshift(val);
+  try { localStorage.setItem('hist:' + key, JSON.stringify(list.slice(0, HIST_MAX))); } catch (e) {}
+  const dl = document.getElementById('hist-' + key.replace(/[^a-z0-9]/gi, '_'));
+  if (dl) fillList(dl, key);
+}
+
+// Values already in the system, loaded once per page.
+let SEEDS = null;
+async function loadSeeds() {
+  if (SEEDS) return SEEDS;
+  SEEDS = {};
+  const uniq = arr => [...new Set(arr.map(v => String(v || '').trim()).filter(Boolean))];
+  try {
+    const [{ data: jobs }, { data: parts }] = await Promise.all([
+      sb.from('job_list').select('make_model, device_type, fault_description').order('created_at', { ascending: false }).limit(500),
+      sb.from('parts_stock').select('name, part_number, location')
+    ]);
+    SEEDS.model = uniq((jobs || []).map(j => j.make_model));
+    SEEDS.type = uniq([...(jobs || []).map(j => j.device_type), 'PCB', 'Laptop', 'Phone', 'Tablet', 'Games console', 'Controller', 'Desktop PC', 'Arcade machine']);
+    SEEDS.fault = uniq((jobs || []).map(j => j.fault_description)).filter(v => v.length <= 120);
+    SEEDS.partname = uniq((parts || []).map(p => p.name));
+    SEEDS.partno = uniq((parts || []).map(p => p.part_number));
+    SEEDS.location = uniq((parts || []).map(p => p.location));
+  } catch (e) {}
+  document.querySelectorAll('datalist[data-histkey]').forEach(dl => fillList(dl, dl.dataset.histkey));
+  return SEEDS;
+}
+function fillList(dl, key) {
+  const seen = new Set(), out = [];
+  [...histRead(key), ...((SEEDS && SEEDS[key]) || [])].forEach(v => { const k = v.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(v); } });
+  dl.innerHTML = out.slice(0, HIST_MAX).map(v => `<option value="${esc(v)}"></option>`).join('');
+}
+function wireHistory(el) {
+  if (el.dataset.histOn || el.hasAttribute('list') || el.dataset.nohist !== undefined) return;
+  const type = (el.getAttribute('type') || 'text').toLowerCase();
+  if (type !== 'text' || el.getAttribute('inputmode') === 'decimal') return;
+  const name = el.id || [...el.classList][0] || '';
+  if (HIST_SKIP.test(name) || HIST_SKIP.test(el.getAttribute('placeholder') || '') || el.autocomplete === 'off') return;
+  const key = histKey(el); if (!key) return;
+  el.dataset.histOn = '1';
+  const id = 'hist-' + key.replace(/[^a-z0-9]/gi, '_');
+  let dl = document.getElementById(id);
+  if (!dl) { dl = document.createElement('datalist'); dl.id = id; dl.dataset.histkey = key; document.body.appendChild(dl); fillList(dl, key); }
+  el.setAttribute('list', id);
+  el.setAttribute('autocomplete', 'off');
+  el.addEventListener('change', () => histSave(key, el.value));
+}
+export function autoHistory() {
+  const scan = root => (root.querySelectorAll ? root.querySelectorAll('input') : []).forEach(wireHistory);
+  scan(document);
+  loadSeeds();
+  new MutationObserver(recs => recs.forEach(r => r.addedNodes.forEach(n => {
+    if (n.nodeType !== 1) return;
+    if (n.tagName === 'INPUT') wireHistory(n); else scan(n);
+  }))).observe(document.body, { childList: true, subtree: true });
 }
