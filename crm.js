@@ -48,10 +48,8 @@ export function chrome(active) {
   const tabs = [
     ['workshop.html', 'Jobs'],
     ['invoices.html', 'Invoices'],
-    ['todo.html', 'To do'],
     ['contacts.html', 'Contacts'],
     ['parts.html', 'Parts'],
-    ['stock.html', 'Stock'],
     ['tests.html', 'Tests'],
     ['reports.html', 'Reports'],
     ['settings.html', 'Settings']
