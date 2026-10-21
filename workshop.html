@@ -92,18 +92,6 @@
     <!-- Dashboard -->
     <div id="app" style="display:none">
 
-      <div class="card" id="calCard">
-        <h2>Bookings calendar</h2>
-        <div class="calbar">
-          <button class="send" id="calPrev" type="button">&larr; Previous</button>
-          <button class="send" id="calToday" type="button">This week</button>
-          <button class="send" id="calNext" type="button">Next &rarr;</button>
-          <strong id="calTitle"></strong>
-          <span class="calkey"><span class="k drop"></span>Drop-off <span class="k coll"></span>Collection <span class="k site"></span>Site visit <span class="k req"></span>Needs confirming <span class="k shut"></span>Closed / away</span>
-        </div>
-        <div class="calwrap"><div id="calGrid" class="calgrid"></div></div>
-      </div>
-
       <div class="card">
         <h2>New job</h2>
         <div id="newMsg" class="msg"></div>
@@ -209,6 +197,18 @@
         <h2>Jobs</h2>
         <div id="jobsMsg" class="msg"></div>
         <div id="jobsArea"><p class="empty">Loading…</p></div>
+      </div>
+
+      <div class="card" id="calCard">
+        <h2>Bookings calendar</h2>
+        <div class="calbar">
+          <button class="send" id="calPrev" type="button">&larr; Previous</button>
+          <button class="send" id="calToday" type="button">This week</button>
+          <button class="send" id="calNext" type="button">Next &rarr;</button>
+          <strong id="calTitle"></strong>
+          <span class="calkey"><span class="k drop"></span>Drop-off <span class="k coll"></span>Collection <span class="k site"></span>Site visit <span class="k req"></span>Needs confirming <span class="k shut"></span>Closed / away</span>
+        </div>
+        <div class="calwrap"><div id="calGrid" class="calgrid"></div></div>
       </div>
 
     </div>
