@@ -87,6 +87,12 @@
           </div>
         </div>
 
+        <div id="reviewBox" style="display:none;margin:0 0 16px;padding:16px 18px;border:1px solid #e2e6ec;border-left:4px solid #1B2A4A;border-radius:8px">
+          <strong style="color:#1B2A4A">Thank you. Happy with your repair?</strong><br>
+          A quick Google review helps other people in Watford find us. It only takes a minute.
+          <div style="margin-top:10px"><a href="https://g.page/r/CZW25sBMavRTECE/review" target="_blank" rel="noopener" style="display:inline-block;background:#1B2A4A;color:#fff;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:8px">Leave a Google review</a></div>
+        </div>
+
         <button id="dl">Download PDF invoice</button>
       </div>
     </div>
@@ -160,6 +166,7 @@ async function start() {
       $('paidTag').style.display = 'block';
       $('amount').textContent = 'Total: £' + Number(d.amount).toFixed(2);
       $('payBlock').style.display = 'none';
+      $('reviewBox').style.display = 'block';
     }
     $('loading').classList.remove('show');
     $('area').style.display = 'block';
