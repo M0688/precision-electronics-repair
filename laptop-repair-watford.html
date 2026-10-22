@@ -43,6 +43,70 @@
   ]
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Will I lose my data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A board-level repair can often keep the data, but we can't guarantee it, and some repairs carry a risk to stored data. Back up first if you can."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I post a device with a battery in it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, but a parcel with a battery fitted must be handed in at a Post Office counter, not put in a postbox. Don't send a swollen, leaking or damaged battery — remove it, keep it, and tell us on your booking form."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I have to pay a diagnostic fee?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only if we have to find the fault for you. It's £30, and it comes off the repair price if you go ahead. If the fault is obvious, like a broken port, there's no diagnostic fee and we just price the repair."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What if it can't be repaired?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "There's no charge for our time. If we post it back, you pay the return postage at cost. You get it back with a written account of what we tested."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is the price fixed?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "We quote before any repair work, and nothing chargeable starts until you approve the price. If we find it will cost more than you approved, we contact you before carrying on."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I get it to you?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Book online and we'll email you a short booking form. Then either post it to us from anywhere in the UK, or drop it off by appointment in Watford."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What warranty do I get?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Our workmanship is guaranteed for as long as you own the device, and replacement parts for 6 months. It covers the repair we carried out. Every repaired item has a numbered warranty sticker, which needs to stay in place. Your statutory rights are not affected."
+      }
+    }
+  ]
+}
+</script>
 <style>
   :root {
     --navy: #1B2A4A; --navy-dark: #121d34; --ink: #1f2733; --muted: #5a6474;
@@ -115,6 +179,13 @@
   .intro .btn { margin-top: 26px; }
   @media (max-width: 860px) { .faults, .ways { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { th, td { padding: 11px 12px; font-size: 15px; } }
+  .faq { max-width: 760px; }
+  .faq h3 { font-size: 17px; color: var(--navy); margin: 22px 0 6px; }
+  .faq p { margin: 0; color: var(--muted); font-size: 15px; }
+  .review { background: var(--white); border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 8px; padding: 20px 24px; max-width: 760px; }
+  .review .stars { color: #e3a008; font-size: 18px; letter-spacing: 2px; }
+  .review blockquote { margin: 8px 0 8px; font-size: 16px; color: var(--ink); }
+  .review cite { font-style: normal; font-size: 14px; color: var(--muted); }
 </style>
 </head>
 <body id="top">
@@ -150,6 +221,18 @@
       <div class="card"><h3>Liquid damage</h3><p>Spills cause corrosion and short circuits on the board. Damaged components are found and replaced.</p></div>
       <div class="card"><h3>Ports and connectors</h3><p>USB-C, charge and other ports replaced, with damaged pads rebuilt first so the new port holds.</p></div>
       <div class="card"><h3>Your data</h3><p>A motherboard repair usually leaves the storage untouched. We can't guarantee data survives, so back up first if you can.</p></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <h2>All makes and models</h2>
+    <p class="lead">We repair all makes and models. These are the ones we see most.</p>
+    <div class="faults">
+      <div class="card"><h3>Laptops</h3><p>MacBook, Dell, HP, Lenovo, Asus, Acer, MSI, Microsoft Surface and more.</p></div>
+      <div class="card"><h3>Gaming laptops</h3><p>Including high-power gaming laptops from Asus ROG, MSI, Razer and Alienware.</p></div>
+      <div class="card"><h3>Desktop PCs</h3><p>Desktop computers and motherboards, including custom-built PCs.</p></div>
     </div>
   </div>
 </section>
@@ -200,6 +283,28 @@
       <h3>Lifetime warranty on our workmanship</h3>
       <p>Our workmanship is guaranteed for as long as you own the device. Replacement parts carry a 6-month
       warranty. Your statutory rights are not affected.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Common questions</h2>
+    <div class="faq">
+      <h3>Will I lose my data?</h3>
+      <p>A board-level repair can often keep the data, but we can't guarantee it, and some repairs carry a risk to stored data. Back up first if you can.</p>
+      <h3>Can I post a device with a battery in it?</h3>
+      <p>Yes, but a parcel with a battery fitted must be handed in at a Post Office counter, not put in a postbox. Don't send a swollen, leaking or damaged battery &mdash; remove it, keep it, and tell us on your booking form.</p>
+      <h3>Do I have to pay a diagnostic fee?</h3>
+      <p>Only if we have to find the fault for you. It's £30, and it comes off the repair price if you go ahead. If the fault is obvious, like a broken port, there's no diagnostic fee and we just price the repair.</p>
+      <h3>What if it can't be repaired?</h3>
+      <p>There's no charge for our time. If we post it back, you pay the return postage at cost. You get it back with a written account of what we tested.</p>
+      <h3>Is the price fixed?</h3>
+      <p>We quote before any repair work, and nothing chargeable starts until you approve the price. If we find it will cost more than you approved, we contact you before carrying on.</p>
+      <h3>How do I get it to you?</h3>
+      <p>Book online and we'll email you a short booking form. Then either post it to us from anywhere in the UK, or drop it off by appointment in Watford.</p>
+      <h3>What warranty do I get?</h3>
+      <p>Our workmanship is guaranteed for as long as you own the device, and replacement parts for 6 months. It covers the repair we carried out. Every repaired item has a numbered warranty sticker, which needs to stay in place. Your statutory rights are not affected.</p>
     </div>
   </div>
 </section>
