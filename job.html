@@ -912,11 +912,30 @@ async function addWorkPhotos(input) {
 $('wpCam').addEventListener('change', e => addWorkPhotos(e.target));
 $('wpPick').addEventListener('change', e => addWorkPhotos(e.target));
 
+// Delete anything made on this job (needs the stage 35 database update).
+async function delRecord(table, id, what) {
+  if (!confirm('Delete this ' + what + '? This can\'t be undone.')) return false;
+  const { error } = await sb.rpc('delete_record', { p_table: table, p_id: id });
+  if (error) {
+    show($('msg'), /delete_record/.test(error.message) ? 'Deleting needs the stage 35 database update first.' : error.message, 'err');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return false;
+  }
+  return true;
+}
+const delBtn = (table, id, what) => `<button type="button" class="btn-sm danger" data-del-t="${table}" data-del-id="${id}" data-del-w="${what}">Delete</button>`;
+function wireDeletes(root, after) {
+  root.querySelectorAll('[data-del-t]').forEach(b => b.addEventListener('click', async () => {
+    if (await delRecord(b.dataset.delT, b.dataset.delId, b.dataset.delW)) after();
+  }));
+}
+
 async function loadNotes(jobId) {
   const { data } = await sb.from('job_notes').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
   $('notes').innerHTML = (data || []).map(n =>
-    `<li><div class="when">${when(n.created_at)}${n.created_by ? ' · ' + esc(n.created_by) : ''}</div><div class="what">${esc(n.note)}</div></li>`
+    `<li><div class="when" style="display:flex;gap:10px;align-items:center">${when(n.created_at)}${n.created_by ? ' · ' + esc(n.created_by) : ''}<span style="margin-left:auto">${delBtn('job_notes', n.id, 'note')}</span></div><div class="what">${esc(n.note)}</div></li>`
   ).join('') || '<li class="when">No notes yet.</li>';
+  wireDeletes($('notes'), () => loadNotes(jobId));
 }
 
 const CHANNEL_LABEL = { email: 'Email', whatsapp: 'WhatsApp', sms: 'Text', call: 'Call', system: 'System', other: 'Note' };
@@ -928,11 +947,12 @@ async function loadComms(jobId) {
     const arrow = c.direction === 'in' ? '&larr;' : c.direction === 'out' ? '&rarr;' : '·';
     const cls = c.direction === 'in' ? 'in' : c.direction === 'out' ? 'wait' : 'off';
     return `<li>
-      <div class="when">${when(c.occurred_at)} · <span class="tag ${cls}" style="padding:2px 8px">${arrow} ${esc(CHANNEL_LABEL[c.channel] || c.channel)}</span>${c.auto ? '' : ' · logged by you'}</div>
+      <div class="when" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${when(c.occurred_at)} · <span class="tag ${cls}" style="padding:2px 8px">${arrow} ${esc(CHANNEL_LABEL[c.channel] || c.channel)}</span>${c.auto ? '' : ' · logged by you'}<span style="margin-left:auto">${delBtn('comms', c.id, 'message record')}</span></div>
       <div class="what" style="font-weight:600">${esc(c.summary)}</div>
       ${c.body ? `<div class="what" style="color:var(--muted)">${esc(c.body)}</div>` : ''}
     </li>`;
   }).join('') || '<li class="when">Nothing logged yet.</li>';
+  wireDeletes($('comList'), () => loadComms(jobId));
 }
 
 $('comBtn').addEventListener('click', async () => {
@@ -979,9 +999,10 @@ async function loadQuotes(jobId) {
       }</div>` : ''}
       <div class="when" style="color:var(--muted);font-size:12px;margin-top:8px">Sent ${when(q.sent_at)}${q.responded_at ? ' · answered ' + when(q.responded_at) : ''}</div>
       ${q.response_note ? `<div style="font-size:13px;margin-top:6px">Customer said: ${esc(q.response_note)}</div>` : ''}
-      ${isEst ? `<div class="sendrow"><button class="send" type="button" data-convert="${q.id}">Convert to quote</button></div>` : ''}
+      <div class="sendrow">${isEst ? `<button class="send" type="button" data-convert="${q.id}">Convert to quote</button>` : ''}${delBtn('quotes', q.id, isEst ? 'estimate' : 'quote')}</div>
     </div>`;
   }).join('');
+  wireDeletes($('quoteList'), () => loadQuotes(jobId));
   $('quoteList').querySelectorAll('[data-convert]').forEach(b => b.addEventListener('click', () => convertToQuote(b.dataset.convert)));
   loadItems(jobId);
   loadBatch().then(loadUsage).then(fillInvoiceDescription);
@@ -1707,11 +1728,13 @@ async function loadInvoices(jobId) {
       ${paid
         ? `<div class="sendrow">
              <button class="send" data-receipt="${v.id}">Send the receipt again</button>
+             ${delBtn('invoices', v.id, 'paid invoice (its payment record goes too)')}
            </div>
            ${v.receipt_number ? `<div style="color:var(--muted);font-size:12px;margin-top:8px">Receipt ${esc(v.receipt_number)}${v.receipt_sent_at ? ' · sent ' + when(v.receipt_sent_at) : ''}</div>` : ''}`
         : `<div class="sendrow">
              <button class="send" data-email="${v.id}" style="border-color:var(--navy)">Email invoice to customer</button>
              <button class="send" data-pdf="${v.id}">Download PDF</button>
+             ${delBtn('invoices', v.id, 'invoice')}
            </div>
            <div class="sendrow">
              <button class="send" data-paid="${v.id}" data-method="bank transfer">Mark paid — bank transfer</button>
@@ -1721,6 +1744,7 @@ async function loadInvoices(jobId) {
   }).join('');
 
   INVOICES = data || [];
+  wireDeletes($('invList'), () => { loadInvoices(JOBROW.id); loadNotes(JOBROW.id); });
 
   $('invList').querySelectorAll('[data-paid]').forEach(btn => {
     btn.addEventListener('click', async () => {

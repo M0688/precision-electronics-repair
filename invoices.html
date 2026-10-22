@@ -125,11 +125,18 @@ function render() {
         <td class="hide jobs">${r.covered.map(j => `<a href="job.html?job=${encodeURIComponent(j.job_number)}">${esc(j.job_number)}</a>`).join('<br>')}</td>
         <td class="amt">${money(r.amount)}</td>
         <td class="hide">${when(r.issued_at)}</td>
-        <td>${tag}</td>
+        <td>${tag}<div style="margin-top:6px"><button class="btn-sm danger" data-del="${r.id}" data-paidinv="${paid ? 1 : ''}">Delete</button></div></td>
       </tr>`;
     }).join('')}</tbody></table>`;
 
   $('list').querySelectorAll('[data-paid]').forEach(btn => btn.addEventListener('click', () => markPaid(btn)));
+  $('list').querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Delete this ' + (btn.dataset.paidinv ? 'paid invoice and its payment record' : 'invoice') + '? This can\'t be undone.')) return;
+    btn.disabled = true;
+    const { error } = await sb.rpc('delete_record', { p_table: 'invoices', p_id: btn.dataset.del });
+    if (error) { btn.disabled = false; return alert(/delete_record/.test(error.message) ? 'Deleting needs the stage 35 database update first.' : error.message); }
+    load();
+  }));
 }
 
 async function markPaid(btn) {
