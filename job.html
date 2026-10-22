@@ -358,6 +358,7 @@
         <textarea id="iDesc" style="min-height:60px" placeholder="Anything the customer should read alongside the lines."></textarea>
 
         <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
+        <button class="send" id="invSave" type="button" style="margin-left:6px">Save invoice, send later</button>
         <div id="iSend" style="display:none">
           <div class="linkbox" id="iLink"></div>
           <div class="sendrow">
@@ -1070,24 +1071,42 @@ function guessKind(desc) {
 const KIND_TEXT = { labour: 'Labour', parts: 'Parts', postage: 'Postage' };
 
 function drawLines() {
-  LINES.forEach(l => { if (!l.kind) l.kind = guessKind(l.description); });
-  $('iLines').innerHTML = LINES.map((l, n) => `
+  LINES.forEach(l => {
+    if (!l.kind) l.kind = guessKind(l.description);
+    if (!(Number(l.qty) > 0)) l.qty = 1;
+    if (l.unit == null) l.unit = Number(l.amount) || 0;
+    l.amount = Math.round(Number(l.qty) * Number(l.unit) * 100) / 100;
+  });
+  $('iLines').innerHTML = `<div class="row" style="margin-bottom:0;font-size:12px;color:var(--muted);font-weight:600">
+      <div style="flex:1 1 260px">Description</div><div style="flex:0 0 110px">Type</div><div style="flex:0 0 70px">Qty</div>
+      <div style="flex:0 0 105px">Each £</div><div style="flex:0 0 85px">Line £</div><div style="flex:0 0 86px"></div></div>` +
+    LINES.map((l, n) => `
     <div class="row" style="align-items:flex-start;margin-bottom:4px">
       <div style="flex:1 1 260px">
         <textarea data-ldesc="${n}" style="min-height:58px" placeholder="What this line is for">${esc(l.description)}</textarea>
       </div>
-      <div style="flex:0 0 120px">
+      <div style="flex:0 0 110px">
         <select data-lkind="${n}">${Object.entries(KIND_TEXT).map(([k, v]) =>
           `<option value="${k}"${l.kind === k ? ' selected' : ''}>${v}</option>`).join('')}</select>
       </div>
-      <div style="flex:0 0 120px">
-        <input type="number" data-lamt="${n}" min="0" step="0.01" placeholder="0.00" value="${l.amount ? Number(l.amount).toFixed(2) : ''}">
+      <div style="flex:0 0 70px">
+        <input type="number" data-lqty="${n}" min="0" step="any" value="${Number(l.qty)}">
       </div>
-      <div style="flex:0 0 auto">
+      <div style="flex:0 0 105px">
+        <input type="number" data-lamt="${n}" min="0" step="0.01" placeholder="0.00" value="${l.unit ? Number(l.unit).toFixed(2) : ''}">
+      </div>
+      <div style="flex:0 0 85px;padding-top:11px;font-weight:700;color:var(--navy)" data-ltot="${n}">£${Number(l.amount).toFixed(2)}</div>
+      <div style="flex:0 0 86px">
         <button class="send" type="button" data-ldel="${n}" style="margin-bottom:14px"${LINES.length === 1 ? ' disabled' : ''}>Remove</button>
       </div>
     </div>`).join('');
 
+  const recalc = n => {
+    const l = LINES[n];
+    l.amount = Math.round((Number(l.qty) || 0) * (Number(l.unit) || 0) * 100) / 100;
+    const t = $('iLines').querySelector(`[data-ltot="${n}"]`); if (t) t.textContent = '£' + l.amount.toFixed(2);
+    showTotal();
+  };
   $('iLines').querySelectorAll('[data-ldesc]').forEach(el => el.addEventListener('input', () => {
     LINES[+el.dataset.ldesc].description = el.value;
   }));
@@ -1095,9 +1114,11 @@ function drawLines() {
     LINES[+el.dataset.lkind].kind = el.value;
     showTotal();
   }));
+  $('iLines').querySelectorAll('[data-lqty]').forEach(el => el.addEventListener('input', () => {
+    LINES[+el.dataset.lqty].qty = parseFloat(el.value) || 0; recalc(+el.dataset.lqty);
+  }));
   $('iLines').querySelectorAll('[data-lamt]').forEach(el => el.addEventListener('input', () => {
-    LINES[+el.dataset.lamt].amount = parseFloat(el.value) || 0;
-    showTotal();
+    LINES[+el.dataset.lamt].unit = parseFloat(el.value) || 0; recalc(+el.dataset.lamt);
   }));
   $('iLines').querySelectorAll('[data-ldel]').forEach(el => el.addEventListener('click', () => {
     LINES.splice(+el.dataset.ldel, 1);
@@ -1667,6 +1688,10 @@ async function loadInvoices(jobId) {
            </div>
            ${v.receipt_number ? `<div style="color:var(--muted);font-size:12px;margin-top:8px">Receipt ${esc(v.receipt_number)}${v.receipt_sent_at ? ' · sent ' + when(v.receipt_sent_at) : ''}</div>` : ''}`
         : `<div class="sendrow">
+             <button class="send" data-email="${v.id}" style="border-color:var(--navy)">Email invoice to customer</button>
+             <button class="send" data-pdf="${v.id}">Download PDF</button>
+           </div>
+           <div class="sendrow">
              <button class="send" data-paid="${v.id}" data-method="bank transfer">Mark paid — bank transfer</button>
              <button class="send" data-paid="${v.id}" data-method="cash">Mark paid — cash</button>
            </div>`}
@@ -1699,6 +1724,21 @@ async function loadInvoices(jobId) {
     });
   });
 
+  $('invList').querySelectorAll('[data-email]').forEach(btn => btn.addEventListener('click', async () => {
+    const v = INVOICES.find(x => x.id === btn.dataset.email); if (!v) return;
+    if (!confirm('Email ' + v.invoice_number + ' (£' + Number(v.amount).toFixed(2) + ') to the customer now?')) return;
+    btn.disabled = true; btn.textContent = 'Sending…';
+    const out = await emailInvoice(v.id, await invoicePdf(v));
+    btn.disabled = false; btn.textContent = 'Email invoice to customer';
+    show($('invMsg'), out.ok ? v.invoice_number + ' emailed to ' + out.to + ' with the PDF attached.'
+      : v.invoice_number + ' did not send (' + (out.error || 'unknown error') + ').', out.ok ? 'ok' : 'err');
+    loadNotes(JOBROW.id); loadComms(JOBROW.id);
+  }));
+  $('invList').querySelectorAll('[data-pdf]').forEach(btn => btn.addEventListener('click', async () => {
+    const v = INVOICES.find(x => x.id === btn.dataset.pdf); if (!v) return;
+    (await invoicePdf(v)).save(v.invoice_number + '.pdf');
+  }));
+
   $('invList').querySelectorAll('[data-receipt]').forEach(btn => {
     btn.addEventListener('click', async () => {
       btn.disabled = true; btn.textContent = 'Sending…';
@@ -1713,11 +1753,20 @@ async function loadInvoices(jobId) {
   });
 }
 
-$('invBtn').addEventListener('click', async () => {
+$('invBtn').addEventListener('click', () => raiseInvoice(true));
+$('invSave').addEventListener('click', () => raiseInvoice(false));
+
+async function raiseInvoice(sendNow) {
   hide($('invMsg'));
 
   const lines = LINES
-    .map(({ usage, ...l }) => ({ ...l, description: String(l.description || '').trim(), amount: Number(l.amount) || 0 }))
+    .map(({ usage, qty, unit, ...l }) => {
+      let d = String(l.description || '').trim();
+      const q = Number(qty) || 1;
+      // the quantity goes into the wording, e.g. "Additional hour (2 × £50.00)"
+      if (q !== 1 && d && !/\(\d+(\.\d+)? × £/.test(d)) d += ` (${q} × £${(Number(unit) || 0).toFixed(2)})`;
+      return { ...l, description: d, amount: Number(l.amount) || 0 };
+    })
     .filter(l => l.description || l.amount);
 
   if (!lines.length) return show($('invMsg'), 'Add at least one line.', 'err');
@@ -1729,13 +1778,13 @@ $('invBtn').addEventListener('click', async () => {
   const amount = lines.reduce((s, l) => s + l.amount, 0);
   const desc = $('iDesc').value.trim();
 
-  $('invBtn').disabled = true; $('invBtn').textContent = 'Working…';
+  $('invBtn').disabled = true; $('invSave').disabled = true; $('invBtn').textContent = 'Working…';
 
   const { data, error } = await sb.rpc('create_invoice', {
     p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: lines
   });
   if (error) {
-    $('invBtn').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
+    $('invBtn').disabled = false; $('invSave').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
     return show($('invMsg'), error.message, 'err');
   }
   const row = Array.isArray(data) ? data[0] : data;
@@ -1759,15 +1808,7 @@ $('invBtn').addEventListener('click', async () => {
   };
   const doc = buildInvoicePdf(pdfData);
   LASTPDF = { doc, name: row.invoice_no + '.pdf' };
-  const base64 = doc.output('datauristring').split(',')[1];
-
-  const { data: sess } = await sb.auth.getSession();
-  const res = await fetch(SUPABASE_URL + '/functions/v1/send-invoice', {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invoice_id: row.invoice_id, pdf_base64: base64 })
-  });
-  const out = await res.json().catch(() => ({}));
+  const out = sendNow ? await emailInvoice(row.invoice_id, doc) : { saved: true };
 
   const link = 'https://precisionelectronicsrepair.co.uk/invoice.html?i=' + row.invoice_id + '&k=' + row.invoice_token;
   const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
@@ -1781,7 +1822,8 @@ $('invBtn').addEventListener('click', async () => {
   else { $('iSms').style.display = 'none'; }
   $('iSend').style.display = 'block';
 
-  if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF attached.', 'ok');
+  if (out.saved) show($('invMsg'), row.invoice_no + ' saved, not sent. Email it from the list below when you\'re ready, or use the buttons here.', 'ok');
+  else if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF attached.', 'ok');
   else show($('invMsg'), row.invoice_no + ' created, but the email failed (' + (out.error || 'unknown error') + '). Send the link below instead.', 'err');
 
   $('iDesc').value = '';
@@ -1791,8 +1833,29 @@ $('invBtn').addEventListener('click', async () => {
   showWs();
   askStickers([JOBROW.id, ...lines.map(l => l.job_ref)]);
   loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id); loadQuotes(JOBROW.id);
-  $('invBtn').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
-});
+  $('invBtn').disabled = false; $('invSave').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
+}
+
+async function emailInvoice(invoiceId, doc) {
+  const base64 = doc.output('datauristring').split(',')[1];
+  const { data: sess } = await sb.auth.getSession();
+  const res = await fetch(SUPABASE_URL + '/functions/v1/send-invoice', {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invoice_id: invoiceId, pdf_base64: base64 })
+  });
+  return res.json().catch(() => ({}));
+}
+
+// Rebuild an invoice's PDF from what was saved.
+async function invoicePdf(v) {
+  const { data: ls } = await sb.from('invoice_lines').select('description,amount').eq('invoice_id', v.id).order('position');
+  return buildInvoicePdf({
+    invoice_number: v.invoice_number, job_number: JOB, amount: Number(v.amount), description: v.description || '',
+    lines: ls || [], issued_at: v.issued_at, status: v.status,
+    customer_name: JOBROW.customer_name, customer_address: JOBROW.address, item: JOBROW.make_model || JOBROW.device_type
+  });
+}
 
 $('iPdf').addEventListener('click', () => { if (LASTPDF) LASTPDF.doc.save(LASTPDF.name); });
 
