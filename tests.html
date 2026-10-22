@@ -7,19 +7,19 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=6">
+<meta name="theme-color" content="#08111f">
+<link rel="stylesheet" href="crm.css?v=7">
 <style>
   .view { display: none; }
   .view.on { display: block; }
-  .plist .p { display: flex; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; background: #fff; flex-wrap: wrap; }
+  .plist .p { display: flex; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; background: var(--white); flex-wrap: wrap; }
   .plist .p .t { flex: 1 1 240px; }
   .plist .p .t strong { display: block; font-size: 15px; }
   .plist .p .t span { font-size: 13px; color: var(--muted); }
   .back { display: inline-block; margin-bottom: 12px; font-size: 14px; }
 
   /* editor */
-  .estep { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .estep { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: var(--white); }
   .estep.head { background: var(--soft); }
   .estep .top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
   .estep .num { font-weight: 700; color: var(--navy); min-width: 26px; }
@@ -32,9 +32,9 @@
 
   /* runner */
   .rstage { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--navy); font-weight: 700; margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--navy); }
-  .rstep { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .rstep { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: var(--white); }
   .rstep.pass { border-left-color: var(--green); }
-  .rstep.fail { border-left-color: var(--red); background: #fdf6f5; }
+  .rstep.fail { border-left-color: var(--red); background: rgba(255,107,94,.06); }
   .rstep.done { border-left-color: var(--green); }
   .rstep .ins { white-space: pre-wrap; font-size: 15px; margin-bottom: 8px; }
   .rstep .ins b.n { color: var(--navy); margin-right: 6px; }
@@ -43,8 +43,8 @@
   .rstep .mrow input { width: 150px; margin: 0; font-size: 17px; }
   .rstep .ref { font-size: 13px; color: var(--muted); }
   .verdict { font-weight: 700; font-size: 13px; padding: 3px 9px; border-radius: 6px; }
-  .verdict.pass { background: #e6f2ea; color: var(--green); }
-  .verdict.fail { background: #fbe4e2; color: var(--red); }
+  .verdict.pass { background: rgba(79,209,139,.14); color: var(--green); }
+  .verdict.fail { background: rgba(255,107,94,.14); color: var(--red); }
   .verdict.none { background: var(--soft); color: var(--muted); }
   .known { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
   .pf button { margin: 0 6px 0 0; }
@@ -56,8 +56,8 @@
   .summary .f strong { color: var(--red); }
   .summary .p strong { color: var(--green); }
   .saved { font-size: 13px; color: var(--muted); }
-  .tag.pass { background: #e6f2ea; color: var(--green); }
-  .tag.fail { background: #fbe4e2; color: var(--red); }
+  .tag.pass { background: rgba(79,209,139,.14); color: var(--green); }
+  .tag.fail { background: rgba(255,107,94,.14); color: var(--red); }
 </style>
 </head>
 <body>

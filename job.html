@@ -7,16 +7,35 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=6">
+<meta name="theme-color" content="#08111f">
+<link rel="stylesheet" href="crm.css?v=7">
 <style>
-  .btn-sm.danger { color: #b3261e; border-color: #f3c2bd; }
-  .btn-sm.danger:hover { background: #fdf2f1; }
+  /* Top box */
+  .jobhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  #backJobs { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: var(--navy); text-decoration: none; margin: 0 0 8px; }
+  #backJobs:hover { text-decoration: underline; }
+  .statusbar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; padding: 16px; background: var(--soft); border-radius: 12px; margin: 4px 0 16px; }
+  .statusbar .grow { flex: 1 1 260px; }
+  .statusbar select { margin: 0; font-weight: 700; }
+  .statusbar .primary { margin: 0; }
+  .jobgrid { display: grid; grid-template-columns: 170px 1fr; border-top: 1px solid var(--line); }
+  .jobgrid .k { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 14px 0; border-bottom: 1px solid var(--line); display: flex; align-items: center; }
+  .jobgrid .v { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--line); min-height: 52px; }
+  .jobgrid .v select, .jobgrid .v input[type=text] { width: auto; min-width: 200px; margin: 0; }
+  .jobgrid .hint { color: var(--muted); font-size: 13px; font-weight: 500; }
+  .jobtype label { display: inline-flex; align-items: center; gap: 8px; margin: 0 18px 0 0; font-size: 15px; cursor: pointer; }
+  .jobtype input { width: 18px; height: 18px; margin: 0; accent-color: var(--navy); }
+  .clock { font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 800; color: var(--navy); min-width: 84px; }
+  .timerbtn { font: inherit; font-weight: 800; padding: 8px 20px; border-radius: 10px; cursor: pointer; border: 1.5px solid #1c6b3c; background: #1c6b3c; color: #fff; }
+  .jobfoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  @media (max-width: 640px) {
+    .jobgrid { grid-template-columns: 1fr; }
+    .jobgrid .k { border-bottom: 0; padding: 12px 0 0; }
+  }
   /* Only what's special to the job page — everything else comes from crm.css. */
   .wrap { max-width: 980px; }
-  h1 { font-size: 24px; margin: 0 0 2px; }
+  h1 { font-size: 30px; margin: 0 0 2px; }
   textarea { min-height: 90px; }
-  button.ghost { background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; padding: 10px 16px; cursor: pointer; }
 
   .facts { display: grid; grid-template-columns: 170px 1fr; gap: 0; }
   .facts dt { color: var(--muted); font-size: 13px; padding: 9px 0; border-bottom: 1px solid var(--line); }
@@ -24,20 +43,17 @@
 
   .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .wphoto { position: relative; }
-  .wphoto .del { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,.92); border: 1px solid #f3c2bd; color: #b3261e; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 700; padding: 3px 8px; cursor: pointer; }
+  .wphoto .del { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,.92); border: 1px solid rgba(255,107,94,.45); color: var(--red); border-radius: 6px; font: inherit; font-size: 12px; font-weight: 700; padding: 3px 8px; cursor: pointer; }
   .wphoto .when { font-size: 12px; color: var(--muted); margin-top: 4px; }
   .camrow { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .cambtn { display: inline-flex; align-items: center; gap: 8px; background: var(--navy); color: #fff; border-radius: 10px; font-weight: 700; font-size: 16px; padding: 14px 22px; cursor: pointer; }
-  .cambtn.alt { background: #fff; color: var(--navy); border: 1px solid var(--line); font-size: 15px; }
+  .cambtn { display: inline-flex; align-items: center; gap: 8px; background: var(--navy); color: var(--on-navy); border-radius: 10px; font-weight: 700; font-size: 16px; padding: 14px 22px; cursor: pointer; }
+  .cambtn.alt { background: var(--white); color: var(--navy); border: 1px solid var(--line); font-size: 15px; }
   .cambtn input { display: none; }
   .photos a img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
 
   .quotebox { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
   .quotebox .amt { font-size: 19px; font-weight: 700; color: var(--navy); }
   .sendrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-  .send { display: inline-block; background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; text-decoration: none; }
-  .send:hover { background: var(--soft); }
-  .send.wa { border-color: #25D366; color: #128C4A; }
   .linkbox { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; word-break: break-all; margin-top: 12px; }
 
   /* Collapsible sections: closed by default, click the heading to open. */
@@ -55,9 +71,9 @@
   .jobtabs { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
              background: var(--soft); padding: 8px 0; margin: 0 0 10px; -webkit-overflow-scrolling: touch; }
   .jobtabs::-webkit-scrollbar { display: none; }
-  .jobtabs button { flex: 0 0 auto; background: #fff; border: 1px solid var(--line); color: var(--navy); border-radius: 999px;
+  .jobtabs button { flex: 0 0 auto; background: var(--white); border: 1px solid var(--line); color: var(--navy); border-radius: 999px;
                     font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
-  .jobtabs button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .jobtabs button.on { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
   .jobtabs .n { font-size: 11px; font-weight: 700; margin-left: 6px; background: var(--soft); color: var(--muted); border-radius: 999px; padding: 1px 7px; }
   .jobtabs button.on .n { background: rgba(255,255,255,.2); color: #fff; }
   .jobtabs .n:empty { display: none; }
@@ -86,14 +102,14 @@
     <div id="content" style="display:none">
 
       <div class="card">
-        <a href="workshop.html" id="backJobs" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:15px;color:var(--navy);text-decoration:none;margin:0 0 6px"
+        <a href="workshop.html" id="backJobs"
            onclick="try{localStorage.setItem('subtab:workshop.html:0','1')}catch(e){}"><span style="font-size:20px;line-height:1">&larr;</span> Jobs</a>
         <h1 id="jobNo"></h1>
         <p class="sub" id="jobSub"></p>
         <div id="dropBox" style="display:none;border-radius:10px;padding:12px 16px;margin:-6px 0 16px;display:none;align-items:center;gap:12px;flex-wrap:wrap"></div>
         <div id="colBox" style="display:none;border-radius:10px;padding:12px 16px;margin:-6px 0 16px;align-items:center;gap:12px;flex-wrap:wrap"></div>
-        <div class="row">
-          <div>
+        <div class="statusbar">
+          <div class="grow">
             <label for="status">Status</label>
             <select id="status">
               <option value="awaiting_intake">Awaiting booking form</option>
@@ -118,49 +134,54 @@
               <option value="closed">Expired (closed)</option>
             </select>
           </div>
-          <div style="flex:0 0 auto"><button class="primary" id="statusBtn" style="margin-bottom:14px">Save status</button></div>
-          <div style="flex:0 0 auto"><button type="button" class="send" id="nvBtn" style="margin-bottom:14px;color:#b3261e;border-color:#f3c2bd">Repair not viable</button></div>
+          <button class="primary" id="statusBtn">Save status</button>
         </div>
-        <div id="nvBanner" style="display:none;background:#fdf2f1;border:1px solid #f3c2bd;border-radius:10px;padding:10px 14px;margin:0 0 12px"></div>
-        <div id="nvPanel" style="display:none;border:1px solid #f3c2bd;border-radius:10px;padding:14px 16px;margin:0 0 14px">
-          <div style="font-weight:700;color:#b3261e;margin-bottom:8px">Why isn't the repair viable?</div>
+        <div id="nvBanner" style="display:none;background:rgba(255,107,94,.1);border:1px solid rgba(255,107,94,.45);border-radius:10px;padding:10px 14px;margin:0 0 12px"></div>
+        <div id="nvPanel" style="display:none;border:1px solid rgba(255,107,94,.45);border-radius:10px;padding:14px 16px;margin:0 0 14px">
+          <div style="font-weight:700;color:var(--red);margin-bottom:8px">Why isn't the repair viable?</div>
           <div id="nvReasons" style="display:grid;gap:6px;margin-bottom:10px"></div>
           <input type="text" id="nvOther" placeholder="Type the reason" style="display:none">
           <label for="nvNote" style="margin-top:4px">Details <span style="font-weight:400;color:var(--muted)">(optional, goes on the report)</span></label>
           <textarea id="nvNote" style="min-height:60px" placeholder="e.g. heavy corrosion under the main IC, tracks eaten through"></textarea>
-          <button type="button" class="primary" id="nvSave" style="margin:0;background:#b3261e;border-color:#b3261e">Mark as not viable</button>
+          <button type="button" class="primary" id="nvSave" style="margin:0;background:#b3261e;border-color:var(--red)">Mark as not viable</button>
           <button type="button" class="send" id="nvCancel" style="margin:0 0 0 6px">Cancel</button>
           <div id="nvMsg" class="msg" style="margin-top:10px"></div>
         </div>
-        <label id="tradeRow" style="display:none;align-items:center;gap:10px;font-weight:600;margin:0 0 10px">
-          <input type="checkbox" id="tradeBox" style="width:18px;height:18px"> Trade account
-          <span style="font-weight:400;color:var(--muted)">— 25% off labour on invoices; parts and postage at full price</span></label>
-        <label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:0 0 10px">
-          <input type="checkbox" id="siteBox" style="width:18px;height:18px"> Site visit job
-          <span id="siteBoxMsg" style="font-weight:400;color:var(--muted);font-size:13px"></span></label>
-        <div id="retRow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px">
-          <strong>Getting it back:</strong>
-          <select id="retSel" style="width:auto;margin:0">
-            <option value="">Not asked yet</option>
-            <option value="post">Post it back</option>
-            <option value="collect">Collecting (no postage)</option>
-          </select>
-          <span id="retMsg" style="color:var(--muted);font-size:13px"></span>
+        <div class="jobgrid">
+          <div class="k">Job type</div>
+          <div class="v jobtype">
+            <label id="tradeRow" style="display:none"><input type="checkbox" id="tradeBox"> Trade account <span class="hint">25% off labour</span></label>
+            <label><input type="checkbox" id="siteBox"> Site visit <span id="siteBoxMsg" class="hint"></span></label>
+          </div>
+
+          <div class="k" id="retK">Getting it back</div>
+          <div class="v" id="retRow">
+            <select id="retSel">
+              <option value="">Not asked yet</option>
+              <option value="post">Post it back</option>
+              <option value="collect">Collecting (no postage)</option>
+            </select>
+            <span id="retMsg" class="hint"></span>
+          </div>
+
+          <div class="k">Work time</div>
+          <div class="v" id="timerRow">
+            <span id="timerClock" class="clock">0:00:00</span>
+            <button type="button" id="timerBtn" class="timerbtn">Start</button>
+            <span id="timerMsg" class="hint"></span>
+          </div>
+
+          <div class="k">Warranty sticker</div>
+          <div class="v" id="wsRow">
+            <input type="text" id="wsInput" placeholder="Sticker ID" style="text-transform:uppercase">
+            <button type="button" class="send" id="wsSave">Save</button>
+            <span id="wsMsg" class="hint"></span>
+          </div>
         </div>
-        <div id="timerRow" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px">
-          <strong>Work time:</strong>
-          <span id="timerClock" style="font-variant-numeric:tabular-nums;font-size:18px;font-weight:700;color:var(--navy)">0:00:00</span>
-          <button type="button" id="timerBtn" style="width:auto;margin:0;padding:8px 18px;border-radius:8px;font:inherit;font-weight:700;cursor:pointer;border:1.5px solid #1c6b3c;background:#1c6b3c;color:#fff">Start</button>
-          <span id="timerMsg" style="color:var(--muted);font-size:13px"></span>
+        <div class="jobfoot">
+          <button type="button" class="send danger" id="nvBtn">Repair not viable</button>
+          <button type="button" class="btn-sm danger" id="delJob">Delete job</button>
         </div>
-        <div id="wsRow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;border-radius:10px">
-          <strong>Warranty sticker:</strong>
-          <input type="text" id="wsInput" placeholder="Sticker ID" style="width:170px;margin:0;text-transform:uppercase">
-          <button type="button" class="send" id="wsSave" style="margin:0">Save</button>
-          <span id="wsMsg" style="color:var(--muted);font-size:13px"></span>
-        </div>
-        <div class="secbar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <button type="button" class="btn-sm danger" id="delJob" style="margin-left:auto">Delete job</button></div>
       </div>
 
       <details class="card sec" id="siteSec" style="display:none">
@@ -172,28 +193,13 @@
             <button type="button" id="arrBtn" style="font:inherit;font-weight:700;font-size:17px;padding:14px 28px;border-radius:10px;border:0;background:#1c6b3c;color:#fff;cursor:pointer">Arrived</button>
             <span id="finWrap" style="display:none;gap:10px;flex-wrap:wrap;align-items:center">
               <span id="onSiteClock" style="font-variant-numeric:tabular-nums;font-size:20px;font-weight:700;color:var(--navy);margin-right:6px"></span>
-              <button type="button" id="finFixed" style="font:inherit;font-weight:700;font-size:16px;padding:14px 20px;border-radius:10px;border:0;background:var(--navy);color:#fff;cursor:pointer">Finished — fixed</button>
-              <button type="button" id="finNot" style="font:inherit;font-weight:700;font-size:16px;padding:14px 20px;border-radius:10px;border:1.5px solid #b3261e;background:#fff;color:#b3261e;cursor:pointer">Finished — couldn't fix</button>
+              <button type="button" id="finFixed" style="font:inherit;font-weight:700;font-size:16px;padding:14px 20px;border-radius:10px;border:0;background:var(--navy);color:var(--on-navy);cursor:pointer">Finished — fixed</button>
+              <button type="button" id="finNot" style="font:inherit;font-weight:700;font-size:16px;padding:14px 20px;border-radius:10px;border:1.5px solid #b3261e;background:var(--white);color:var(--red);cursor:pointer">Finished — couldn't fix</button>
             </span>
           </div>
           <p class="sub" id="siteRateNote" style="font-size:13px;margin:0 0 12px"></p>
           <div id="visitList"></div>
           <p class="sub" style="font-size:13px;margin:10px 0 0">The Invoice tab builds the charges from these times. Add parts there or under Parts used as normal.</p>
-        </div>
-      </details>
-
-      <details class="card sec" id="wpSec" open>
-        <summary><h2>Workshop photos</h2><span class="count" data-of="#wpGrid .wphoto"></span></summary>
-        <div class="secbody">
-          <div class="camrow">
-            <label class="cambtn">&#128247; Add photo
-              <input type="file" id="wpCam" accept="image/*" capture="environment"></label>
-            <label class="cambtn alt">Choose from gallery
-              <input type="file" id="wpPick" accept="image/*" multiple></label>
-          </div>
-          <div id="wpMsg" class="msg"></div>
-          <div class="photos" id="wpGrid"></div>
-          <p class="empty" id="wpEmpty" style="margin:0">No photos yet. Only you can see these.</p>
         </div>
       </details>
 
@@ -227,6 +233,31 @@
       </details>
 
       <details class="card sec">
+        <summary><h2>Work notes</h2><span class="count" data-of="#notes li:not(.when)"></span></summary>
+        <div class="secbody">
+        <div id="noteMsg" class="msg"></div>
+        <textarea id="noteText" placeholder="What you measured, what you found, what you did."></textarea>
+        <button class="primary" id="noteBtn">Add note</button>
+        <ul class="notes" id="notes" style="margin-top:18px"></ul>
+        </div>
+      </details>
+
+      <details class="card sec" id="wpSec" open>
+        <summary><h2>Workshop photos</h2><span class="count" data-of="#wpGrid .wphoto"></span></summary>
+        <div class="secbody">
+          <div class="camrow">
+            <label class="cambtn">&#128247; Add photo
+              <input type="file" id="wpCam" accept="image/*" capture="environment"></label>
+            <label class="cambtn alt">Choose from gallery
+              <input type="file" id="wpPick" accept="image/*" multiple></label>
+          </div>
+          <div id="wpMsg" class="msg"></div>
+          <div class="photos" id="wpGrid"></div>
+          <p class="empty" id="wpEmpty" style="margin:0">No photos yet. Only you can see these.</p>
+        </div>
+      </details>
+
+      <details class="card sec">
         <summary><h2>Price the job</h2><span class="count" data-of="#quoteList .quotebox"></span></summary>
         <div class="secbody">
         <p class="sub" id="qKindNote" style="margin-bottom:14px"></p>
@@ -254,7 +285,7 @@
           </div>
         </div>
 
-        <div class="osBox" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 14px;background:var(--soft)">
+        <div class="osBox" style="display:none;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 14px;background:var(--soft)">
           <strong style="color:var(--navy)">On-site visit</strong>
           <span style="font-size:13px;color:var(--muted)">— £75 callout incl. first hour, then £12.50 per 15 min. Can't fix: £37.50.</span>
           <div class="row" style="margin-top:8px">
@@ -325,67 +356,6 @@
         </div>
       </details>
 
-      <details class="card sec">
-        <summary><h2>Invoice</h2><span class="count" data-of="#invList .quotebox"></span></summary>
-        <div class="secbody">
-        <div id="invMsg" class="msg"></div>
-        <div id="wsAsk" style="display:none;background:#fff4e0;border:2px solid #e0a030;border-radius:10px;padding:14px 16px;margin:0 0 16px"></div>
-        <div id="invList"></div>
-
-        <label>Lines on this invoice</label>
-        <p class="sub" id="iDescNote" style="margin:0 0 10px"></p>
-        <div id="iLines"></div>
-        <div class="sendrow" style="margin:0 0 16px">
-          <button class="send" id="iAddLine" type="button">Add a line</button>
-          <span id="iTotal" style="align-self:center;font-weight:700;color:var(--navy)"></span>
-        </div>
-
-
-        <div class="osBox" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 14px;background:var(--soft)">
-          <strong style="color:var(--navy)">On-site visit</strong>
-          <span style="font-size:13px;color:var(--muted)">— £75 callout incl. first hour, then £12.50 per 15 min. Can't fix: £37.50.</span>
-          <div class="row" style="margin-top:8px">
-            <div style="flex:0 0 150px"><label for="iOsMins" style="font-size:13px">Minutes on site</label>
-              <input type="number" id="iOsMins" min="0" step="1" placeholder="e.g. 95" style="margin-bottom:8px"></div>
-            <div style="flex:0 0 190px"><label for="iOsFixed" style="font-size:13px">Outcome</label>
-              <select id="iOsFixed" style="margin-bottom:8px"><option value="yes">Fixed</option><option value="no">Couldn't fix it</option></select></div>
-            <div style="flex:0 0 auto"><button class="send" type="button" id="iOsUse" style="margin-bottom:8px">Add on-site lines</button></div>
-          </div>
-          <div id="iOsOut" style="font-size:14px;font-weight:600;color:var(--navy)"></div>
-        </div>
-
-        <label for="iDesc">Note on the invoice <span style="font-weight:400;color:var(--muted)">— optional</span></label>
-        <textarea id="iDesc" style="min-height:60px" placeholder="Anything the customer should read alongside the lines."></textarea>
-
-        <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
-        <button class="send" id="invSave" type="button" style="margin-left:6px">Save invoice, send later</button>
-        <div id="iSend" style="display:none">
-          <div class="linkbox" id="iLink"></div>
-          <div class="sendrow">
-            <button class="send" id="iCopy">Copy link</button>
-            <a class="send wa" id="iWa" target="_blank" rel="noopener">Send on WhatsApp</a>
-            <a class="send" id="iSms">Send by text</a>
-            <button class="send" id="iPdf">Download PDF</button>
-          </div>
-        </div>
-        </div>
-      </details>
-
-      <details class="card sec" style="display:none" data-removed="diagnostic assistant">
-        <summary><h2>Diagnostic assistant</h2></summary>
-        <div class="secbody">
-        <p class="sub" style="margin-bottom:12px">Uses the booking form and your bench notes. Treat it as a second opinion, not gospel.</p>
-        <div id="aiMsg" class="msg"></div>
-        <label for="aiQ">Your question <span style="font-weight:400;color:var(--muted)">— leave blank for "what should I check first?"</span></label>
-        <textarea id="aiQ" style="min-height:70px" placeholder="e.g. 3.3V rail is dead and there's a short to ground on the main filter cap — where do I go next?"></textarea>
-        <div class="sendrow" style="margin-top:0">
-          <button class="primary" id="aiBtn">Ask</button>
-          <button class="send" id="aiSave" style="display:none">Save answer to notes</button>
-        </div>
-        <div id="aiOut" style="display:none;white-space:pre-wrap;font-size:14px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:14px"></div>
-        </div>
-      </details>
-
       <details class="card sec" id="testSec">
         <summary><h2>Tests</h2><span class="count" data-of="#testList tr[data-run]"></span></summary>
         <div class="secbody">
@@ -425,6 +395,52 @@
       </details>
 
       <details class="card sec">
+        <summary><h2>Invoice</h2><span class="count" data-of="#invList .quotebox"></span></summary>
+        <div class="secbody">
+        <div id="invMsg" class="msg"></div>
+        <div id="wsAsk" style="display:none;background:var(--white)4e0;border:2px solid #e0a030;border-radius:10px;padding:14px 16px;margin:0 0 16px"></div>
+        <div id="invList"></div>
+
+        <label>Lines on this invoice</label>
+        <p class="sub" id="iDescNote" style="margin:0 0 10px"></p>
+        <div id="iLines"></div>
+        <div class="sendrow" style="margin:0 0 16px">
+          <button class="send" id="iAddLine" type="button">Add a line</button>
+          <span id="iTotal" style="align-self:center;font-weight:700;color:var(--navy)"></span>
+        </div>
+
+
+        <div class="osBox" style="display:none;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 14px;background:var(--soft)">
+          <strong style="color:var(--navy)">On-site visit</strong>
+          <span style="font-size:13px;color:var(--muted)">— £75 callout incl. first hour, then £12.50 per 15 min. Can't fix: £37.50.</span>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:0 0 150px"><label for="iOsMins" style="font-size:13px">Minutes on site</label>
+              <input type="number" id="iOsMins" min="0" step="1" placeholder="e.g. 95" style="margin-bottom:8px"></div>
+            <div style="flex:0 0 190px"><label for="iOsFixed" style="font-size:13px">Outcome</label>
+              <select id="iOsFixed" style="margin-bottom:8px"><option value="yes">Fixed</option><option value="no">Couldn't fix it</option></select></div>
+            <div style="flex:0 0 auto"><button class="send" type="button" id="iOsUse" style="margin-bottom:8px">Add on-site lines</button></div>
+          </div>
+          <div id="iOsOut" style="font-size:14px;font-weight:600;color:var(--navy)"></div>
+        </div>
+
+        <label for="iDesc">Note on the invoice <span style="font-weight:400;color:var(--muted)">— optional</span></label>
+        <textarea id="iDesc" style="min-height:60px" placeholder="Anything the customer should read alongside the lines."></textarea>
+
+        <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
+        <button class="send" id="invSave" type="button" style="margin-left:6px">Save invoice, send later</button>
+        <div id="iSend" style="display:none">
+          <div class="linkbox" id="iLink"></div>
+          <div class="sendrow">
+            <button class="send" id="iCopy">Copy link</button>
+            <a class="send wa" id="iWa" target="_blank" rel="noopener">Send on WhatsApp</a>
+            <a class="send" id="iSms">Send by text</a>
+            <button class="send" id="iPdf">Download PDF</button>
+          </div>
+        </div>
+        </div>
+      </details>
+
+      <details class="card sec">
         <summary><h2>Communication</h2><span class="count" data-of="#comList li:not(.when)"></span></summary>
         <div class="secbody">
         <p class="sub" style="margin-bottom:12px">Everything the software sends is logged here by itself. Add anything worth remembering — a promise, a complaint, an agreed change.</p>
@@ -455,13 +471,18 @@
         </div>
       </details>
 
-      <details class="card sec">
-        <summary><h2>Work notes</h2><span class="count" data-of="#notes li:not(.when)"></span></summary>
+      <details class="card sec" style="display:none" data-removed="diagnostic assistant">
+        <summary><h2>Diagnostic assistant</h2></summary>
         <div class="secbody">
-        <div id="noteMsg" class="msg"></div>
-        <textarea id="noteText" placeholder="What you measured, what you found, what you did."></textarea>
-        <button class="primary" id="noteBtn">Add note</button>
-        <ul class="notes" id="notes" style="margin-top:18px"></ul>
+        <p class="sub" style="margin-bottom:12px">Uses the booking form and your bench notes. Treat it as a second opinion, not gospel.</p>
+        <div id="aiMsg" class="msg"></div>
+        <label for="aiQ">Your question <span style="font-weight:400;color:var(--muted)">— leave blank for "what should I check first?"</span></label>
+        <textarea id="aiQ" style="min-height:70px" placeholder="e.g. 3.3V rail is dead and there's a short to ground on the main filter cap — where do I go next?"></textarea>
+        <div class="sendrow" style="margin-top:0">
+          <button class="primary" id="aiBtn">Ask</button>
+          <button class="send" id="aiSave" style="display:none">Save answer to notes</button>
+        </div>
+        <div id="aiOut" style="display:none;white-space:pre-wrap;font-size:14px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:14px"></div>
         </div>
       </details>
 
@@ -523,7 +544,7 @@ function showWs() {
   const due = JOBROW && WS_DUE.includes($('status').value || JOBROW.status);
   const row = $('wsRow');
   if (!s && due) {
-    row.style.background = '#fff4e0'; row.style.border = '2px solid #e0a030'; row.style.padding = '8px 12px';
+    row.style.background = 'rgba(255,192,77,.12)'; row.style.border = '2px solid #e0a030'; row.style.padding = '8px 12px';
     $('wsMsg').innerHTML = '<strong style="color:#8a5a00">Fit a warranty sticker and enter its ID.</strong>';
   } else {
     row.style.background = ''; row.style.border = ''; row.style.padding = '';
@@ -573,7 +594,7 @@ async function askStickers(jobIds) {
       const id = inp.dataset.ws, msg = box.querySelector(`[data-wsmsg="${id}"]`);
       if (!inp.value.trim()) { msg.textContent = 'Not entered yet'; allOk = false; continue; }
       const r = await saveSticker(id, inp.value);
-      if (r.ok) { inp.value = r.sticker; msg.innerHTML = '<span style="color:#1c6b3c">Saved</span>';
+      if (r.ok) { inp.value = r.sticker; msg.innerHTML = '<span style="color:var(--green)">Saved</span>';
         if (id === JOBROW.id) { JOBROW.warranty_sticker = r.sticker; JOBROW.warranty_sticker_at = new Date().toISOString(); $('wsInput').value = r.sticker; } }
       else { msg.innerHTML = '<span style="color:#a33">' + esc(r.error) + '</span>'; allOk = false; }
     }
@@ -1135,11 +1156,11 @@ async function loadDrop() {
   if (!d || !d.starts_at) { box.style.display = 'none'; return; }
   const when = new Date(d.starts_at).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
   box.style.display = 'flex';
-  box.style.background = d.confirmed ? '#e7f2ec' : '#fff4e0';
-  box.style.border = '1px solid ' + (d.confirmed ? '#bcdcca' : '#f0d9a8');
+  box.style.background = d.confirmed ? 'rgba(79,209,139,.12)' : 'rgba(255,192,77,.12)';
+  box.style.border = '1px solid ' + (d.confirmed ? 'rgba(79,209,139,.45)' : 'rgba(255,192,77,.45)');
   box.innerHTML = d.confirmed
     ? `<div style="flex:1"><strong style="color:var(--green)">Drop-off confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>
-       <a style="text-decoration:none;display:inline-block;padding:11px 20px;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;white-space:nowrap" href="scan.html?job=${encodeURIComponent(JOB)}&k=${encodeURIComponent(JOBROW.access_key)}&a=in">Check in now</a>`
+       <a style="text-decoration:none;display:inline-block;padding:11px 20px;border-radius:8px;background:var(--navy);color:var(--on-navy);font-weight:700;white-space:nowrap" href="scan.html?job=${encodeURIComponent(JOB)}&k=${encodeURIComponent(JOBROW.access_key)}&a=in">Check in now</a>`
     : `<div style="flex:1"><strong style="color:var(--amber)">Drop-off requested — needs confirming</strong><br><span style="font-size:15px">${esc(when)}</span></div>
        <button class="primary" id="dropConfirm">Confirm</button>`;
   const btn = $('dropConfirm');
@@ -1305,7 +1326,7 @@ function usageLines(jobRef, prefix) {
 function showReturn() {
   const m = JOBROW.return_method || '';
   $('retSel').value = m;
-  $('retSel').style.borderColor = m ? '' : '#f0d9a8';
+  $('retSel').style.borderColor = m ? '' : 'rgba(255,192,77,.45)';
   $('retMsg').textContent = m ? '' : 'Ask before you invoice — it decides the postage.';
 }
 $('retSel').addEventListener('change', async () => {
@@ -1328,11 +1349,11 @@ async function loadCollection() {
   if (!d || !d.starts_at) { box.style.display = 'none'; return; }
   const when = new Date(d.starts_at).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
   box.style.display = 'flex';
-  box.style.background = d.confirmed ? '#e7f2ec' : '#fff4e0';
-  box.style.border = '1px solid ' + (d.confirmed ? '#bcdcca' : '#f0d9a8');
+  box.style.background = d.confirmed ? 'rgba(79,209,139,.12)' : 'rgba(255,192,77,.12)';
+  box.style.border = '1px solid ' + (d.confirmed ? 'rgba(79,209,139,.45)' : 'rgba(255,192,77,.45)');
   box.innerHTML = d.confirmed
     ? `<div style="flex:1"><strong style="color:var(--green)">Collection confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>
-       <a style="text-decoration:none;display:inline-block;padding:11px 20px;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;white-space:nowrap" href="scan.html?job=${encodeURIComponent(JOB)}&k=${encodeURIComponent(JOBROW.access_key)}&a=out">Mark collected</a>`
+       <a style="text-decoration:none;display:inline-block;padding:11px 20px;border-radius:8px;background:var(--navy);color:var(--on-navy);font-weight:700;white-space:nowrap" href="scan.html?job=${encodeURIComponent(JOB)}&k=${encodeURIComponent(JOBROW.access_key)}&a=out">Mark collected</a>`
     : `<div style="flex:1"><strong style="color:var(--amber)">Collection requested — needs confirming</strong><br><span style="font-size:15px">${esc(when)}</span></div>
        <button class="primary" id="colConfirm">Confirm</button>`;
   const btn = $('colConfirm');
@@ -1359,7 +1380,7 @@ async function loadTrade(contactId) {
   const { data } = await sb.from('contacts').select('kind').eq('id', contactId).maybeSingle();
   TRADE = (data && data.kind) === 'trade';
   $('tradeBox').checked = TRADE;
-  $('tradeRow').style.display = 'flex';
+  $('tradeRow').style.display = 'inline-flex';
   showTotal();
   showTradeQuote();
 }
@@ -1449,7 +1470,8 @@ function visitCharge(v) {
 
 function drawSite() {
   $('siteSec').style.display = SITE.on ? '' : 'none';
-  $('retRow').style.display = SITE.on ? 'none' : 'flex';
+  document.querySelectorAll('.osBox').forEach(b => { b.style.display = SITE.on ? '' : 'none'; });
+  $('retRow').style.display = SITE.on ? 'none' : 'flex'; $('retK').style.display = SITE.on ? 'none' : 'flex';
   if (!SITE.on) return;
   $('siteInfo').innerHTML = (SITE.address ? '<strong>Site:</strong> ' + esc(SITE.address).replace(/\n/g, ', ') : '<span style="color:var(--muted)">No site address saved.</span>') +
     ` <button type="button" class="linkbtn" id="siteEdit" style="margin-left:6px">Edit</button>` +
@@ -1531,7 +1553,7 @@ function editVisit(id) {
     </div>
     <button type="button" class="primary" id="veSave" style="margin:0">Save</button>
     <button type="button" class="send" id="veCancel">Cancel</button>
-    <button type="button" class="send" id="veDel" style="color:#b3261e">Delete visit</button></td>`;
+    <button type="button" class="send" id="veDel" style="color:var(--red)">Delete visit</button></td>`;
   $('veCancel').addEventListener('click', drawSite);
   $('veDel').addEventListener('click', async () => {
     if (!confirm('Delete this visit?')) return;
@@ -1994,8 +2016,8 @@ async function loadTests(jobId) {
     ? P.map(p => `<option value="${p.id}">${esc(p.title)}${p.applies_to ? ' (' + esc(p.applies_to) + ')' : ''}</option>`).join('')
     : '<option value="">No procedures yet</option>';
   const name = id => (P.find(p => p.id === id) || {}).title || '';
-  const tag = o => o === 'pass' ? '<span class="tag" style="background:#e6f2ea;color:var(--green)">Pass</span>'
-    : o === 'fail' ? '<span class="tag" style="background:#fbe4e2;color:var(--red)">Fail</span>'
+  const tag = o => o === 'pass' ? '<span class="tag" style="background:rgba(79,209,139,.14);color:var(--green)">Pass</span>'
+    : o === 'fail' ? '<span class="tag" style="background:rgba(255,107,94,.14);color:var(--red)">Fail</span>'
     : `<span class="tag wait">${o === 'incomplete' ? 'Incomplete' : 'In progress'}</span>`;
   $('testList').innerHTML = (runs || []).length
     ? `<table><tbody>${runs.map(r => `<tr data-run="${r.id}" style="cursor:pointer"><td>${new Date(r.created_at).toLocaleDateString('en-GB')}</td><td>${esc(name(r.procedure_id))}${r.board_label ? ' · ' + esc(r.board_label) : ''}</td><td>${tag(r.outcome)}</td></tr>`).join('')}</tbody></table>`
@@ -2026,7 +2048,7 @@ async function loadNotViable() {
   const { data } = await sb.from('jobs').select('not_viable_reason, not_viable_note, not_viable_at').eq('id', JOBROW.id).maybeSingle();
   NV = data && data.not_viable_reason ? { reason: data.not_viable_reason, note: data.not_viable_note, at: data.not_viable_at } : null;
   if (NV && JOBROW.status === 'unrepairable') {
-    $('nvBanner').innerHTML = `<strong style="color:#b3261e">Repair not viable:</strong> ${esc(NV.reason)}` +
+    $('nvBanner').innerHTML = `<strong style="color:var(--red)">Repair not viable:</strong> ${esc(NV.reason)}` +
       (NV.note ? `<div style="font-size:14px;margin-top:4px;white-space:pre-wrap">${esc(NV.note)}</div>` : '') +
       ` <button type="button" class="linkbtn" id="nvChange" style="margin-left:6px">Change</button>`;
     $('nvBanner').style.display = 'block';

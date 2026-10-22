@@ -7,13 +7,13 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1B2A4A">
+<meta name="theme-color" content="#08111f">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PER Workshop">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="crm.css?v=6">
+<link rel="stylesheet" href="crm.css?v=7">
 <style>
   /* Only what's special to the jobs list — everything else comes from crm.css. */
   main { padding: 28px 0 64px; }
@@ -28,15 +28,19 @@
   .bhtable td:first-child { color: var(--muted); font-size: 13px; padding-top: 12px; width: 26px; }
   .bhtable input { margin: 0; padding: 8px 9px; font-size: 14px; }
   .modes { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
-  .modes label { flex: 1 1 180px; display: flex; gap: 10px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; font-weight: 400; font-size: 13px; color: var(--muted); margin: 0; background: #fff; }
+  .modes label { flex: 1 1 180px; display: flex; gap: 10px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; font-weight: 400; font-size: 13px; color: var(--muted); margin: 0; background: var(--white); }
   .modes label strong { color: var(--navy); font-size: 15px; }
   .modes label.on { border-color: var(--navy); background: var(--soft); }
   .modes input { width: 17px; height: 17px; margin: 2px 0 0; flex: none; }
+  .jobtools { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .jobtools input { flex: 1 1 280px; margin: 0; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips button { background: transparent; border: 1.5px solid #2c4067; color: #c8d2e6; border-radius: 999px; font: inherit; font-weight: 700; font-size: 13.5px; padding: 7px 14px; cursor: pointer; }
+  .chips button:hover { border-color: #fff; color: #fff; }
+  .chips button.on { background: #fff; border-color: #fff; color: var(--on-navy); }
+  .chips .n { opacity: .7; margin-left: 5px; font-weight: 800; }
   .bhtable .bhdel { background: none; border: 0; color: #a33; font-size: 18px; cursor: pointer; padding: 6px; }
   .sendrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-  .send { display: inline-block; background: var(--white); border: 1px solid var(--line); color: var(--navy); border-radius: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; text-decoration: none; }
-  .send:hover { background: var(--soft); }
-  .send.wa { border-color: #25D366; color: #128C4A; }
   #login { max-width: 420px; margin: 60px auto; }
   body.signed-out nav.tabs { display: none; }
   /* Week calendar */
@@ -45,28 +49,28 @@
   #calTitle { color: var(--navy); margin-left: 6px; }
   .calkey { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .calkey .k { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 6px; }
-  .k.drop { background: #fff1d6; border: 2px solid #d99a1e; }
-  .k.coll { background: #e3edfb; border: 2px solid #3d6fb6; }
-  .k.site { background: #efe6fb; border: 2px solid #6b3fb6; }
-  .k.req { background: #fff; border: 2px dashed #b3261e; }
-  .k.shut { background: repeating-linear-gradient(45deg, #eef0f4, #eef0f4 4px, #e2e6ec 4px, #e2e6ec 8px); border: 1px solid #d9dee6; }
+  .k.drop { background: rgba(255,192,77,.16); border: 2px solid #d99a1e; }
+  .k.coll { background: rgba(110,160,255,.16); border: 2px solid #3d6fb6; }
+  .k.site { background: rgba(170,130,255,.16); border: 2px solid #6b3fb6; }
+  .k.req { background: var(--white); border: 2px dashed #b3261e; }
+  .k.shut { background: repeating-linear-gradient(45deg, #1a2a48, #1a2a48 4px, #0d182b 4px, #0d182b 8px); border: 1px solid var(--line); }
   .calwrap { overflow-x: auto; }
   .calgrid { display: grid; grid-template-columns: 54px repeat(7, minmax(110px, 1fr)); min-width: 820px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .calgrid .ch { background: var(--soft); font-size: 12px; font-weight: 700; color: var(--navy); text-align: center; padding: 8px 4px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
-  .calgrid .ch.today { background: var(--navy); color: #fff; }
+  .calgrid .ch.today { background: var(--navy); color: var(--on-navy); }
   .calgrid .ch:first-child { border-left: 0; }
   .calgrid .th { font-size: 12px; color: var(--muted); text-align: right; padding: 4px 6px; border-top: 1px solid var(--line); }
   .calgrid .cell { min-height: 54px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 3px; }
-  .calgrid .cell.shut { background: repeating-linear-gradient(45deg, #f4f6f9, #f4f6f9 6px, #eceff4 6px, #eceff4 12px); }
+  .calgrid .cell.shut { background: repeating-linear-gradient(45deg, var(--soft), var(--soft) 6px, #14223c 6px, #14223c 12px); }
   .calgrid .cell.past { opacity: .55; }
   .bk { display: block; border-radius: 6px; padding: 4px 6px; font-size: 12px; line-height: 1.35; text-decoration: none; color: var(--ink); margin-bottom: 3px; }
-  .bk.drop { background: #fff1d6; border-left: 4px solid #d99a1e; }
-  .bk.coll { background: #e3edfb; border-left: 4px solid #3d6fb6; }
-  .bk.site { background: #efe6fb; border-left: 4px solid #6b3fb6; }
+  .bk.drop { background: rgba(255,192,77,.16); border-left: 4px solid #d99a1e; }
+  .bk.coll { background: rgba(110,160,255,.16); border-left: 4px solid #3d6fb6; }
+  .bk.site { background: rgba(170,130,255,.16); border-left: 4px solid #6b3fb6; }
   .bk.req { outline: 2px dashed #b3261e; outline-offset: -2px; }
   .bk strong { display: block; font-size: 12px; color: var(--navy); }
   .bk .bkline { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bk button { margin-top: 3px; background: var(--navy); color: #fff; border: 0; border-radius: 5px; font: inherit; font-size: 11px; font-weight: 700; padding: 3px 8px; cursor: pointer; }
+  .bk button { margin-top: 3px; background: var(--navy); color: var(--on-navy); border: 0; border-radius: 5px; font: inherit; font-size: 11px; font-weight: 700; padding: 3px 8px; cursor: pointer; }
   .bk button:disabled { opacity: .5; }
   .calnote { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
   @media (max-width: 700px) { main { padding: 20px 0 48px; } }
@@ -99,7 +103,7 @@
         <label for="custSearch">Customer</label>
         <input type="text" id="custSearch" placeholder="Dealt with them before? Search by name, company, email or number" autocomplete="off">
         <div id="custHits"></div>
-        <div id="custPicked" style="display:none;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;padding:10px 14px;margin:-4px 0 16px;font-size:14px;color:#1c6b3c">
+        <div id="custPicked" style="display:none;background:rgba(79,209,139,.12);border:1px solid rgba(79,209,139,.45);border-radius:8px;padding:10px 14px;margin:-4px 0 16px;font-size:14px;color:var(--green)">
           <span id="custPickedName"></span>
           <button class="send" id="custClear" style="padding:4px 10px;margin-left:10px">Change</button>
         </div>
@@ -196,6 +200,10 @@
       <div class="card" data-tab-default>
         <h2>Jobs</h2>
         <div id="jobsMsg" class="msg"></div>
+        <div class="jobtools">
+          <input type="search" id="jobSearch" placeholder="Search job number, customer, item or fault" autocomplete="off">
+          <div class="chips" id="jobChips"></div>
+        </div>
         <div id="jobsArea"><p class="empty">Loading…</p></div>
       </div>
 
@@ -271,6 +279,22 @@ const STATUS_TONE = {
   unrepairable: 'off', closed: 'off'
 };
 
+// Job list filters
+const DONE = ['paid', 'returned', 'closed', 'unrepairable', 'declined'];
+const JOB_FILTERS = {
+  open:    { label: 'Open', test: j => !DONE.includes(j.status) },
+  waiting: { label: 'Waiting on customer', test: j => ['awaiting_intake', 'intake_received', 'estimated', 'quoted', 'dropoff_requested', 'dropoff_booked', 'in_post'].includes(j.status) },
+  bench:   { label: 'On the bench', test: j => ['arrived', 'in_diagnosis', 'approved', 'in_repair', 'testing'].includes(j.status) },
+  parts:   { label: 'Awaiting parts', test: j => j.status === 'awaiting_parts' },
+  ready:   { label: 'Ready / invoiced', test: j => ['ready', 'invoiced'].includes(j.status) },
+  done:    { label: 'Finished', test: j => DONE.includes(j.status) },
+  all:     { label: 'All', test: () => true }
+};
+let JOB_FILTER = (() => { try { return localStorage.getItem('jobFilter') || 'open'; } catch (e) { return 'open'; } })();
+if (!JOB_FILTERS[JOB_FILTER]) JOB_FILTER = 'open';
+let ALLJOBS = [];
+let jobSearchT = null;
+
 async function loadJobs() {
   const { data, error } = await sb.from('job_list').select('*').order('created_at', { ascending: false });
   if (error) {
@@ -281,6 +305,7 @@ async function loadJobs() {
     $('jobsArea').innerHTML = '<p class="empty">No jobs yet. Create one above.</p>';
     return;
   }
+  ALLJOBS = data;
   // Drop-off day and time, right under the status.
   const DROP = await dropoffsByJob();
   // Site visit jobs: shown as "Site visit" until you've been, with the booked time.
@@ -291,12 +316,20 @@ async function loadJobs() {
   const statusCell = j => {
     const site = SITE[j.job_number];
     if (site && PRE_VISIT.includes(j.status)) return `<span class="tag in">Site visit</span>` +
-      (site.visit_at ? `<br><span style="font-size:13px;font-weight:600;color:#1B2A4A">${dropText(site.visit_at)}</span>` : '');
+      (site.visit_at ? `<br><span style="font-size:13px;font-weight:600;color:var(--navy)">${dropText(site.visit_at)}</span>` : '');
     return `<span class="tag ${STATUS_TONE[j.status] || 'wait'}">${(STATUS_TEXT[j.status] || j.status_label || j.status || '').replace(/</g, '&lt;')}</span>` +
       (site ? `<br><span style="font-size:13px;color:#5a6474">Site visit</span>` : '') +
-      (DROP[j.job_number] && /^dropoff_/.test(j.status) ? `<br><span style="font-size:13px;font-weight:600;color:#1B2A4A">${dropText(DROP[j.job_number].starts_at)}</span>` : '');
+      (DROP[j.job_number] && /^dropoff_/.test(j.status) ? `<br><span style="font-size:13px;font-weight:600;color:var(--navy)">${dropText(DROP[j.job_number].starts_at)}</span>` : '');
   };
-  const rows = data.map(j => `
+  const q = ($('jobSearch').value || '').trim().toLowerCase();
+  const counts = Object.fromEntries(Object.keys(JOB_FILTERS).map(k => [k, data.filter(JOB_FILTERS[k].test).length]));
+  $('jobChips').innerHTML = Object.entries(JOB_FILTERS).map(([k, f]) =>
+    `<button type="button" data-f="${k}" class="${k === JOB_FILTER ? 'on' : ''}">${f.label}<span class="n">${counts[k]}</span></button>`).join('');
+  $('jobChips').querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => { JOB_FILTER = b.dataset.f; try { localStorage.setItem('jobFilter', JOB_FILTER); } catch (e) {} loadJobs(); }));
+  const shown = data.filter(JOB_FILTERS[JOB_FILTER].test).filter(j => !q ||
+    [j.job_number, j.customer_name, j.customer_email, j.make_model, j.device_type, j.fault_description].join(' ').toLowerCase().includes(q));
+  if (!shown.length) { $('jobsArea').innerHTML = '<p class="empty">No jobs match.</p>'; return; }
+  const rows = shown.map(j => `
     <tr>
       <td class="jobno"><a href="job.html?job=${j.job_number}" style="text-decoration:none">${j.job_number}</a></td>
       <td>${j.customer_name || '<span style="color:#5a6474">—</span>'}${j.customer_email ? `<br><span style="color:#5a6474;font-size:13px">${j.customer_email}</span>` : ''}</td>
@@ -370,7 +403,7 @@ $('custSearch').addEventListener('input', () => {
           const sub = [c.email, c.phone].filter(Boolean).join(' · ');
           const jobs = Number(c.job_count || 0);
           return `<div class="hitrow" data-pick='${JSON.stringify(c).replace(/'/g, '&#39;')}'
-            style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;background:#fff">
+            style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;background:var(--white)">
             <div style="font-weight:600;font-size:14px">${who.replace(/</g,'&lt;')}</div>
             <div style="font-size:13px;color:var(--muted)">${sub.replace(/</g,'&lt;')}${jobs ? ' · ' + jobs + ' previous job' + (jobs === 1 ? '' : 's') : ''}</div>
           </div>`;
@@ -612,6 +645,7 @@ function showMode() {
   bhRenumber();
 }
 document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', showMode));
+$('jobSearch').addEventListener('input', () => { clearTimeout(jobSearchT); jobSearchT = setTimeout(loadJobs, 200); });
 showMode();
 function showSiteRates() { loadRates().then(r => {
   const each = (r.onsite_hourly * r.onsite_block_mins / 60).toFixed(2);

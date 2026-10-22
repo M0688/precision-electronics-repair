@@ -7,14 +7,14 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=6">
+<meta name="theme-color" content="#08111f">
+<link rel="stylesheet" href="crm.css?v=7">
 <style>
   td.num, th.num { text-align: right; white-space: nowrap; }
   tr.part { cursor: pointer; }
   tr.part:hover td { background: #f8fafc; }
-  tr.open td { background: #f4f6f9; }
-  .detail td { background: #fbfcfd; padding: 16px 12px 20px; }
+  tr.open td { background: var(--soft); }
+  .detail td { background: var(--soft); padding: 16px 12px 20px; }
   .preview { font-weight: 700; color: var(--navy); margin: -4px 0 14px; min-height: 22px; }
   .mini th, .mini td { font-size: 13px; padding: 7px 8px; }
   .search { max-width: 320px; margin: 0; }
@@ -193,7 +193,7 @@ async function drawDetail(p) {
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sm" id="editPart">Edit details</button>
       <button class="btn-sm" id="archivePart">${p.archived ? 'Restore' : 'Archive'}</button>
-      <button class="btn-sm" id="deletePart" style="color:var(--red);border-color:#f3c2bd">Delete</button>
+      <button class="btn-sm" id="deletePart" style="color:var(--red);border-color:rgba(255,107,94,.45)">Delete</button>
     </div>`;
 
   const preview = () => {

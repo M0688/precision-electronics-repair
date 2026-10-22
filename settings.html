@@ -7,13 +7,13 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1B2A4A">
-<link rel="stylesheet" href="crm.css?v=6">
+<meta name="theme-color" content="#08111f">
+<link rel="stylesheet" href="crm.css?v=7">
 <style>
   .device {
     display: flex; align-items: center; gap: 12px;
     border: 1px solid var(--line); border-radius: 10px;
-    padding: 12px 14px; margin-bottom: 8px; background: #fff; font-size: 14px;
+    padding: 12px 14px; margin-bottom: 8px; background: var(--white); font-size: 14px;
   }
   .device .name { flex: 1; }
   .device .when { color: var(--muted); font-size: 13px; white-space: nowrap; }
@@ -218,7 +218,7 @@ const KIND_LABEL = { both: 'Estimates and quotes', estimate: 'Estimates only', q
 function tplRow(t) {
   const isNew = !t.id;
   return `<div class="tpl" data-id="${t.id || ''}"
-    style="border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:12px;background:#fff">
+    style="border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:12px;background:var(--white)">
     <div class="row">
       <div style="flex:1 1 240px">
         <label>Name</label>
@@ -240,7 +240,7 @@ function tplRow(t) {
     <textarea data-f="body" style="min-height:110px" placeholder="What the repair involves, in the words you would use to the customer.">${esc(t.body || '')}</textarea>
     <div class="sendrow" style="margin-top:0">
       <button class="send" data-save="1">${isNew ? 'Add it' : 'Save'}</button>
-      <button class="send" data-del="1" style="color:var(--red);border-color:#f3c2bd">${isNew ? 'Cancel' : 'Delete'}</button>
+      <button class="send" data-del="1" style="color:var(--red);border-color:rgba(255,107,94,.45)">${isNew ? 'Cancel' : 'Delete'}</button>
     </div>
   </div>`;
 }

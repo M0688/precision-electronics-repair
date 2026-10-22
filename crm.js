@@ -56,7 +56,7 @@ export function chrome(active) {
   ];
   document.body.insertAdjacentHTML('afterbegin', `
     <header><div class="wrap">
-      <div class="brand">PRECISION ELECTRONICS REPAIR · WORKSHOP</div>
+      <a class="brand" href="workshop.html"><img src="icon-192.png" alt=""><span>PRECISION ELECTRONICS REPAIR <em>WORKSHOP</em></span></a>
       <div class="who" id="who" style="display:none">
         <a id="timerPill" href="#" title="A job timer is running"
            style="display:none;color:#fff;text-decoration:none;font-weight:700;background:#b3261e;border-radius:6px;padding:5px 10px;font-variant-numeric:tabular-nums"></a>

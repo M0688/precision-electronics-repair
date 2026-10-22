@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 /* Shared styles for the workshop software */
 :root {
   --navy: #1B2A4A; --navy-dark: #121d34; --ink: #1f2733; --muted: #5a6474;
@@ -99,3 +100,101 @@ input:hover, textarea:hover, select:hover { border-color: #6f7d93; }
 .subtabs button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
 .card.subtab:not(.tabon) { display: none !important; }
 .subtabs:not([style*="none"]) ~ .card.subtab > h2:first-child { display: none; }
+
+/* =====================================================================
+   Bold dark theme (22 Oct 2026), in the logo's colours: deep navy and
+   white. White is the accent: main buttons and the chosen tab are white
+   with navy text. Later rules win over the ones above.
+   ===================================================================== */
+:root {
+  --navy: #f2f5fb;        /* "brand ink": headings, links, outlines (white on the dark page) */
+  --navy-dark: #d5deee;
+  --on-navy: #0b1424;     /* text on a white button */
+  --logo: #152642;        /* the logo's navy */
+  --bg: #08111f;          /* page */
+  --white: #111d33;       /* cards and boxes */
+  --soft: #0d182b;        /* subtle fills inside cards */
+  --line: #24365a;
+  --ink: #eef2fa;
+  --muted: #95a4bf;
+  --red: #ff6b5e; --green: #4fd18b; --amber: #ffc04d;
+}
+html { background: var(--bg); }
+body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--ink); }
+a { color: var(--navy); }
+
+/* Header: one rounded bar with the brand and the main tabs */
+header { background: var(--bg); color: #fff; padding-top: 14px; }
+header .wrap { height: auto; background: var(--white); border: 1px solid var(--line); border-radius: 16px 16px 0 0; border-bottom: 0; padding-top: 14px; padding-bottom: 10px; }
+.brand { font-weight: 900; font-size: 16px; letter-spacing: 1.5px; color: #fff; display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.brand img { width: 38px; height: 38px; background: #fff; border-radius: 10px; padding: 3px; }
+.brand em { font-style: normal; font-weight: 600; color: var(--muted); margin-left: 6px; }
+@media (max-width: 700px) { .brand em { display: none; } .brand { font-size: 12.5px; letter-spacing: .8px; gap: 9px; } .brand img { width: 30px; height: 30px; } }
+.who { color: var(--muted); }
+.who button, .who a#mailBtn { border-color: var(--line) !important; border-radius: 9px !important; font-weight: 700; }
+nav.tabs { background: var(--bg); box-shadow: none; }
+nav.tabs .wrap { background: var(--white); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; gap: 6px; padding-top: 4px; padding-bottom: 12px; }
+nav.tabs a { color: #c8d2e6; font-size: 15px; font-weight: 700; padding: 9px 16px; border-radius: 10px; border-bottom: 0; }
+nav.tabs a:hover { color: #fff; background: rgba(255,255,255,.07); }
+nav.tabs a.on { color: var(--on-navy); background: #fff; }
+
+main { padding: 26px 0 72px; }
+.card { background: var(--white); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); padding: 24px; }
+h1 { font-size: 32px; font-weight: 900; letter-spacing: -.6px; color: #fff; line-height: 1.15; }
+h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+h3 { color: #fff; }
+.sub { color: var(--muted); font-size: 15px; }
+label { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+
+input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=search], input[type=datetime-local], textarea, select {
+  background: var(--soft); color: var(--ink); border: 1.5px solid #2c4067; border-radius: 10px; color-scheme: dark; }
+input::placeholder, textarea::placeholder { color: #6f7f9c; }
+input:hover, textarea:hover, select:hover { border-color: #4a6194; }
+input:focus, textarea:focus, select:focus { outline: none; border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.15); }
+select option { background: var(--white); color: var(--ink); }
+
+/* Buttons: white for the main action, outlined white for everything else */
+button.primary, a.primary { background: #fff; color: var(--on-navy); border: 1.5px solid #fff; border-radius: 10px; font-weight: 800;
+  padding: 11px 22px; text-decoration: none; display: inline-block; }
+button.primary:hover, a.primary:hover { background: #dfe6f3; border-color: #dfe6f3; }
+.send, .btn-sm, button.ghost { display: inline-block; background: transparent; border: 1.5px solid #3a5182; color: #fff; border-radius: 10px;
+  font: inherit; font-weight: 700; font-size: 14px; padding: 9px 16px; cursor: pointer; text-decoration: none; line-height: 1.3; }
+.btn-sm { font-size: 13px; padding: 6px 12px; }
+.send:hover, .btn-sm:hover, button.ghost:hover { background: rgba(255,255,255,.08); border-color: #fff; }
+.send:disabled, .btn-sm:disabled { opacity: .4; cursor: default; }
+.send.wa, .btn-sm.wa { border-color: #2a8f57; color: #5fe39a; }
+.danger, .btn-sm.danger, .send.danger { border-color: rgba(255,107,94,.6) !important; color: var(--red) !important; background: transparent !important; }
+.danger:hover, .btn-sm.danger:hover, .send.danger:hover { background: rgba(255,107,94,.12) !important; }
+
+/* Status tags */
+.tag { font-size: 12px; font-weight: 800; padding: 4px 10px; }
+.tag.wait { background: rgba(255,192,77,.16); color: var(--amber); }
+.tag.in { background: rgba(79,209,139,.16); color: var(--green); }
+.tag.off { background: rgba(149,164,191,.16); color: var(--muted); }
+.tag.hot { background: rgba(255,107,94,.18); color: var(--red); }
+
+table th { background: transparent; color: var(--muted); font-weight: 800; border-bottom: 1px solid var(--line); }
+th, td { border-bottom-color: var(--line); }
+table tr:hover td { background: rgba(255,255,255,.025); }
+
+.msg.err { background: rgba(255,107,94,.12); border: 1px solid rgba(255,107,94,.45); color: #ff8f85; }
+.msg.ok { background: rgba(79,209,139,.12); border: 1px solid rgba(79,209,139,.45); color: #6fe0a2; }
+.msg.info { background: rgba(255,255,255,.06); border: 1px solid var(--line); color: var(--ink); }
+.empty { color: var(--muted); }
+.notes li { border-left-color: #3a5182; }
+.stat { background: var(--soft); border: 1px solid var(--line); border-radius: 14px; }
+.stat .n { color: #fff; font-weight: 900; }
+
+/* Section tabs on every page */
+.subtabs, .jobtabs { background: var(--bg) !important; }
+.subtabs button, .jobtabs button { background: transparent !important; border: 1.5px solid #2c4067 !important; color: #c8d2e6 !important; font-weight: 700; padding: 8px 16px; }
+.subtabs button:hover, .jobtabs button:hover { border-color: #fff !important; color: #fff !important; }
+.subtabs button.on, .jobtabs button.on { background: #fff !important; border-color: #fff !important; color: var(--on-navy) !important; }
+.jobtabs .n { background: rgba(255,255,255,.1) !important; color: inherit !important; }
+.jobtabs button.on .n { background: rgba(11,20,36,.12) !important; }
+
+@media (max-width: 700px) {
+  header { padding-top: 8px; }
+  h1 { font-size: 26px; }
+}
+input[type=checkbox], input[type=radio] { accent-color: #ffffff; }
