@@ -1117,7 +1117,8 @@ async function loadDrop() {
   box.style.background = d.confirmed ? '#e7f2ec' : '#fff4e0';
   box.style.border = '1px solid ' + (d.confirmed ? '#bcdcca' : '#f0d9a8');
   box.innerHTML = d.confirmed
-    ? `<div style="flex:1"><strong style="color:var(--green)">Drop-off confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>`
+    ? `<div style="flex:1"><strong style="color:var(--green)">Drop-off confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>
+       <a style="text-decoration:none;display:inline-block;padding:11px 20px;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;white-space:nowrap" href="scan.html?job=${encodeURIComponent(JOB)}&k=${encodeURIComponent(JOBROW.access_key)}&a=in">Check in now</a>`
     : `<div style="flex:1"><strong style="color:var(--amber)">Drop-off requested — needs confirming</strong><br><span style="font-size:15px">${esc(when)}</span></div>
        <button class="primary" id="dropConfirm">Confirm</button>`;
   const btn = $('dropConfirm');
@@ -1309,7 +1310,8 @@ async function loadCollection() {
   box.style.background = d.confirmed ? '#e7f2ec' : '#fff4e0';
   box.style.border = '1px solid ' + (d.confirmed ? '#bcdcca' : '#f0d9a8');
   box.innerHTML = d.confirmed
-    ? `<div style="flex:1"><strong style="color:var(--green)">Collection confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>`
+    ? `<div style="flex:1"><strong style="color:var(--green)">Collection confirmed</strong><br><span style="font-size:15px">${esc(when)}</span></div>
+       <a style="text-decoration:none;display:inline-block;padding:11px 20px;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;white-space:nowrap" href="scan.html?job=${encodeURIComponent(JOB)}&k=${encodeURIComponent(JOBROW.access_key)}&a=out">Mark collected</a>`
     : `<div style="flex:1"><strong style="color:var(--amber)">Collection requested — needs confirming</strong><br><span style="font-size:15px">${esc(when)}</span></div>
        <button class="primary" id="colConfirm">Confirm</button>`;
   const btn = $('colConfirm');
