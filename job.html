@@ -397,6 +397,7 @@ const TONE = { awaiting_intake: 'wait', intake_received: 'wait', estimated: 'wai
   arrived: 'in', in_diagnosis: 'in', quoted: 'wait', approved: 'in', declined: 'off', awaiting_parts: 'wait', in_repair: 'in', testing: 'in',
   ready: 'in', invoiced: 'wait', paid: 'in', returned: 'off', unrepairable: 'hot', closed: 'off' };
 function drawHead() {
+  if (typeof loadDrop === 'function' && JOBROW.id) { loadDrop(); loadCollection(); }
   const st = JOBROW.status;
   const opt = [...$('status').options].find(o => o.value === st);
   $('jobTag').textContent = opt ? opt.textContent : (st || '');
@@ -554,8 +555,6 @@ async function load() {
   $('jobSub').innerHTML = esc(bits) + (data.contact_id ? ` · <a href="contacts.html?id=${data.contact_id}">customer record</a>` : '');
   drawHead();
   loadTrade(data.contact_id);
-  loadDrop();
-  loadCollection();
   showReturn();
   $('status').value = data.status;
 
@@ -1032,7 +1031,8 @@ async function loadDrop() {
   const { data } = await sb.rpc('job_dropoff', { p_job_id: JOBROW.id });
   const d = Array.isArray(data) ? data[0] : data;
   const box = $('dropBox');
-  if (!d || !d.starts_at) { box.style.display = 'none'; return; }
+  // Once the item has been checked in (or the job has moved past arrival) the drop-off is done: hide it.
+  if (!d || !d.starts_at || d.attended_at || d.done || !BEFORE_ARRIVAL.includes(JOBROW.status)) { box.style.display = 'none'; return; }
   const when = new Date(d.starts_at).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
   box.style.display = 'flex';
   box.style.background = d.confirmed ? 'rgba(79,209,139,.12)' : 'rgba(255,192,77,.12)';
@@ -1090,7 +1090,8 @@ async function loadCollection() {
   const { data } = await sb.rpc('job_collection', { p_job_id: JOBROW.id });
   const d = Array.isArray(data) ? data[0] : data;
   const box = $('colBox');
-  if (!d || !d.starts_at) { box.style.display = 'none'; return; }
+  // Hide once collected.
+  if (!d || !d.starts_at || d.attended_at || d.done || ['returned', 'closed'].includes(JOBROW.status)) { box.style.display = 'none'; return; }
   const when = new Date(d.starts_at).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
   box.style.display = 'flex';
   box.style.background = d.confirmed ? 'rgba(79,209,139,.12)' : 'rgba(255,192,77,.12)';
