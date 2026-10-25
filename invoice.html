@@ -81,6 +81,11 @@
           <p style="margin:12px 0 0">Please let us know which you're doing. We don't watch the bank account in real time, so if you've
             paid by transfer, pressing the button tells us straight away and gets your item back to you sooner.</p>
           <div id="intentMsg" class="msg" style="margin:12px 0 0"></div>
+          <div id="colNeeded" style="display:none;margin:12px 0 0;padding:14px 16px;border:2px solid #d99a1e;background:#fff7e6;border-radius:10px">
+            <strong style="color:#7a4d00">One more step: choose when you'll collect</strong>
+            <p style="margin:6px 0 10px;font-size:15px">We can't hand your item over until you've picked a collection time.</p>
+            <a id="colNeededBtn" href="#" style="display:inline-block;background:#1B2A4A;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:8px">Book my collection time</a>
+          </div>
           <div class="paybtns" id="payBtns">
             <button id="sayBank">I've paid by bank transfer</button>
             <button id="sayCash" class="alt">I'll pay cash on collection</button>
@@ -175,8 +180,26 @@ async function start() {
   }
 }
 
+// Paying cash means collecting: until a time is booked, keep asking for one.
+async function checkCollection() {
+  if (!DATA || !DATA.access_key) return;
+  const link = 'collect.html?job=' + encodeURIComponent(DATA.job_number) + '&k=' + encodeURIComponent(DATA.access_key);
+  $('colNeededBtn').href = link;
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/collection_slots', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_job_number: DATA.job_number, p_key: DATA.access_key })
+    });
+    const d = await res.json();
+    if (res.ok && (d.booked || d.done)) { $('colNeeded').style.display = 'none'; return; }
+  } catch (e) { /* if we can't tell, show the button anyway */ }
+  $('colNeeded').style.display = 'block';
+}
+
 function showIntent(choice, at) {
   if (!choice) return;
+  if (choice === 'cash' && DATA && DATA.status !== 'paid') checkCollection();
   const when = at ? new Date(at).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
   $('intentMsg').textContent = choice === 'bank'
     ? 'Thanks — you told us ' + (when ? 'on ' + when + ' ' : '') + 'that you\'ve paid by bank transfer. We\'ll check the account and email your receipt once it\'s arrived. If you\'re collecting, the receipt has a link to book your collection time.'

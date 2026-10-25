@@ -391,6 +391,7 @@ const $ = id => document.getElementById(id);
 const JOB = (new URLSearchParams(location.search).get('job') || '').trim().toUpperCase();
 let JOBROW = null;
 let QUOTES = [];
+let COL = null;   // collection booking, if any
 
 // ---------- header: status tag and key facts ----------
 const TONE = { awaiting_intake: 'wait', intake_received: 'wait', estimated: 'wait', dropoff_requested: 'wait', dropoff_booked: 'in', in_post: 'wait',
@@ -429,7 +430,10 @@ function drawMoney() {
     rows.push('<hr>');
     rows.push(`<span class="big">Balance due</span><span class="big ${due > 0.004 ? 'due' : ''}">${gbp(due)}</span>`);
   } else rows.push('<span class="muted">Not invoiced yet</span><span></span>');
-  $('moneyBody').innerHTML = `<div class="money">${rows.join('')}</div>
+  const cashNoTime = INVOICES.some(v => v.status !== 'paid' && v.pay_intent === 'cash') && !(COL && COL.starts_at);
+  $('moneyBody').innerHTML = (cashNoTime ? `<div class="msg show" style="background:#fff6e5;border:1px solid #f3d9a4;color:#8a5a00;margin:0 0 12px">
+      <strong>Paying cash on collection, but no collection time booked yet.</strong> They've been shown a "Book my collection time" button on their invoice.</div>` : '') +
+    `<div class="money">${rows.join('')}</div>
     <button type="button" class="primary" id="goInvoice" style="width:100%;margin-top:14px">${INVOICES.length ? 'View invoices' : 'Create invoice'}</button>
     <button type="button" class="send" id="goPrice" style="width:100%;margin-top:8px;justify-content:center">${q ? 'View quotes' : 'Price the job'}</button>`;
   const tab = t => [...document.querySelectorAll('nav.jobtabs button')].find(b => b.textContent.trim().startsWith(t))?.click();
@@ -1090,6 +1094,7 @@ async function loadCollection() {
   const { data } = await sb.rpc('job_collection', { p_job_id: JOBROW.id });
   const d = Array.isArray(data) ? data[0] : data;
   const box = $('colBox');
+  COL = d || null; drawMoney();
   // Hide once collected.
   if (!d || !d.starts_at || d.attended_at || d.done || ['returned', 'closed'].includes(JOBROW.status)) { box.style.display = 'none'; return; }
   const when = new Date(d.starts_at).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
