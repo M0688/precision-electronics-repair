@@ -7,13 +7,13 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#08111f">
+<meta name="theme-color" content="#152642">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PER Workshop">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="crm.css?v=7">
+<link rel="stylesheet" href="crm.css?v=8">
 <style>
   /* Only what's special to the jobs list — everything else comes from crm.css. */
   main { padding: 28px 0 64px; }
@@ -35,14 +35,15 @@
   .jobtools { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
   .jobtools input { flex: 1 1 280px; margin: 0; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-  .chips button { background: transparent; border: 1.5px solid #2c4067; color: #c8d2e6; border-radius: 999px; font: inherit; font-weight: 700; font-size: 13.5px; padding: 7px 14px; cursor: pointer; }
-  .chips button:hover { border-color: #fff; color: #fff; }
-  .chips button.on { background: #fff; border-color: #fff; color: var(--on-navy); }
+  .chips button { background: #fff; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font: inherit; font-weight: 700; font-size: 13.5px; padding: 7px 14px; cursor: pointer; }
+  .chips button:hover { border-color: #a9b3c4; color: var(--ink); }
+  .chips button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
   .chips .n { opacity: .7; margin-left: 5px; font-weight: 800; }
   .bhtable .bhdel { background: none; border: 0; color: #a33; font-size: 18px; cursor: pointer; padding: 6px; }
   .sendrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   #login { max-width: 420px; margin: 60px auto; }
-  body.signed-out nav.tabs { display: none; }
+  body.signed-out .side, body.signed-out .topbar { display: none; }
+  body.signed-out main { margin-left: 0 !important; }
   /* Week calendar */
   .calbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
   .calbar .send { margin: 0; padding: 7px 12px; font-size: 13px; }
@@ -53,7 +54,7 @@
   .k.coll { background: rgba(110,160,255,.16); border: 2px solid #3d6fb6; }
   .k.site { background: rgba(170,130,255,.16); border: 2px solid #6b3fb6; }
   .k.req { background: var(--white); border: 2px dashed #b3261e; }
-  .k.shut { background: repeating-linear-gradient(45deg, #1a2a48, #1a2a48 4px, #0d182b 4px, #0d182b 8px); border: 1px solid var(--line); }
+  .k.shut { background: repeating-linear-gradient(45deg, #e6eaf0, #e6eaf0 4px, #f6f8fb 4px, #f6f8fb 8px); border: 1px solid var(--line); }
   .calwrap { overflow-x: auto; }
   .calgrid { display: grid; grid-template-columns: 54px repeat(7, minmax(110px, 1fr)); min-width: 820px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .calgrid .ch { background: var(--soft); font-size: 12px; font-weight: 700; color: var(--navy); text-align: center; padding: 8px 4px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
@@ -61,7 +62,7 @@
   .calgrid .ch:first-child { border-left: 0; }
   .calgrid .th { font-size: 12px; color: var(--muted); text-align: right; padding: 4px 6px; border-top: 1px solid var(--line); }
   .calgrid .cell { min-height: 54px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 3px; }
-  .calgrid .cell.shut { background: repeating-linear-gradient(45deg, var(--soft), var(--soft) 6px, #14223c 6px, #14223c 12px); }
+  .calgrid .cell.shut { background: repeating-linear-gradient(45deg, var(--soft), var(--soft) 6px, #eceff4 6px, #eceff4 12px); }
   .calgrid .cell.past { opacity: .55; }
   .bk { display: block; border-radius: 6px; padding: 4px 6px; font-size: 12px; line-height: 1.35; text-decoration: none; color: var(--ink); margin-bottom: 3px; }
   .bk.drop { background: rgba(255,192,77,.16); border-left: 4px solid #d99a1e; }

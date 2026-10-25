@@ -44,29 +44,61 @@ export function waLink(phone, message) {
 }
 
 // Header + tabs, shared by every page
+const ICONS = {
+  jobs: '<path d="M4 7h16M4 12h16M4 17h10"/>',
+  invoices: '<path d="M7 3h10v18l-3-2-2 2-2-2-3 2z"/><path d="M10 8h4M10 12h4"/>',
+  contacts: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>',
+  tests: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',
+  reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>'
+};
+const icon = k => `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
+
+// Navy sidebar + top bar, shared by every workshop page
 export function chrome(active) {
   const tabs = [
-    ['workshop.html', 'Jobs'],
-    ['invoices.html', 'Invoices'],
-    ['contacts.html', 'Contacts'],
-    ['tests.html', 'Tests'],
-    ['reports.html', 'Reports'],
-    ['settings.html', 'Settings']
+    ['workshop.html', 'Jobs', 'jobs'],
+    ['invoices.html', 'Invoices', 'invoices'],
+    ['contacts.html', 'Contacts', 'contacts'],
+    ['tests.html', 'Tests', 'tests'],
+    ['reports.html', 'Reports', 'reports'],
+    ['settings.html', 'Settings', 'settings']
   ];
+  document.body.classList.add('has-side');
   document.body.insertAdjacentHTML('afterbegin', `
-    <header><div class="wrap">
-      <a class="brand" href="workshop.html"><img src="icon-192.png" alt=""><span>PRECISION ELECTRONICS REPAIR <em>WORKSHOP</em></span></a>
-      <div class="who" id="who" style="display:none">
-        <a id="mailBtn" href="${GMAIL_INBOX}" target="_blank" rel="noopener" title="Open the business inbox"
-           style="color:#fff;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px">Mail<span id="mailCount"
-           style="display:none;background:#e5484d;color:#fff;border-radius:10px;min-width:20px;height:20px;padding:0 6px;font-size:12px;line-height:20px;text-align:center"></span></a>
-        <span id="whoEmail"></span><button id="signOut">Sign out</button></div>
-    </div></header>
-    <nav class="tabs"><div class="wrap">
-      ${tabs.map(([href, label]) => `<a href="${href}"${href === active ? ' class="on"' : ''}>${label}</a>`).join('')}
-    </div></nav>`);
+    <aside class="side" id="side">
+      <a class="brand" href="workshop.html"><img src="icon-192.png" alt=""><span>PRECISION<small>ELECTRONICS REPAIR</small></span></a>
+      <div class="sidelabel">Workshop</div>
+      <nav class="sidenav">
+        ${tabs.map(([href, label, ic]) => `<a href="${href}"${href === active ? ' class="on"' : ''}>${icon(ic)}<span>${label}</span></a>`).join('')}
+      </nav>
+      <div class="sidefoot who" id="who" style="display:none">
+        <a id="mailBtn" href="${GMAIL_INBOX}" target="_blank" rel="noopener" title="Open the business inbox">${icon('mail')}<span>Mail</span><span id="mailCount" style="display:none"></span></a>
+        <div class="me"><span id="whoEmail"></span><button id="signOut" type="button">Sign out</button></div>
+      </div>
+    </aside>
+    <header class="topbar">
+      <button type="button" class="menubtn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <a class="topbrand" href="workshop.html"><img src="icon-192.png" alt=""></a>
+      <form class="quickfind" id="quickFind" autocomplete="off">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="search" id="quickFindInput" placeholder="Open a job — type its number, e.g. 2437" data-nohist>
+      </form>
+    </header>
+    <div class="sidescrim" id="sideScrim"></div>`);
 
   $('signOut').addEventListener('click', async () => { await sb.auth.signOut(); location.href = 'workshop.html'; });
+  const toggle = on => document.body.classList.toggle('side-open', on);
+  $('menuBtn').addEventListener('click', () => toggle(!document.body.classList.contains('side-open')));
+  $('sideScrim').addEventListener('click', () => toggle(false));
+  $('quickFind').addEventListener('submit', e => {
+    e.preventDefault();
+    let v = $('quickFindInput').value.trim().toUpperCase();
+    if (!v) return;
+    if (/^\d+$/.test(v)) v = 'PER-' + v;
+    location.href = 'job.html?job=' + encodeURIComponent(v);
+  });
   collapsibleSections();
   autoHistory();
 }

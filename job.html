@@ -7,9 +7,36 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#08111f">
-<link rel="stylesheet" href="crm.css?v=7">
+<meta name="theme-color" content="#152642">
+<link rel="stylesheet" href="crm.css?v=8">
 <style>
+  /* Layout: header card, tabs, then work on the left and a summary down the right */
+  .wrap { max-width: 1320px !important; }
+  .jhead { padding: 18px 24px; }
+  #backJobs { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; color: var(--muted); text-decoration: none; margin: 0 0 4px; }
+  #backJobs:hover { color: var(--ink); }
+  .jtitle { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .jtitle h1 { margin: 0; font-size: 30px; }
+  .jtitle .tag { font-size: 13px; padding: 4px 11px; }
+  .jhead .sub { margin: 4px 0 0; font-size: 15px; }
+  .jfacts { display: flex; flex-wrap: wrap; gap: 10px 36px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .jfacts div { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .jfacts small { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .jlayout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+  .jside { position: sticky; top: 138px; display: flex; flex-direction: column; gap: 14px; }
+  .jside .card { margin: 0; padding: 18px; }
+  .jside h2 { margin: 0 0 12px; }
+  .jside select { margin-bottom: 12px; }
+  .money { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; font-size: 14px; }
+  .money .big { font-size: 20px; font-weight: 800; }
+  .money .due { color: var(--red); }
+  .money hr { grid-column: 1 / -1; border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+  .jdanger { display: flex; gap: 8px; flex-wrap: wrap; }
+  .jdanger .send { flex: 1 1 auto; justify-content: center; }
+  @media (max-width: 1100px) {
+    .jlayout { grid-template-columns: 1fr; }
+    .jside { position: static; order: -1; }
+  }
   /* Top box */
   .jobhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   #backJobs { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: var(--navy); text-decoration: none; margin: 0 0 8px; }
@@ -103,69 +130,18 @@
     <div id="msg" class="msg"></div>
     <div id="content" style="display:none">
 
-      <div class="card">
+      <div class="card jhead">
         <a href="workshop.html" id="backJobs"
-           onclick="try{localStorage.setItem('subtab:workshop.html:0','1')}catch(e){}"><span style="font-size:20px;line-height:1">&larr;</span> Jobs</a>
-        <h1 id="jobNo"></h1>
+           onclick="try{localStorage.setItem('subtab:workshop.html:0','1')}catch(e){}"><span style="font-size:18px;line-height:1">&larr;</span> Jobs</a>
+        <div class="jtitle"><h1 id="jobNo"></h1><span id="jobTag" class="tag off"></span><span id="jobMoneyTag"></span></div>
         <p class="sub" id="jobSub"></p>
-        <div id="dropBox" style="display:none;border-radius:10px;padding:12px 16px;margin:-6px 0 16px;display:none;align-items:center;gap:12px;flex-wrap:wrap"></div>
-        <div id="colBox" style="display:none;border-radius:10px;padding:12px 16px;margin:-6px 0 16px;align-items:center;gap:12px;flex-wrap:wrap"></div>
-        <div class="statusbar">
-          <div class="grow">
-            <label for="status">Status</label>
-            <select id="status">
-              <option value="awaiting_intake">Awaiting booking form</option>
-              <option value="intake_received">Form received</option>
-              <option value="estimated">Estimate sent</option>
-              <option value="dropoff_requested">Drop-off requested</option>
-              <option value="dropoff_booked">Drop-off confirmed</option>
-              <option value="in_post">In the post to us</option>
-              <option value="arrived">Item arrived</option>
-              <option value="in_diagnosis">In diagnosis</option>
-              <option value="quoted">Quote sent</option>
-              <option value="approved">Quote approved</option>
-              <option value="declined">Quote declined</option>
-              <option value="awaiting_parts">Awaiting parts</option>
-              <option value="in_repair">In repair</option>
-              <option value="testing">Testing</option>
-              <option value="ready">Ready</option>
-              <option value="invoiced">Invoiced</option>
-              <option value="paid">Paid</option>
-              <option value="returned">Returned</option>
-              <option value="unrepairable">Unrepairable</option>
-              <option value="closed">Expired (closed)</option>
-            </select>
-          </div>
-          <button class="primary" id="statusBtn">Save status</button>
-        </div>
-        <div id="nvBanner" style="display:none;background:rgba(255,107,94,.1);border:1px solid rgba(255,107,94,.45);border-radius:10px;padding:10px 14px;margin:0 0 12px"></div>
-        <div id="nvPanel" style="display:none;border:1px solid rgba(255,107,94,.45);border-radius:10px;padding:14px 16px;margin:0 0 14px">
-          <div style="font-weight:700;color:var(--red);margin-bottom:8px">Why isn't the repair viable?</div>
-          <div id="nvReasons" style="display:grid;gap:6px;margin-bottom:10px"></div>
-          <input type="text" id="nvOther" placeholder="Type the reason" style="display:none">
-          <label for="nvNote" style="margin-top:4px">Details <span style="font-weight:400;color:var(--muted)">(optional, goes on the report)</span></label>
-          <textarea id="nvNote" style="min-height:60px" placeholder="e.g. heavy corrosion under the main IC, tracks eaten through"></textarea>
-          <button type="button" class="primary" id="nvSave" style="margin:0;background:#b3261e;border-color:var(--red)">Mark as not viable</button>
-          <button type="button" class="send" id="nvCancel" style="margin:0 0 0 6px">Cancel</button>
-          <div id="nvMsg" class="msg" style="margin-top:10px"></div>
-        </div>
-        <div class="jobgrid">
-          <div class="k" id="retK">Getting it back</div>
-          <div class="v" id="retRow">
-            <select id="retSel">
-              <option value="">Not asked yet</option>
-              <option value="post">Post it back</option>
-              <option value="collect">Collecting (no postage)</option>
-            </select>
-            <span id="retMsg" class="hint"></span>
-          </div>
-
-        </div>
-        <div class="jobfoot">
-          <button type="button" class="send danger" id="nvBtn">Repair not viable</button>
-          <button type="button" class="btn-sm danger" id="delJob">Delete job</button>
-        </div>
+        <div class="jfacts" id="jobFacts"></div>
+        <div id="dropBox" style="display:none;border-radius:10px;padding:12px 16px;margin:14px 0 0;align-items:center;gap:12px;flex-wrap:wrap"></div>
+        <div id="colBox" style="display:none;border-radius:10px;padding:12px 16px;margin:14px 0 0;align-items:center;gap:12px;flex-wrap:wrap"></div>
       </div>
+
+      <div class="jlayout">
+      <div class="jmain">
 
 
       <details class="card sec">
@@ -331,6 +307,71 @@
         </div>
         </div>
       </details>
+      </div>
+
+      <aside class="jside">
+        <div data-tab="none" class="card">
+          <h2>Status</h2>
+          <label for="status" style="display:none">Status</label>
+          <select id="status">
+              <option value="awaiting_intake">Awaiting booking form</option>
+              <option value="intake_received">Form received</option>
+              <option value="estimated">Estimate sent</option>
+              <option value="dropoff_requested">Drop-off requested</option>
+              <option value="dropoff_booked">Drop-off confirmed</option>
+              <option value="in_post">In the post to us</option>
+              <option value="arrived">Item arrived</option>
+              <option value="in_diagnosis">In diagnosis</option>
+              <option value="quoted">Quote sent</option>
+              <option value="approved">Quote approved</option>
+              <option value="declined">Quote declined</option>
+              <option value="awaiting_parts">Awaiting parts</option>
+              <option value="in_repair">In repair</option>
+              <option value="testing">Testing</option>
+              <option value="ready">Ready</option>
+              <option value="invoiced">Invoiced</option>
+              <option value="paid">Paid</option>
+              <option value="returned">Returned</option>
+              <option value="unrepairable">Unrepairable</option>
+              <option value="closed">Expired (closed)</option>
+            </select>
+          <button class="primary" id="statusBtn" style="width:100%;margin-top:-4px">Save status</button>
+        <div id="nvBanner" style="display:none;background:rgba(255,107,94,.1);border:1px solid rgba(255,107,94,.45);border-radius:10px;padding:10px 14px;margin:0 0 12px"></div>
+          <div id="nvPanel" style="display:none;border:1px solid rgba(255,107,94,.45);border-radius:10px;padding:14px 16px;margin:0 0 14px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:8px">Why isn't the repair viable?</div>
+            <div id="nvReasons" style="display:grid;gap:6px;margin-bottom:10px"></div>
+            <input type="text" id="nvOther" placeholder="Type the reason" style="display:none">
+            <label for="nvNote" style="margin-top:4px">Details <span style="font-weight:400;color:var(--muted)">(optional, goes on the report)</span></label>
+            <textarea id="nvNote" style="min-height:60px" placeholder="e.g. heavy corrosion under the main IC, tracks eaten through"></textarea>
+            <button type="button" class="primary" id="nvSave" style="margin:0;background:#b3261e;border-color:var(--red)">Mark as not viable</button>
+            <button type="button" class="send" id="nvCancel" style="margin:0 0 0 6px">Cancel</button>
+            <div id="nvMsg" class="msg" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div data-tab="none" class="card" id="moneyCard">
+          <h2>Money</h2>
+          <div id="moneyBody"><p class="sub" style="margin:0">Loading…</p></div>
+        </div>
+
+        <div data-tab="none" class="card" id="retCard">
+          <h2>Getting it back</h2>
+          <div id="retRow">
+            <select id="retSel">
+              <option value="">Not asked yet</option>
+              <option value="post">Post it back</option>
+              <option value="collect">Collecting (no postage)</option>
+            </select>
+            <span id="retMsg" class="hint"></span>
+          </div>
+        </div>
+
+        <div class="card jdanger">
+          <button type="button" class="send danger" id="nvBtn">Repair not viable</button>
+          <button type="button" class="send danger" id="delJob">Delete job</button>
+        </div>
+      </aside>
+      </div>
 
 
 
@@ -350,6 +391,51 @@ const $ = id => document.getElementById(id);
 const JOB = (new URLSearchParams(location.search).get('job') || '').trim().toUpperCase();
 let JOBROW = null;
 let QUOTES = [];
+
+// ---------- header: status tag and key facts ----------
+const TONE = { awaiting_intake: 'wait', intake_received: 'wait', estimated: 'wait', dropoff_requested: 'wait', dropoff_booked: 'in', in_post: 'wait',
+  arrived: 'in', in_diagnosis: 'in', quoted: 'wait', approved: 'in', declined: 'off', awaiting_parts: 'wait', in_repair: 'in', testing: 'in',
+  ready: 'in', invoiced: 'wait', paid: 'in', returned: 'off', unrepairable: 'hot', closed: 'off' };
+function drawHead() {
+  const st = JOBROW.status;
+  const opt = [...$('status').options].find(o => o.value === st);
+  $('jobTag').textContent = opt ? opt.textContent : (st || '');
+  $('jobTag').className = 'tag ' + (TONE[st] || 'off');
+  const d = JOBROW, f = [];
+  const fact2 = (k, v) => v ? f.push(`<div><small>${k}</small>${esc(v)}</div>`) : 0;
+  fact2('Created', d.created_at ? when(d.created_at) : '');
+  fact2('Item', [d.device_type, d.make_model].filter(Boolean).join(' · '));
+  fact2('Serial', d.serial_imei || d.serial || '');
+  fact2('Phone', d.phone || '');
+  fact2('Email', d.customer_email || '');
+  $('jobFacts').innerHTML = f.join('');
+  $('jobFacts').style.display = f.length ? '' : 'none';
+}
+
+// ---------- money summary (right-hand panel) ----------
+function drawMoney() {
+  const gbp = n => '£' + Number(n || 0).toFixed(2);
+  const q = QUOTES.find(x => x.status === 'approved') || QUOTES[0];
+  const billed = INVOICES.reduce((a, v) => a + Number(v.amount || 0), 0);
+  const paid = INVOICES.filter(v => v.status === 'paid').reduce((a, v) => a + Number(v.amount || 0), 0);
+  const due = billed - paid;
+  const rows = [];
+  if (q) rows.push(`<span>${(q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote'} <span class="tag ${q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait'}" style="margin-left:4px">${q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Sent'}</span></span><strong>${gbp(q.amount)}</strong>`);
+  else rows.push('<span class="muted">No quote yet</span><span></span>');
+  if (INVOICES.length) {
+    rows.push(`<span>Invoiced (${INVOICES.length})</span><strong>${gbp(billed)}</strong>`);
+    rows.push(`<span>Paid</span><strong>${gbp(paid)}</strong>`);
+    rows.push('<hr>');
+    rows.push(`<span class="big">Balance due</span><span class="big ${due > 0.004 ? 'due' : ''}">${gbp(due)}</span>`);
+  } else rows.push('<span class="muted">Not invoiced yet</span><span></span>');
+  $('moneyBody').innerHTML = `<div class="money">${rows.join('')}</div>
+    <button type="button" class="primary" id="goInvoice" style="width:100%;margin-top:14px">${INVOICES.length ? 'View invoices' : 'Create invoice'}</button>
+    <button type="button" class="send" id="goPrice" style="width:100%;margin-top:8px;justify-content:center">${q ? 'View quotes' : 'Price the job'}</button>`;
+  const tab = t => [...document.querySelectorAll('nav.jobtabs button')].find(b => b.textContent.trim().startsWith(t))?.click();
+  $('goInvoice').addEventListener('click', () => { tab('Invoice'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  $('goPrice').addEventListener('click', () => { tab('Price'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  $('jobMoneyTag').innerHTML = !INVOICES.length ? '' : due > 0.004 ? '<span class="tag hot">Unpaid</span>' : '<span class="tag in">Paid</span>';
+}
 let ITEMS = [];
 let BATCH = [];
 
@@ -466,6 +552,7 @@ async function load() {
   $('jobNo').textContent = data.job_number;
   const bits = [data.customer_name, data.make_model || data.device_type].filter(Boolean).join(' · ') || 'No booking form yet';
   $('jobSub').innerHTML = esc(bits) + (data.contact_id ? ` · <a href="contacts.html?id=${data.contact_id}">customer record</a>` : '');
+  drawHead();
   loadTrade(data.contact_id);
   loadDrop();
   loadCollection();
@@ -758,6 +845,7 @@ function loadComms() {}  // messages tab removed
 async function loadQuotes(jobId) {
   const { data } = await sb.from('quotes').select('*').eq('job_id', jobId).order('sent_at', { ascending: false });
   QUOTES = data || [];
+  drawMoney();
 
   const { data: shots } = await sb.from('quote_photos').select('*').eq('job_id', jobId);
   const byQuote = {};
@@ -890,11 +978,11 @@ function drawLines() {
     l.amount = Math.round(Number(l.qty) * Number(l.unit) * 100) / 100;
   });
   $('iLines').innerHTML = `<div class="row" style="margin-bottom:0;font-size:12px;color:var(--muted);font-weight:600">
-      <div style="flex:1 1 260px">Description</div><div style="flex:0 0 110px">Type</div><div style="flex:0 0 70px">Qty</div>
+      <div style="flex:1 1 180px">Description</div><div style="flex:0 0 110px">Type</div><div style="flex:0 0 70px">Qty</div>
       <div style="flex:0 0 105px">Each £</div><div style="flex:0 0 85px">Line £</div><div style="flex:0 0 86px"></div></div>` +
     LINES.map((l, n) => `
     <div class="row" style="align-items:flex-start;margin-bottom:4px">
-      <div style="flex:1 1 260px">
+      <div style="flex:1 1 180px">
         <textarea data-ldesc="${n}" style="min-height:58px" placeholder="What this line is for">${esc(l.description)}</textarea>
       </div>
       <div style="flex:0 0 110px">
@@ -1165,6 +1253,7 @@ async function loadInvoices(jobId) {
   }).join('');
 
   INVOICES = data || [];
+  drawMoney();
   wireDeletes($('invList'), () => { loadInvoices(JOBROW.id); loadNotes(JOBROW.id); });
 
   $('invList').querySelectorAll('[data-paid]').forEach(btn => {
@@ -1296,7 +1385,7 @@ async function raiseInvoice(sendNow) {
   $('iDesc').value = '';
   LINES = [];
   $('status').value = 'invoiced';
-  JOBROW.status = 'invoiced';
+  JOBROW.status = 'invoiced'; drawHead();
   showWs();
   askStickers([JOBROW.id, ...lines.map(l => l.job_ref)]);
   loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id); loadQuotes(JOBROW.id);
@@ -1424,7 +1513,7 @@ $('nvSave').addEventListener('click', async () => {
   if (JOBROW.status !== 'unrepairable') {
     const { error: e2 } = await sb.rpc('set_job_status', { p_job_number: JOB, p_status: 'unrepairable' });
     if (e2) { $('nvSave').disabled = false; return show($('nvMsg'), e2.message, 'err'); }
-    JOBROW.status = 'unrepairable';
+    JOBROW.status = 'unrepairable'; drawHead();
     $('status').value = 'unrepairable';
   }
   const { data: sess } = await sb.auth.getSession();
@@ -1454,6 +1543,7 @@ $('statusBtn').addEventListener('click', async () => {
   if (error) return show($('msg'), error.message, 'err');
   show($('msg'), 'Status updated.', 'ok');
   JOBROW.status = $('status').value;
+  drawHead();
   loadNotViable();
   showWs();
   loadNotes(JOBROW.id);
@@ -1635,7 +1725,7 @@ load();
   content.classList.add('tabbed');
   const bar = document.createElement('nav');
   bar.className = 'jobtabs';
-  secs[0].before(bar);
+  (document.querySelector('.jlayout') || secs[0]).before(bar);
 
   const label = d => { const t = d.querySelector('summary h2').textContent.trim(); return d.id === 'batchCard' ? 'Batch' : (LABEL[t] || t); };
   const btns = secs.map((d, i) => {
