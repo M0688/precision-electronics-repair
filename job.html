@@ -147,6 +147,17 @@
       <details class="card sec">
         <summary><h2>Booking form</h2><span class="count" data-of="#photos a"></span></summary>
         <div class="secbody">
+        <div class="stickerbox" id="formLinkBox">
+          <strong>Booking form link</strong> <span id="formLinkState" class="hint"></span>
+          <div class="linkbox" id="formLink" style="margin-top:8px"></div>
+          <div class="sendrow">
+            <button type="button" class="send" id="flCopy">Copy link</button>
+            <a class="send wa" id="flWa" target="_blank" rel="noopener">Send on WhatsApp</a>
+            <a class="send" id="flSms">Send by text</a>
+            <button type="button" class="send" id="flEmail">Email it to them</button>
+          </div>
+          <div id="flMsg" class="msg" style="margin:10px 0 0"></div>
+        </div>
         <div class="stickerbox">
           <strong>Warranty sticker</strong>
           <div id="wsRow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px">
@@ -391,6 +402,37 @@ const $ = id => document.getElementById(id);
 const JOB = (new URLSearchParams(location.search).get('job') || '').trim().toUpperCase();
 let JOBROW = null;
 let QUOTES = [];
+
+// ---------- booking form link (Booking tab) ----------
+function drawFormLink(d) {
+  const link = 'https://precisionelectronicsrepair.co.uk/intake.html?job=' + encodeURIComponent(d.job_number) + '&k=' + encodeURIComponent(d.access_key);
+  $('formLink').textContent = link;
+  $('formLinkState').textContent = d.has_intake ? '— already filled in (opening it shows their submitted form)'
+    : d.booked_by_hand ? '— booked in by hand, no form needed' : '— not filled in yet';
+  const first = (d.customer_name || '').split(' ')[0];
+  const msg = (first ? 'Hi ' + first + ', ' : '') + 'here is your booking form for job ' + d.job_number + ' with Precision Electronics Repair: ' + link + ' — any questions, call 07522 124273.';
+  const num = ukNumber(d.phone);
+  $('flWa').href = waLink(num, msg); $('flWa').target = WA_TARGET;
+  if (num) { $('flSms').href = 'sms:+' + num + '?&body=' + encodeURIComponent(msg); $('flSms').style.display = ''; } else $('flSms').style.display = 'none';
+  $('flEmail').style.display = d.customer_email ? '' : 'none';
+  $('flCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(link); show($('flMsg'), 'Link copied.', 'ok'); } catch (e) { show($('flMsg'), 'Copy didn\'t work — select the link above and copy it.', 'err'); }
+  };
+  $('flEmail').onclick = async () => {
+    if (!confirm('Email the booking form link to ' + d.customer_email + '?')) return;
+    $('flEmail').disabled = true;
+    const { data: sess } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/send-job-link', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_number: d.job_number, to: d.customer_email, name: d.customer_name || '' })
+    });
+    const out = await res.json().catch(() => ({}));
+    $('flEmail').disabled = false;
+    show($('flMsg'), out.ok ? 'Booking form emailed to ' + d.customer_email + '.' : 'The email did not send (' + (out.error || 'unknown error') + '). Use WhatsApp, text or copy the link instead.', out.ok ? 'ok' : 'err');
+    if (out.ok) loadNotes(JOBROW.id);
+  };
+}
 let COL = null;   // collection booking, if any
 
 // ---------- header: status tag and key facts ----------
@@ -596,6 +638,7 @@ async function load() {
   ].join('');
 
   $('trackLink').href = 'track.html?job=' + encodeURIComponent(data.job_number) + '&k=' + encodeURIComponent(data.access_key);
+  drawFormLink(data);
 
   setQuoteKind(data.status);
   $('qKind').addEventListener('change', () => setQuoteKind(null));
