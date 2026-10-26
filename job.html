@@ -272,6 +272,18 @@
 
 
 
+      <details class="card sec" id="testSec">
+        <summary><h2>Tests</h2><span class="count" data-of="#testList tr[data-run]"></span></summary>
+        <div class="secbody">
+          <div class="row">
+            <div><label for="testPick">Test procedure</label><select id="testPick"><option value="">Loading…</option></select></div>
+            <div style="flex:0 0 auto"><button class="primary" id="testStart" style="margin-bottom:14px">Start test</button></div>
+          </div>
+          <p id="testHint" style="font-size:13px;color:var(--muted);margin:-6px 0 10px"></p>
+          <div id="testList"></div>
+          <p style="font-size:13px;margin:8px 0 0"><a href="tests.html">Manage procedures</a></p>
+        </div>
+      </details>
 
 
       <details class="card sec">
@@ -635,6 +647,7 @@ async function load() {
   loadPhotos(data.id);
   loadWorkPhotos(data.id);
   loadNotViable();
+  loadTests(data.id);
   loadNotes(data.id);
   loadQuotes(data.id);
   loadInvoices(data.id);
@@ -1458,6 +1471,52 @@ $('iCopy').addEventListener('click', async () => {
     $('iCopy').textContent = 'Copied';
     setTimeout(() => { $('iCopy').textContent = 'Copy link'; }, 2000);
   } catch (e) { show($('invMsg'), 'Could not copy — select the link and copy it.', 'err'); }
+});
+
+/* ---------- test procedures ---------- */
+let TESTPROCS = [];
+async function loadTests(jobId) {
+  const [{ data: procs }, { data: runs }] = await Promise.all([
+    sb.from('test_procedures').select('id,title,applies_to,models').order('title'),
+    sb.from('test_runs').select('id,procedure_id,board_label,outcome,created_at').eq('job_id', jobId).order('created_at', { ascending: false })
+  ]);
+  const P = procs || [];
+  $('testPick').innerHTML = P.length
+    ? P.map(p => `<option value="${p.id}">${esc(p.title)}${p.applies_to ? ' (' + esc(p.applies_to) + ')' : ''}</option>`).join('')
+    : '<option value="">No procedures yet</option>';
+  // Pick the test for this device: one already used on this model, else one whose title / applies-to names it.
+  const model = String(JOBROW.make_model || '').trim().toLowerCase();
+  let pick = null, how = '';
+  if (model) {
+    pick = P.find(p => (p.models || []).some(m => m.toLowerCase() === model));
+    if (pick) how = 'used before on this model';
+    else if (model.length >= 4) {
+      pick = P.find(p => (p.title + ' ' + (p.applies_to || '')).toLowerCase().includes(model));
+      if (pick) how = 'matches this model';
+    }
+  }
+  if (pick) $('testPick').value = pick.id;
+  $('testHint').textContent = pick ? `Suggested for ${JOBROW.make_model} (${how}).` : (model ? `No test linked to ${JOBROW.make_model} yet. Pick one and it will be remembered.` : '');
+  TESTPROCS = P;
+  const name = id => (P.find(p => p.id === id) || {}).title || '';
+  const tag = o => o === 'pass' ? '<span class="tag" style="background:rgba(79,209,139,.14);color:var(--green)">Pass</span>'
+    : o === 'fail' ? '<span class="tag" style="background:rgba(255,107,94,.14);color:var(--red)">Fail</span>'
+    : `<span class="tag wait">${o === 'incomplete' ? 'Incomplete' : 'In progress'}</span>`;
+  $('testList').innerHTML = (runs || []).length
+    ? `<table><tbody>${runs.map(r => `<tr data-run="${r.id}" style="cursor:pointer"><td>${new Date(r.created_at).toLocaleDateString('en-GB')}</td><td>${esc(name(r.procedure_id))}${r.board_label ? ' · ' + esc(r.board_label) : ''}</td><td>${tag(r.outcome)}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="empty" style="margin:0">No tests run on this job yet.</p>';
+  $('testList').querySelectorAll('tr[data-run]').forEach(tr => tr.addEventListener('click', () => { location.href = 'tests.html?run=' + tr.dataset.run; }));
+}
+$('testStart').addEventListener('click', async () => {
+  const id = $('testPick').value;
+  if (!id) { location.href = 'tests.html?edit=new'; return; }
+  // Remember this test for this model, so the next job with the same device loads it.
+  const model = String(JOBROW.make_model || '').trim();
+  const p = TESTPROCS.find(x => x.id === id);
+  if (model && p && !(p.models || []).some(m => m.toLowerCase() === model.toLowerCase())) {
+    await sb.from('test_procedures').update({ models: [...(p.models || []), model] }).eq('id', id);
+  }
+  location.href = 'tests.html?start=' + id + '&job=' + encodeURIComponent(JOB);
 });
 
 /* ---------- repair not viable ---------- */
