@@ -217,6 +217,21 @@
         </div>
       </details>
 
+      <details class="card sec" id="fileSec">
+        <summary><h2>Files</h2><span class="count" data-of="#fileList tr[data-f]"></span></summary>
+        <div class="secbody">
+          <p class="sub" style="margin:0 0 12px">EEPROM dumps, firmware, logs, schematics — any file, up to 50 MB each. Private: only you can open them.</p>
+          <div class="row" style="align-items:flex-end">
+            <div style="flex:1 1 260px"><label for="fileNote">Note <span style="font-weight:400;color:var(--muted)">— optional, e.g. "original dump before repair"</span></label>
+              <input type="text" id="fileNote" placeholder="What this file is"></div>
+            <div style="flex:0 0 auto"><label class="cambtn" style="margin-bottom:14px">&#128190; Add files
+              <input type="file" id="fileAdd" multiple></label></div>
+          </div>
+          <div id="fileMsg" class="msg"></div>
+          <div id="fileList"></div>
+        </div>
+      </details>
+
       <details class="card sec">
         <summary><h2>Price the job</h2><span class="count" data-of="#quoteList .quotebox"></span></summary>
         <div class="secbody">
@@ -646,6 +661,7 @@ async function load() {
 
   loadPhotos(data.id);
   loadWorkPhotos(data.id);
+  loadFiles(data.id);
   loadNotViable();
   loadTests(data.id);
   loadNotes(data.id);
@@ -858,6 +874,57 @@ async function addWorkPhotos(input) {
   else if (ok) show($('wpMsg'), ok + ' of ' + files.length + ' photos added.', 'err');
   loadWorkPhotos(JOBROW.id);
 }
+// ---------- job files (EEPROM dumps etc.) ----------
+const fmtSize = n => n == null ? '' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+async function loadFiles(jobId) {
+  const { data, error } = await sb.from('job_files').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
+  if (error) { $('fileList').innerHTML = ''; return show($('fileMsg'), /job_files/.test(error.message) ? 'Files need the stage 36 database update first.' : error.message, 'err'); }
+  const rows = data || [];
+  $('fileList').innerHTML = rows.length ? `<table><thead><tr><th>File</th><th class="hide">Size</th><th class="hide">Added</th><th></th></tr></thead><tbody>${
+    rows.map(r => `<tr data-f="${r.id}">
+      <td><strong>${esc(r.file_name)}</strong>${r.note ? `<div class="muted">${esc(r.note)}</div>` : ''}</td>
+      <td class="hide">${fmtSize(r.size_bytes)}</td>
+      <td class="hide">${new Date(r.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+      <td style="text-align:right;white-space:nowrap"><button type="button" class="btn-sm" data-fget="${r.id}">Download</button>
+        <button type="button" class="btn-sm danger" data-fdel="${r.id}">Delete</button></td></tr>`).join('')
+  }</tbody></table>` : '<p class="empty" style="margin:0">No files yet.</p>';
+  $('fileList').querySelectorAll('[data-fget]').forEach(b => b.addEventListener('click', async () => {
+    const r = rows.find(x => x.id === b.dataset.fget);
+    const { data: u, error } = await sb.storage.from('job-files').createSignedUrl(r.storage_path, 300, { download: r.file_name });
+    if (error) return show($('fileMsg'), error.message, 'err');
+    location.href = u.signedUrl;
+  }));
+  $('fileList').querySelectorAll('[data-fdel]').forEach(b => b.addEventListener('click', async () => {
+    const r = rows.find(x => x.id === b.dataset.fdel);
+    if (!confirm('Delete ' + r.file_name + ' for good?')) return;
+    await sb.storage.from('job-files').remove([r.storage_path]);
+    const { error } = await sb.from('job_files').delete().eq('id', r.id);
+    if (error) return show($('fileMsg'), error.message, 'err');
+    loadFiles(jobId);
+  }));
+}
+$('fileAdd').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []); e.target.value = '';
+  if (!files.length || !JOBROW) return;
+  const note = $('fileNote').value.trim() || null;
+  const { data: sess } = await sb.auth.getSession();
+  let ok = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    if (f.size > 52428800) { show($('fileMsg'), f.name + ' is over 50 MB, so it wasn\'t added.', 'err'); continue; }
+    show($('fileMsg'), 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + f.name + '…', 'ok');
+    const safe = f.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-100) || 'file';
+    const path = `${JOBROW.id}/${crypto.randomUUID()}-${safe}`;
+    const { error } = await sb.storage.from('job-files').upload(path, f, { contentType: f.type || 'application/octet-stream' });
+    if (error) { show($('fileMsg'), 'Upload failed: ' + error.message, 'err'); continue; }
+    const { error: rowErr } = await sb.from('job_files').insert({ job_id: JOBROW.id, storage_path: path, file_name: f.name, size_bytes: f.size, note, created_by: sess?.session?.user?.email });
+    if (rowErr) { await sb.storage.from('job-files').remove([path]); show($('fileMsg'), rowErr.message, 'err'); continue; }
+    ok++;
+  }
+  if (ok === files.length) { show($('fileMsg'), ok === 1 ? 'File saved.' : ok + ' files saved.', 'ok'); $('fileNote').value = ''; }
+  loadFiles(JOBROW.id);
+});
+
 $('wpCam').addEventListener('change', e => addWorkPhotos(e.target));
 $('wpPick').addEventListener('change', e => addWorkPhotos(e.target));
 
