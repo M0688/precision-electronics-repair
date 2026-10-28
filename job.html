@@ -1236,11 +1236,24 @@ async function loadCollection() {
 // Trade accounts: 25% off labour only. Parts and postage are charged at full price.
 // The server applies it; this just shows you what the invoice will come to.
 let TRADE = false;
+let REPEAT = false;   // retail customer with an earlier paid job: 10% off labour
+const REPEAT_PCT = 10;
 async function loadTrade(contactId) {
   if (!contactId) return;
   const { data } = await sb.from('contacts').select('kind').eq('id', contactId).maybeSingle();
   TRADE = (data && data.kind) === 'trade';
   if (TRADE) $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="Set on the customer record">Trade · 25% off labour</span>');
+  // Retail customers with an earlier paid job get 10% off labour.
+  REPEAT = false;
+  if (!TRADE) {
+    const { data: theirs } = await sb.from('jobs').select('id').eq('contact_id', contactId).neq('id', JOBROW.id);
+    const ids = (theirs || []).map(j => j.id).filter(id => !(BATCH || []).some(b => b.id === id));
+    if (ids.length) {
+      const { data: paid } = await sb.from('invoices').select('id').in('job_id', ids).eq('status', 'paid').limit(1);
+      REPEAT = !!(paid && paid.length);
+    }
+    if (REPEAT) $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="They have an earlier paid job">Repeat customer · 10% off labour</span>');
+  }
   showTotal();
   showTradeQuote();
 }
@@ -1259,6 +1272,9 @@ function showTradeQuote() {
   if (TRADE) {
     $('qTradeNote').textContent = 'Trade account: 25% off labour = -£' + f.off.toFixed(2) + '. Enter your normal labour price.';
     $('qTradeNote').style.display = 'block';
+  } else if (REPEAT) {
+    $('qTradeNote').textContent = 'Repeat customer: 10% off labour (−£' + (Math.round(f.labour * REPEAT_PCT) / 100).toFixed(2) + ') is taken off on the invoice. Enter your normal labour price.';
+    $('qTradeNote').style.display = 'block';
   } else {
     $('qTradeNote').style.display = 'none';
   }
@@ -1275,6 +1291,13 @@ function tradeDiscount() {
   return Math.round(base * 25) / 100;
 }
 
+function repeatDiscount() {
+  if (TRADE || !REPEAT) return 0;
+  const base = LINES.filter(l => (l.kind || guessKind(l.description)) === 'labour')
+                    .reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  return Math.round(base * REPEAT_PCT) / 100;
+}
+
 function linesTotal() {
   return LINES.reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
 }
@@ -1282,8 +1305,10 @@ function linesTotal() {
 function showTotal() {
   const t = linesTotal();
   const d = tradeDiscount();
+  const r = repeatDiscount();
   $('iTotal').textContent = t > 0
     ? (d > 0 ? 'Trade discount (25%): −£' + d.toFixed(2) + ' · Invoice total: £' + (t - d).toFixed(2)
+       : r > 0 ? 'Repeat customer discount (10% off labour): −£' + r.toFixed(2) + ' · Invoice total: £' + (t - r).toFixed(2)
              : 'Invoice total: £' + t.toFixed(2))
     : '';
 }
@@ -1438,7 +1463,13 @@ async function raiseInvoice(sendNow) {
       const q = Number(qty) || 1;
       // the quantity goes into the wording, e.g. "Additional hour (2 × £50.00)"
       if (q !== 1 && d && !/\(\d+(\.\d+)? × £/.test(d)) d += ` (${q} × £${(Number(unit) || 0).toFixed(2)})`;
-      return { ...l, description: d, amount: Number(l.amount) || 0 };
+      let amt = Number(l.amount) || 0;
+      if (!TRADE && REPEAT && (l.kind || guessKind(d)) === 'labour' && amt > 0) {
+        const off = Math.round(amt * REPEAT_PCT) / 100;
+        amt = Math.round((amt - off) * 100) / 100;
+        d += ` (£${(Number(l.amount) || 0).toFixed(2)} less 10% repeat-customer discount)`;
+      }
+      return { ...l, description: d, amount: amt };
     })
     .filter(l => l.description || l.amount);
 
