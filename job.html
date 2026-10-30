@@ -318,6 +318,11 @@
 
 
 
+        <div class="row" style="align-items:flex-end;margin-top:6px">
+          <div style="flex:0 0 130px"><label for="iDisc">Discount</label><input type="number" id="iDisc" min="0" step="0.01" placeholder="0"></div>
+          <div style="flex:0 0 150px"><label for="iDiscType">&nbsp;</label><select id="iDiscType"><option value="gbp">£ off</option><option value="pct">% off the total</option></select></div>
+          <div style="flex:1 1 220px"><label for="iDiscWhy">Shown on the invoice as <span style="font-weight:400;color:var(--muted)">— optional</span></label><input type="text" id="iDiscWhy" placeholder="e.g. Repeat customer discount"></div>
+        </div>
         <label for="iDesc">Note on the invoice <span style="font-weight:400;color:var(--muted)">— optional</span></label>
         <textarea id="iDesc" style="min-height:60px" placeholder="Anything the customer should read alongside the lines."></textarea>
 
@@ -1243,17 +1248,6 @@ async function loadTrade(contactId) {
   const { data } = await sb.from('contacts').select('kind').eq('id', contactId).maybeSingle();
   TRADE = (data && data.kind) === 'trade';
   if (TRADE) $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="Set on the customer record">Trade · 25% off labour</span>');
-  // Retail customers with an earlier paid job get 10% off labour.
-  REPEAT = false;
-  if (!TRADE) {
-    const { data: theirs } = await sb.from('jobs').select('id').eq('contact_id', contactId).neq('id', JOBROW.id);
-    const ids = (theirs || []).map(j => j.id).filter(id => !(BATCH || []).some(b => b.id === id));
-    if (ids.length) {
-      const { data: paid } = await sb.from('invoices').select('id').in('job_id', ids).eq('status', 'paid').limit(1);
-      REPEAT = !!(paid && paid.length);
-    }
-    if (REPEAT) $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="They have an earlier paid job">Repeat customer · 10% off labour</span>');
-  }
   showTotal();
   showTradeQuote();
 }
@@ -1272,9 +1266,6 @@ function showTradeQuote() {
   if (TRADE) {
     $('qTradeNote').textContent = 'Trade account: 25% off labour = -£' + f.off.toFixed(2) + '. Enter your normal labour price.';
     $('qTradeNote').style.display = 'block';
-  } else if (REPEAT) {
-    $('qTradeNote').textContent = 'Repeat customer: 10% off labour (−£' + (Math.round(f.labour * REPEAT_PCT) / 100).toFixed(2) + ') is taken off on the invoice. Enter your normal labour price.';
-    $('qTradeNote').style.display = 'block';
   } else {
     $('qTradeNote').style.display = 'none';
   }
@@ -1291,11 +1282,13 @@ function tradeDiscount() {
   return Math.round(base * 25) / 100;
 }
 
+// Manual discount, typed on the Invoice tab: £ off, or % off the lines total.
 function repeatDiscount() {
-  if (TRADE || !REPEAT) return 0;
-  const base = LINES.filter(l => (l.kind || guessKind(l.description)) === 'labour')
-                    .reduce((s, l) => s + (Number(l.amount) || 0), 0);
-  return Math.round(base * REPEAT_PCT) / 100;
+  const v = parseFloat($('iDisc').value) || 0;
+  if (v <= 0) return 0;
+  const t = linesTotal();
+  const d = $('iDiscType').value === 'pct' ? t * Math.min(v, 100) / 100 : Math.min(v, t);
+  return Math.round(d * 100) / 100;
 }
 
 function linesTotal() {
@@ -1307,11 +1300,14 @@ function showTotal() {
   const d = tradeDiscount();
   const r = repeatDiscount();
   $('iTotal').textContent = t > 0
-    ? (d > 0 ? 'Trade discount (25%): −£' + d.toFixed(2) + ' · Invoice total: £' + (t - d).toFixed(2)
-       : r > 0 ? 'Repeat customer discount (10% off labour): −£' + r.toFixed(2) + ' · Invoice total: £' + (t - r).toFixed(2)
+    ? (d > 0 ? 'Trade discount (25%): −£' + d.toFixed(2) + (r > 0 ? ' · Discount: −£' + r.toFixed(2) : '') + ' · Invoice total: £' + (t - d - r).toFixed(2)
+       : r > 0 ? 'Discount: −£' + r.toFixed(2) + ' · Invoice total: £' + (t - r).toFixed(2)
              : 'Invoice total: £' + t.toFixed(2))
     : '';
 }
+
+['iDisc', 'iDiscType'].forEach(id => $(id).addEventListener('input', showTotal));
+$('iDiscType').addEventListener('change', showTotal);
 
 $('iAddLine').addEventListener('click', () => {
   LINES.push({ description: '', amount: 0, quote_id: null, job_ref: JOBROW ? JOBROW.id : null });
@@ -1464,11 +1460,6 @@ async function raiseInvoice(sendNow) {
       // the quantity goes into the wording, e.g. "Additional hour (2 × £50.00)"
       if (q !== 1 && d && !/\(\d+(\.\d+)? × £/.test(d)) d += ` (${q} × £${(Number(unit) || 0).toFixed(2)})`;
       let amt = Number(l.amount) || 0;
-      if (!TRADE && REPEAT && (l.kind || guessKind(d)) === 'labour' && amt > 0) {
-        const off = Math.round(amt * REPEAT_PCT) / 100;
-        amt = Math.round((amt - off) * 100) / 100;
-        d += ` (£${(Number(l.amount) || 0).toFixed(2)} less 10% repeat-customer discount)`;
-      }
       return { ...l, description: d, amount: amt };
     })
     .filter(l => l.description || l.amount);
@@ -1479,14 +1470,31 @@ async function raiseInvoice(sendNow) {
   const free = lines.findIndex(l => l.amount <= 0);
   if (free !== -1) return show($('invMsg'), 'Line ' + (free + 1) + ' has no price.', 'err');
 
-  const amount = lines.reduce((s, l) => s + l.amount, 0);
+  const disc = repeatDiscount();
+  const discLabel = $('iDiscWhy').value.trim() || 'Discount';
+  if (disc > 0) lines.push({ description: discLabel + ($('iDiscType').value === 'pct' ? ' (' + (parseFloat($('iDisc').value) || 0) + '%)' : ''), amount: -disc, kind: 'parts', quote_id: null, job_ref: JOBROW.id });
+  let amount = lines.reduce((s, l) => s + l.amount, 0);
   const desc = $('iDesc').value.trim();
 
   $('invBtn').disabled = true; $('invSave').disabled = true; $('invBtn').textContent = 'Working…';
 
-  const { data, error } = await sb.rpc('create_invoice', {
+  let { data, error } = await sb.rpc('create_invoice', {
     p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: lines
   });
+  // If the database won't take a minus line, take the discount off each line in proportion instead.
+  if (error && disc > 0) {
+    const rest = lines.filter(l => l.amount > 0);
+    const base = rest.reduce((s, l) => s + l.amount, 0);
+    let left = disc;
+    rest.forEach((l, i) => {
+      const off = i === rest.length - 1 ? left : Math.round(disc * l.amount / base * 100) / 100;
+      left = Math.round((left - off) * 100) / 100;
+      l.description += ` (£${l.amount.toFixed(2)} less £${off.toFixed(2)} ${discLabel.toLowerCase()})`;
+      l.amount = Math.round((l.amount - off) * 100) / 100;
+    });
+    amount = rest.reduce((s, l) => s + l.amount, 0);
+    ({ data, error } = await sb.rpc('create_invoice', { p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: rest }));
+  }
   if (error) {
     $('invBtn').disabled = false; $('invSave').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
     return show($('invMsg'), error.message, 'err');
@@ -1530,7 +1538,7 @@ async function raiseInvoice(sendNow) {
   else if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF attached.', 'ok');
   else show($('invMsg'), row.invoice_no + ' created, but the email failed (' + (out.error || 'unknown error') + '). Send the link below instead.', 'err');
 
-  $('iDesc').value = '';
+  $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
   LINES = [];
   $('status').value = 'invoiced';
   JOBROW.status = 'invoiced'; drawHead();
