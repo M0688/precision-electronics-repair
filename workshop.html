@@ -695,7 +695,7 @@ async function loadCalendar() {
         if (!a.confirmed_at) pending++;
         const more = j.batch_size > 1 ? ` +${j.batch_size - 1}` : '';
         return `<a class="bk ${col ? 'coll' : 'drop'}${a.confirmed_at ? '' : ' req'}" href="job.html?job=${esc2(j.job_number)}" title="${esc2(nameOf[j.job_number] || '')} ${esc2(j.customer_phone || '')}">
-          <strong>${col ? 'Collection' : 'Drop-off'}</strong>
+          <strong>${new Date(a.starts_at).toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' })} ${col ? 'Collection' : 'Drop-off'}</strong>
           <span class="bkline">${esc2(nameOf[j.job_number] || 'Customer')}</span>
           <span class="bkline">${esc2(j.job_number)}${more}</span>
           ${a.confirmed_at ? '' : `<button type="button" data-confirm="${esc2(j.job_number)}" data-kind="${esc2(a.kind)}">Confirm</button>`}
