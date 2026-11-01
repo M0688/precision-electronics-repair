@@ -172,6 +172,10 @@
   .review .stars { color: #e3a008; font-size: 18px; letter-spacing: 2px; }
   .review blockquote { margin: 8px 0 8px; font-size: 16px; color: var(--ink); }
   .review cite { font-style: normal; font-size: 14px; color: var(--muted); }
+  .try { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .try .card ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+  .try .card li { margin: 4px 0; }
+  @media (max-width: 860px) { .try { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body id="top">
@@ -226,6 +230,18 @@
       <div class="card"><h3>Audio and TV boards</h3><p>Amplifier boards, and power and main boards from TVs up to 32 inches.</p></div>
       <div class="card"><h3>Microsoldering and BGA</h3><p>Fine-pitch components, connectors, damaged pads and tracks, and BGA rework.</p></div>
       <div class="card"><h3>Something else?</h3><p>If it has a circuit board, tell us what it's doing and we'll say honestly whether it's worth sending.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="try-first" style="padding-bottom:0">
+  <div class="wrap">
+    <h2>Before you post a board, try these first</h2>
+    <p class="lead">Some faults have a simple fix. Worth a few minutes before you book a repair.</p>
+    <div class="try">
+      <div class="card"><h3>Equipment has no power</h3><ul><li>Check the fuse in the mains plug and try a different socket.</li><li>Check the power lead for damage, and any external power adapter.</li></ul></div>
+      <div class="card"><h3>Make sure it's the board</h3><ul><li>If you can, describe exactly what the equipment does and doesn't do when you book. It helps us confirm the fault quickly.</li></ul></div>
+      <div class="card"><h3>Stay safe</h3><ul><li>Don't remove a board from mains-powered equipment unless you know what you're doing. Capacitors can hold a dangerous charge even after it's unplugged.</li></ul></div>
     </div>
   </div>
 </section>

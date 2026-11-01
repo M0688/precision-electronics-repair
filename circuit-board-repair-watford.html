@@ -178,6 +178,10 @@
   .review .stars { color: #e3a008; font-size: 18px; letter-spacing: 2px; }
   .review blockquote { margin: 8px 0 8px; font-size: 16px; color: var(--ink); }
   .review cite { font-style: normal; font-size: 14px; color: var(--muted); }
+  .try { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .try .card ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+  .try .card li { margin: 4px 0; }
+  @media (max-width: 860px) { .try { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body id="top">
@@ -250,6 +254,17 @@
     <h2>For the trade</h2>
     <p class="lead">Repair shops, installers and maintenance firms: send us the boards you'd otherwise replace or
     write off. <a href="index.html#contact">Get in touch</a>.</p>
+  </div>
+</section>
+
+<section class="alt" id="try-first">
+  <div class="wrap">
+    <h2>Before you send a board, try these first</h2>
+    <p class="lead">Some faults have a simple fix. Worth a few minutes before you book a repair.</p>
+    <div class="try">
+      <div class="card"><h3>Equipment has no power</h3><ul><li>Check the fuse in the mains plug and try a different socket.</li><li>Check the power lead for damage, and any external power adapter.</li></ul></div>
+      <div class="card"><h3>Stay safe</h3><ul><li>Don't open mains-powered equipment to look. Capacitors inside can hold a dangerous charge even after it's unplugged.</li></ul></div>
+    </div>
   </div>
 </section>
 

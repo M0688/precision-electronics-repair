@@ -167,6 +167,10 @@
   .review .stars { color: #e3a008; font-size: 18px; letter-spacing: 2px; }
   .review blockquote { margin: 8px 0 8px; font-size: 16px; color: var(--ink); }
   .review cite { font-style: normal; font-size: 14px; color: var(--muted); }
+  .try { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .try .card ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+  .try .card li { margin: 4px 0; }
+  @media (max-width: 860px) { .try { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body id="top">
@@ -248,6 +252,19 @@
       </article>
     </div>
     <p class="note">More examples on <a href="work.html">our work</a> page.</p>
+  </div>
+</section>
+
+<section id="try-first" style="padding-bottom:0">
+  <div class="wrap">
+    <h2>Console not working? Try these first</h2>
+    <p class="lead">Some faults have a simple fix. Worth a few minutes before you book a repair.</p>
+    <div class="try">
+      <div class="card"><h3>No picture</h3><ul><li>Try a different HDMI cable and a different HDMI input on your TV.</li><li>Make sure the TV is set to the right input.</li></ul></div>
+      <div class="card"><h3>Won't turn on</h3><ul><li>Check the power cable is pushed fully into the console and try a different wall socket.</li><li>Xbox: hold the power button for 10 seconds, unplug it for a minute, then try again.</li><li>PS5: try starting in Safe Mode by holding the power button until you hear a second beep, about 7 seconds.</li></ul></div>
+      <div class="card"><h3>Shuts down or very loud</h3><ul><li>Make sure the vents aren't blocked and it has space around it. Dust build-up can cause overheating shutdowns.</li></ul></div>
+      <div class="card"><h3>Controller problems</h3><ul><li>Try a different USB cable. Many cables only charge and don't carry data.</li><li>DualSense and DualShock 4 controllers have a small reset button in a hole on the back. Press it with a pin for a few seconds, then pair again.</li></ul></div>
+    </div>
   </div>
 </section>
 
