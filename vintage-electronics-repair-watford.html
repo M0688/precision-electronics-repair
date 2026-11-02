@@ -170,6 +170,10 @@
   .review .stars { color: #e3a008; font-size: 18px; letter-spacing: 2px; }
   .review blockquote { margin: 8px 0 8px; font-size: 16px; color: var(--ink); }
   .review cite { font-style: normal; font-size: 14px; color: var(--muted); }
+  .try { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .try .card ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+  .try .card li { margin: 4px 0; }
+  @media (max-width: 860px) { .try { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body id="top">
@@ -214,7 +218,20 @@
   </div>
 </section>
 
-<section class="alt">
+<section class="alt" id="try-first">
+  <div class="wrap">
+    <h2>Vintage kit not working? Try these first</h2>
+    <p class="lead">Some faults have a simple fix. Worth a few minutes before you book a repair.</p>
+    <div class="try">
+      <div class="card"><h3>No sound from an amplifier</h3><ul><li>Check the input selector is on the right source.</li><li>If the amp has a &ldquo;tape monitor&rdquo; button, make sure it's off &mdash; when it's on, other sources go silent.</li><li>Unplug any headphones. On many amps they cut the speakers.</li><li>Check the speaker cables at both ends.</li></ul></div>
+      <div class="card"><h3>No power</h3><ul><li>Check the fuse in the mains plug and try a different socket.</li></ul></div>
+      <div class="card"><h3>Crackles when you turn the knobs</h3><ul><li>Turn each knob and switch fully end to end a few times. Dirty controls are common in old kit, though it may still need a proper clean.</li></ul></div>
+      <div class="card"><h3>Stay safe</h3><ul><li>Don't open valve equipment. It runs at high voltages, and capacitors can hold a dangerous charge long after it's unplugged.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section>
   <div class="wrap">
     <h2>Prices</h2>
     <div style="background:#eef2f8;border:1px solid #d9e0ec;border-left:4px solid #1B2A4A;border-radius:8px;padding:16px 20px;margin:0 0 20px;color:#1f2733;font-size:16px">
@@ -225,7 +242,7 @@
   </div>
 </section>
 
-<section style="padding-bottom:0">
+<section class="alt">
   <div class="wrap">
     <h2>Two ways to get it to us</h2>
     <div class="ways">
@@ -271,7 +288,7 @@
 <footer>
   <div class="wrap">
     <div>&copy; 2026 Precision Electronics Repair &middot; Watford, Hertfordshire</div>
-    <div><a href="index.html">Home</a> &middot; <a href="terms.html">Terms</a> &middot; <a href="privacy.html">Privacy</a></div>
+    <div><a href="index.html">Home</a> &middot; <a href="our-mission.html">Our mission</a> &middot; <a href="terms.html">Terms</a> &middot; <a href="privacy.html">Privacy</a></div>
   </div>
 </footer>
 

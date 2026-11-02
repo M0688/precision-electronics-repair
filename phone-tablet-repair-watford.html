@@ -186,6 +186,10 @@
   .review .stars { color: #e3a008; font-size: 18px; letter-spacing: 2px; }
   .review blockquote { margin: 8px 0 8px; font-size: 16px; color: var(--ink); }
   .review cite { font-style: normal; font-size: 14px; color: var(--muted); }
+  .try { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .try .card ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+  .try .card li { margin: 4px 0; }
+  @media (max-width: 860px) { .try { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body id="top">
@@ -238,6 +242,19 @@
       <div class="card"><h3>iPhone and iPad</h3><p>All iPhone and iPad models.</p></div>
       <div class="card"><h3>Samsung</h3><p>Galaxy phones and Galaxy Tab tablets.</p></div>
       <div class="card"><h3>Everything else</h3><p>Google Pixel, Motorola, OnePlus, Xiaomi and other Android phones and tablets.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="try-first">
+  <div class="wrap">
+    <h2>Phone or tablet not working? Try these first</h2>
+    <p class="lead">Some faults have a simple fix. Worth a few minutes before you book a repair. <a href="phone-wont-charge.html">Phone won't charge? Read our full guide &rarr;</a></p>
+    <div class="try">
+      <div class="card"><h3>Won't charge</h3><ul><li>Try a different cable and plug that you know work.</li><li>Shine a torch into the charging port. Pocket lint often packs in and stops the cable seating. Gently clear it with a wooden toothpick &mdash; never anything metal.</li><li>Try a different wall socket, or a wireless charger if your phone supports one.</li></ul></div>
+      <div class="card"><h3>Won't turn on or is stuck</h3><ul><li>Leave it on charge for 30 minutes, then try again.</li><li>Do a force restart. The button combination depends on the model &mdash; search for your model plus &ldquo;force restart&rdquo;.</li></ul></div>
+      <div class="card"><h3>Got wet</h3><ul><li>Switch it off and don't charge it.</li><li>Don't put it in rice &mdash; it doesn't dry the inside and the dust gets into the ports. Get it to us as soon as you can.</li></ul></div>
+      <div class="card"><h3>Battery bulging</h3><ul><li>Stop using and charging it straight away. A swollen battery is a fire risk. Don't post it &mdash; contact us first.</li></ul></div>
     </div>
   </div>
 </section>
@@ -312,7 +329,7 @@
 <footer>
   <div class="wrap">
     <div>&copy; 2026 Precision Electronics Repair &middot; Watford, Hertfordshire</div>
-    <div><a href="index.html">Home</a> &middot; <a href="terms.html">Terms</a> &middot; <a href="privacy.html">Privacy</a></div>
+    <div><a href="index.html">Home</a> &middot; <a href="our-mission.html">Our mission</a> &middot; <a href="terms.html">Terms</a> &middot; <a href="privacy.html">Privacy</a></div>
   </div>
 </footer>
 
