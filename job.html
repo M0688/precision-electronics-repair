@@ -1246,8 +1246,9 @@ const REPEAT_PCT = 10;
 async function loadTrade(contactId) {
   if (!contactId) return;
   const { data } = await sb.from('contacts').select('kind').eq('id', contactId).maybeSingle();
-  TRADE = (data && data.kind) === 'trade';
-  if (TRADE) $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="Set on the customer record">Trade · 25% off labour</span>');
+  // No automatic discounts (2 Nov 2026): trade customers are labelled, but nothing is taken off.
+  TRADE = false;
+  if ((data && data.kind) === 'trade') $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="Set on the customer record">Trade account</span>');
   showTotal();
   showTradeQuote();
 }
