@@ -1327,22 +1327,27 @@ $('iAddLine').addEventListener('click', () => {
 });
 
 // ---------- more than one job on one invoice ----------
-// Other jobs for the same customer that haven't been billed yet.
+// Every job for the same customer, newest first, with what's already billed.
 async function otherJobs() {
-  let q = sb.from('job_detail').select('id,job_number,status,make_model,device_type,created_at,contact_id,customer_email')
-    .neq('id', JOBROW.id).not('status', 'in', '(invoiced,returned,closed,cancelled,not_viable)')
-    .order('created_at', { ascending: false }).limit(40);
-  const ors = [];
+  const ors = ['id.eq.' + JOBROW.id];
   if (JOBROW.contact_id) ors.push('contact_id.eq.' + JOBROW.contact_id);
   if (JOBROW.customer_email) ors.push('customer_email.eq."' + String(JOBROW.customer_email).replace(/"/g, '') + '"');
-  if (!ors.length) return [];
-  const { data } = await q.or(ors.join(','));
+  const { data } = await sb.from('job_detail').select('id,job_number,status,make_model,device_type,created_at')
+    .or(ors.join(',')).order('created_at', { ascending: false }).limit(200);
   const jobs = data || [];
   if (!jobs.length) return [];
-  const { data: billed } = await sb.from('invoice_lines').select('job_ref').in('job_ref', jobs.map(j => j.id));
-  const done = new Set((billed || []).map(b => b.job_ref));
+  const ids = jobs.map(j => j.id);
+  const [{ data: lineRefs }, { data: own }] = await Promise.all([
+    sb.from('invoice_lines').select('job_ref, invoices(invoice_number)').in('job_ref', ids),
+    sb.from('invoices').select('job_id,invoice_number').in('job_id', ids)
+  ]);
+  const billed = {};
+  (lineRefs || []).forEach(r => { if (r.invoices) (billed[r.job_ref] = billed[r.job_ref] || new Set()).add(r.invoices.invoice_number); });
+  (own || []).forEach(r => (billed[r.job_id] = billed[r.job_id] || new Set()).add(r.invoice_number));
   const onIt = new Set(LINES.map(l => l.job_ref));
-  return jobs.filter(j => !done.has(j.id) && !onIt.has(j.id));
+  return jobs.map(j => ({ ...j,
+    invoices: billed[j.id] ? [...billed[j.id]] : [],
+    here: j.id === JOBROW.id, onIt: onIt.has(j.id) }));
 }
 
 $('iAddJob').addEventListener('click', async () => {
@@ -1351,11 +1356,14 @@ $('iAddJob').addEventListener('click', async () => {
   box.style.display = 'block'; hide($('iJobMsg'));
   $('iJobPick').innerHTML = '<option value="">Loading…</option>';
   const jobs = await otherJobs();
-  $('iJobPick').innerHTML = jobs.length
-    ? '<option value="">Pick a job…</option>' + jobs.map(j =>
-        `<option value="${esc(j.job_number)}">${esc(j.job_number)} · ${esc(j.make_model || j.device_type || 'Item')} · ${esc(String(j.status || '').replace(/_/g, ' '))}</option>`).join('')
-    : '<option value="">No other unbilled jobs for this customer</option>';
-  $('iJobNote').textContent = 'Its approved price comes in as lines. Already-invoiced jobs aren\'t listed.';
+  const free = jobs.filter(j => !j.here && !j.onIt && !j.invoices.length).length;
+  $('iJobPick').innerHTML = '<option value="">' + (free ? 'Pick a job…' : 'All this customer\'s jobs are billed or on this invoice') + '</option>' +
+    jobs.map(j => {
+      const note = j.here ? 'this job' : j.onIt ? 'on this invoice' : j.invoices.length ? 'invoiced ' + j.invoices.join(', ') : String(j.status || '').replace(/_/g, ' ');
+      const off = j.here || j.onIt || j.invoices.length;
+      return `<option value="${esc(j.job_number)}"${off ? ' disabled' : ''}>${esc(j.job_number)} · ${esc(j.make_model || j.device_type || 'Item')} · ${esc(note)}</option>`;
+    }).join('');
+  $('iJobNote').textContent = jobs.length + ' job' + (jobs.length === 1 ? '' : 's') + ' for this customer. Ones already invoiced are shown but can\'t be added again.';
 });
 
 $('iJobGo').addEventListener('click', async () => {
