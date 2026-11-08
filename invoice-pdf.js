@@ -177,7 +177,7 @@ export function buildInvoicePdf(d) {
   doc.setTextColor(...MUTED);
   doc.setFontSize(8.5);
   if (!receipt) doc.text('Payment is due before the item is returned or collected.', L, y);
-  doc.text(`Workmanship warranty for as long as you own the device. Parts warranty 6 months. Terms: ${BUSINESS.site}/terms.html`, L, y + 5);
+  doc.text(`Warranty: 12 months on workmanship and parts. Terms: ${BUSINESS.site}/terms.html`, L, y + 5);
 
   return doc;
 }
