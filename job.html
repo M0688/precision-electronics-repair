@@ -313,7 +313,18 @@
         <div id="iLines"></div>
         <div class="sendrow" style="margin:0 0 16px">
           <button class="send" id="iAddLine" type="button">Add a line</button>
+          <button class="send" id="iAddJob" type="button">Add another job</button>
           <span id="iTotal" style="align-self:center;font-weight:700;color:var(--navy)"></span>
+        </div>
+        <div id="iJobBox" class="quotebox" style="display:none;margin:-6px 0 16px">
+          <label for="iJobPick" style="margin-top:0">Add another job to this invoice</label>
+          <p class="sub" id="iJobNote" style="margin:0 0 8px"></p>
+          <div class="row" style="align-items:flex-end;margin-bottom:0">
+            <div style="flex:1 1 260px"><select id="iJobPick"></select></div>
+            <div style="flex:0 0 150px"><input type="text" id="iJobNum" placeholder="or job no. PER-…"></div>
+            <div style="flex:0 0 auto"><button class="primary" id="iJobGo" type="button" style="margin:0">Add</button></div>
+          </div>
+          <div id="iJobMsg" class="msg" style="margin-top:8px"></div>
         </div>
 
 
@@ -1313,6 +1324,72 @@ $('iDiscType').addEventListener('change', showTotal);
 $('iAddLine').addEventListener('click', () => {
   LINES.push({ description: '', amount: 0, quote_id: null, job_ref: JOBROW ? JOBROW.id : null });
   drawLines();
+});
+
+// ---------- more than one job on one invoice ----------
+// Other jobs for the same customer that haven't been billed yet.
+async function otherJobs() {
+  let q = sb.from('job_detail').select('id,job_number,status,make_model,device_type,created_at,contact_id,customer_email')
+    .neq('id', JOBROW.id).not('status', 'in', '(invoiced,returned,closed,cancelled,not_viable)')
+    .order('created_at', { ascending: false }).limit(40);
+  const ors = [];
+  if (JOBROW.contact_id) ors.push('contact_id.eq.' + JOBROW.contact_id);
+  if (JOBROW.customer_email) ors.push('customer_email.eq."' + String(JOBROW.customer_email).replace(/"/g, '') + '"');
+  if (!ors.length) return [];
+  const { data } = await q.or(ors.join(','));
+  const jobs = data || [];
+  if (!jobs.length) return [];
+  const { data: billed } = await sb.from('invoice_lines').select('job_ref').in('job_ref', jobs.map(j => j.id));
+  const done = new Set((billed || []).map(b => b.job_ref));
+  const onIt = new Set(LINES.map(l => l.job_ref));
+  return jobs.filter(j => !done.has(j.id) && !onIt.has(j.id));
+}
+
+$('iAddJob').addEventListener('click', async () => {
+  const box = $('iJobBox');
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  box.style.display = 'block'; hide($('iJobMsg'));
+  $('iJobPick').innerHTML = '<option value="">Loading…</option>';
+  const jobs = await otherJobs();
+  $('iJobPick').innerHTML = jobs.length
+    ? '<option value="">Pick a job…</option>' + jobs.map(j =>
+        `<option value="${esc(j.job_number)}">${esc(j.job_number)} · ${esc(j.make_model || j.device_type || 'Item')} · ${esc(String(j.status || '').replace(/_/g, ' '))}</option>`).join('')
+    : '<option value="">No other unbilled jobs for this customer</option>';
+  $('iJobNote').textContent = 'Its approved price comes in as lines. Already-invoiced jobs aren\'t listed.';
+});
+
+$('iJobGo').addEventListener('click', async () => {
+  hide($('iJobMsg'));
+  const num = ($('iJobNum').value.trim() || $('iJobPick').value).toUpperCase();
+  if (!num) return show($('iJobMsg'), 'Pick a job or type its number.', 'err');
+  if (num === JOB) return show($('iJobMsg'), 'That\'s this job.', 'err');
+  const { data: j } = await sb.from('job_detail').select('*').eq('job_number', num).maybeSingle();
+  if (!j) return show($('iJobMsg'), num + ' not found.', 'err');
+  if (LINES.some(l => l.job_ref === j.id)) return show($('iJobMsg'), num + ' is already on this invoice.', 'err');
+  const { data: billed } = await sb.from('invoice_lines').select('invoice_id').eq('job_ref', j.id).limit(1);
+  if (billed && billed.length) return show($('iJobMsg'), num + ' is already on another invoice.', 'err');
+
+  // Label this job's own lines with its number, so the customer can tell them apart.
+  LINES.forEach(l => {
+    if ((!l.job_ref || l.job_ref === JOBROW.id) && l.description && !l.description.startsWith(JOB + ' · ')) l.description = JOB + ' · ' + l.description;
+  });
+
+  const { data: qs } = await sb.from('quotes').select('*').eq('job_id', j.id).eq('status', 'approved').order('sent_at', { ascending: false }).limit(1);
+  const q = qs && qs[0];
+  const item = j.make_model || j.device_type || '';
+  const before = LINES.length;
+  if (q) {
+    splitQuote(LINES, num + ' · ' + [item, q.work_summary].filter(Boolean).join(' — '), q.parts_note,
+      { labour: q.labour != null ? q.labour : q.amount, parts: q.parts, postage: q.postage }, q.id, j.id, num + ' · ');
+  } else {
+    LINES.push({ description: num + ' · ' + ([item, j.fault_description ? 'Fault reported: ' + j.fault_description : ''].filter(Boolean).join(' — ') || 'Repair work'),
+                 amount: 0, quote_id: null, job_ref: j.id });
+  }
+  drawLines();
+  $('iJobNum').value = '';
+  $('iJobBox').style.display = 'none';
+  show($('invMsg'), num + ' added — ' + (LINES.length - before) + ' line' + (LINES.length - before === 1 ? '' : 's') +
+    (q ? ' from its approved quote.' : '. It has no approved quote, so fill in the price.'), 'ok');
 });
 
 let LASTPDF = null;
