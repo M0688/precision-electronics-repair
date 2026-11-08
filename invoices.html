@@ -44,7 +44,7 @@
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
 import { sb, $, show, esc, when, money, chrome, requireSession, SUPABASE_URL, SUPABASE_KEY } from './crm.js';
-import { buildReceiptPdf } from './invoice-pdf.js';
+import { buildReceiptPdf } from './invoice-pdf.js?v=2';
 
 chrome('invoices.html');
 
@@ -172,7 +172,7 @@ async function sendReceipt(row) {
       paid_method: inv.paid_method,
       description: inv.description,
       amount: inv.amount,
-      customer_name: job?.customer_name,
+      customer_name: job?.customer_name, company: job?.company,
       customer_address: job?.address,
       item: job?.make_model || job?.device_type
     });

@@ -60,7 +60,7 @@
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
 import { sb, $, show, money, chrome, SUPABASE_URL, SUPABASE_KEY } from './crm.js';
-import { buildReceiptPdf } from './invoice-pdf.js';
+import { buildReceiptPdf } from './invoice-pdf.js?v=2';
 
 const params = new URLSearchParams(location.search);
 const JOB = (params.get('job') || '').trim().toUpperCase();
@@ -156,7 +156,7 @@ async function receipt() {
       paid_method: inv.paid_method,
       description: inv.description,
       amount: inv.amount,
-      customer_name: job?.customer_name,
+      customer_name: job?.customer_name, company: job?.company,
       customer_address: job?.address,
       item: job?.make_model || job?.device_type
     });

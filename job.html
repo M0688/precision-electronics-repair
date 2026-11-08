@@ -413,7 +413,7 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
-import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
+import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js?v=2';
 import { buildLabelPdf } from './label-pdf.js';
 import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
 
@@ -1338,7 +1338,7 @@ async function sendReceipt(invoiceId) {
       paid_method: rows.paid_method,
       description: rows.description,
       amount: rows.amount,
-      customer_name: JOBROW.customer_name,
+      customer_name: JOBROW.customer_name, company: JOBROW.company,
       customer_address: JOBROW.address,
       item: JOBROW.make_model || JOBROW.device_type
     });
@@ -1515,7 +1515,7 @@ async function raiseInvoice(sendNow) {
     lines: billedLines && billedLines.length ? billedLines : lines,
     issued_at: new Date().toISOString(),
     status: 'unpaid',
-    customer_name: JOBROW.customer_name,
+    customer_name: JOBROW.customer_name, company: JOBROW.company,
     customer_address: JOBROW.address,
     item: JOBROW.make_model || JOBROW.device_type
   };
@@ -1566,7 +1566,7 @@ async function invoicePdf(v) {
   return buildInvoicePdf({
     invoice_number: v.invoice_number, job_number: JOB, amount: Number(v.amount), description: v.description || '',
     lines: ls || [], issued_at: v.issued_at, status: v.status,
-    customer_name: JOBROW.customer_name, customer_address: JOBROW.address, item: JOBROW.make_model || JOBROW.device_type
+    customer_name: JOBROW.customer_name, company: JOBROW.company, customer_address: JOBROW.address, item: JOBROW.make_model || JOBROW.device_type
   });
 }
 

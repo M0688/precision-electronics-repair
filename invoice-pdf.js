@@ -82,10 +82,15 @@ export function buildInvoicePdf(d) {
   doc.text(BUSINESS.phone, L, yl); yl += 5;
   doc.text(BUSINESS.email, L, yl); yl += 5;
 
+  // Business customers: invoice the company, with the person underneath.
+  const company = String(d.company || '').trim();
   doc.setFont('helvetica', 'bold');
-  doc.text(String(d.customer_name || ''), 110, yr); yr += 5;
+  doc.text(company || String(d.customer_name || ''), 110, yr); yr += 5;
   doc.setFont('helvetica', 'normal');
-  String(d.customer_address || '').split('\n').filter(Boolean).forEach(line => {
+  if (company && d.customer_name && d.customer_name.trim().toLowerCase() !== company.toLowerCase()) {
+    doc.text('FAO ' + String(d.customer_name), 110, yr); yr += 5;
+  }
+  String(d.customer_address || d.address || '').split('\n').filter(Boolean).forEach(line => {
     doc.text(doc.splitTextToSize(line, 80), 110, yr); yr += 5;
   });
 
