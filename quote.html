@@ -325,8 +325,8 @@ function drawPrice() {
   const line = (a, b, colour) => '<div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:400' +
     (colour ? ';color:' + colour : '') + '"><span>' + a + '</span><span style="white-space:nowrap">' + b + '</span></div>';
   $('amount').innerHTML =
-    line('Labour', '£' + labour.toFixed(2)) +
-    (partsAmt > 0 ? line('Parts', '£' + partsAmt.toFixed(2)) : '') +
+    (KIND === 'estimate' ? '' : line('Labour', '£' + labour.toFixed(2))) +
+    (partsAmt > 0 && KIND !== 'estimate' ? line('Parts', '£' + partsAmt.toFixed(2)) : '') +
     (q.trade ? line('Trade discount (25% off labour)', '−£' + off.toFixed(2), 'var(--green)') : '') +
     (postage > 0 ? line('Return postage', '£' + postage.toFixed(2)) : '') +
     '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span>' +
