@@ -694,7 +694,7 @@ const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'dropoff_re
 const KIND_NOTE = {
   estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price, an address label and a packing slip, and sending the item in is their answer. The firm price comes after you have inspected it.',
   quote: 'A quote is a price given after you have inspected the item. The customer approves or declines it, and nothing is done until they have.',
-  warranty: 'A warranty repair costs the customer nothing. They get an email with what you found and fixed, and £0.00 to pay. There\'s nothing for them to answer and no invoice is needed.'
+  warranty: 'A warranty repair costs the customer nothing. They get an email with what you found and fixed, and £0.00 to pay. There\'s nothing for them to answer and no invoice is needed. Sending it sets the job to Ready.'
 };
 
 function setQuoteKind(status) {
@@ -1421,6 +1421,9 @@ async function sendWarranty() {
   });
   if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
   const row = Array.isArray(data) ? data[0] : data;
+  // Warranty work is done by the time the report goes, so the job is ready.
+  const { error: stErr } = await sb.rpc('set_job_status', { p_job_number: JOB, p_status: 'ready' });
+  if (!stErr) { JOBROW.status = 'ready'; $('status').value = 'ready'; drawHead(); showWs(); }
   const shots = await uploadQuotePhotos(row.quote_id);
   const { data: sess } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote', {
@@ -1441,7 +1444,8 @@ async function sendWarranty() {
   $('qLabel').style.display = 'none';
   $('qSend').style.display = 'block';
   $('qWork').value = ''; $('qPartsNote').value = '';
-  show($('quoteMsg'), out.ok ? 'Warranty report emailed to ' + out.to + '.' + (shots.attempted ? ' ' + shots.uploaded + ' photo(s) attached.' : '')
+  if (stErr) show($('msg'), 'Report sent, but the status didn\'t change: ' + stErr.message, 'err');
+  show($('quoteMsg'), out.ok ? 'Warranty report emailed to ' + out.to + '. Status set to Ready.' + (shots.attempted ? ' ' + shots.uploaded + ' photo(s) attached.' : '')
                              : 'Saved, but the email didn\'t send: ' + (out.error || 'unknown error') + '. Use the WhatsApp or text buttons.', out.ok ? 'ok' : 'err');
   loadQuotes(JOBROW.id);
   loadNotes(JOBROW.id);
