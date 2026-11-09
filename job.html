@@ -256,7 +256,7 @@
             <label for="qParts">Parts £</label>
             <input type="number" id="qParts" min="0" step="0.01" placeholder="0">
           </div>
-          <div style="flex:0 0 150px" class="qPriceBit">
+          <div style="flex:0 0 150px" class="qPriceBit qPostBit">
             <label for="qPost">Return postage £</label>
             <input type="number" id="qPost" min="0" step="0.01" placeholder="at cost">
           </div>
@@ -264,7 +264,7 @@
 
         <label for="qPartsNote">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
         <input type="text" id="qPartsNote" placeholder="e.g. Charging IC, SMD capacitor">
-        <p class="sub qPriceBit" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
+        <p class="sub qPriceBit qPostBit" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
         <p class="sub" id="qTotalNote" style="display:none;margin:0 0 14px;font-weight:600;color:var(--navy)"></p>
         <p class="sub" id="qTradeNote" style="display:none;margin:-6px 0 14px;color:var(--green)"></p>
         <label for="qWork" id="qWorkLabel">What the repair involves</label>
@@ -732,6 +732,9 @@ function setQuoteKind(status) {
   $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & address label' : kind === 'warranty' ? 'Send warranty report' : 'Send quote to customer';
   const w = kind === 'warranty';
   document.querySelectorAll('.qPriceBit').forEach(el => { el.style.display = w ? 'none' : ''; });
+  // Estimates: the item hasn't been seen, so no postage figure — always "plus return postage".
+  if (kind === 'estimate') document.querySelectorAll('.qPostBit').forEach(el => { el.style.display = 'none'; });
+  showTradeQuote();
   if (w) { $('qTotalNote').style.display = 'none'; $('qTradeNote').style.display = 'none'; }
   $('qWorkLabel').textContent = w ? 'What you found and fixed' : 'What the repair involves';
 }
@@ -1302,7 +1305,7 @@ async function loadTrade(contactId) {
 function quoteFigures() {
   const labour = parseFloat($('qAmount').value) || 0;
   const parts = parseFloat($('qParts').value) || 0;
-  const postRaw = $('qPost').value.trim();
+  const postRaw = $('qKind').value === 'estimate' ? '' : $('qPost').value.trim();
   const post = postRaw === '' ? null : (parseFloat(postRaw) || 0);
   const off = TRADE ? Math.round(labour * 25) / 100 : 0;
   return { labour, parts, post, off, total: labour + parts + (post || 0) - off };
@@ -1317,7 +1320,7 @@ function showTradeQuote() {
     $('qTradeNote').style.display = 'none';
   }
   $('qTotalNote').textContent = 'Customer sees: total £' + f.total.toFixed(2) +
-    (f.post == null ? ' + return postage at cost' : f.post > 0 ? ' (includes £' + f.post.toFixed(2) + ' return postage)' : ' (no postage)');
+    (f.post == null ? ' plus return postage' : f.post > 0 ? ' (includes £' + f.post.toFixed(2) + ' return postage)' : ' (no postage)');
   $('qTotalNote').style.display = 'block';
 }
 ['qAmount', 'qParts', 'qPost'].forEach(id => $(id).addEventListener('input', showTradeQuote));
