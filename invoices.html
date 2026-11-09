@@ -44,7 +44,7 @@
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
 import { sb, $, show, esc, when, money, chrome, requireSession, SUPABASE_URL, SUPABASE_KEY } from './crm.js';
-import { buildReceiptPdf } from './invoice-pdf.js?v=2';
+import { buildReceiptPdf } from './invoice-pdf.js?v=3';
 
 chrome('invoices.html');
 
@@ -162,7 +162,9 @@ async function sendReceipt(row) {
     const { data: inv } = await sb.from('invoices').select('*').eq('id', row.id).maybeSingle();
     const { data: job } = await sb.from('job_detail').select('*').eq('id', inv.job_id).maybeSingle();
     const { data: lineRows } = await sb.from('invoice_lines').select('description,amount').eq('invoice_id', row.id).order('position');
+    const { data: stickers } = await sb.rpc('invoice_stickers', { p_invoice: inv.id });
     const doc = buildReceiptPdf({
+      stickers: stickers || [],
       invoice_number: inv.invoice_number,
       receipt_number: inv.receipt_number,
       lines: lineRows || [],

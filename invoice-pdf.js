@@ -63,6 +63,16 @@ export function buildInvoicePdf(d) {
   doc.setFont('helvetica', 'normal');
   doc.text(ukDate(receipt ? (d.paid_at || d.issued_at) : d.issued_at), R, y - 2, { align: 'right' });
   doc.text(String(d.job_number), R, y + 4, { align: 'right' });
+  // Receipts show the warranty sticker(s) fitted, when one was used.
+  const stickers = receipt ? (d.stickers || []).filter(Boolean) : [];
+  if (stickers.length) {
+    doc.setTextColor(...MUTED);
+    doc.text(stickers.length > 1 ? 'Warranty stickers' : 'Warranty sticker', R - 45, y + 10);
+    doc.setTextColor(30, 39, 51);
+    doc.setFont('helvetica', 'bold');
+    doc.text(stickers.join(', '), R, y + 10, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+  }
 
   // addresses
   y += 14;

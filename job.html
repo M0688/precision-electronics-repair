@@ -426,7 +426,7 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
-import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js?v=2';
+import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js?v=3';
 import { buildLabelPdf } from './label-pdf.js';
 import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
 
@@ -1491,7 +1491,9 @@ async function sendReceipt(invoiceId) {
     const { data: lineRows } = await sb.from('invoice_lines')
       .select('description,amount').eq('invoice_id', invoiceId).order('position');
 
+    const { data: stickers } = await sb.rpc('invoice_stickers', { p_invoice: invoiceId });
     const doc = buildReceiptPdf({
+      stickers: stickers || [],
       invoice_number: rows.invoice_number,
       receipt_number: rows.receipt_number,
       lines: lineRows || [],
