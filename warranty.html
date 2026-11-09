@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warranty claim | Precision Electronics Repair</title>
+<meta name="description" content="Make a warranty claim on a repair by Precision Electronics Repair. Enter your receipt number and tell us what's wrong.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    --navy: #1B2A4A;
+    --navy-dark: #121d34;
+    --ink: #1f2733;
+    --muted: #5a6474;
+    --line: #e2e6ec;
+    --soft: #f4f6f9;
+    --white: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--ink); background: var(--white); line-height: 1.65; }
+  a { color: var(--navy); }
+  .wrap { max-width: 800px; margin: 0 auto; padding: 0 20px; }
+  header { border-bottom: 1px solid var(--line); background: var(--white); }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; max-width: 1080px; }
+  header img { height: 52px; width: auto; display: block; }
+  header nav a { text-decoration: none; font-weight: 600; font-size: 15px; color: var(--ink); }
+  .page { padding: 56px 0 72px; }
+  h1 { font-size: 34px; color: var(--navy); margin: 0 0 8px; letter-spacing: -0.4px; }
+  .updated { color: var(--muted); font-size: 15px; margin: 0 0 36px; }
+  h2 { font-size: 21px; color: var(--navy); margin: 36px 0 10px; }
+  h3 { font-size: 17px; color: var(--navy); margin: 26px 0 6px; }
+  p, li { font-size: 16px; }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .box { background: var(--soft); border-left: 4px solid var(--navy); border-radius: 8px; padding: 18px 22px; margin: 24px 0; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 15px; }
+  th { background: var(--navy); color: var(--white); }
+  tr:last-child td { border-bottom: 0; }
+  td:last-child, th:last-child { text-align: right; white-space: nowrap; }
+  footer { background: var(--navy-dark); color: #9aa6bd; font-size: 14px; padding: 26px 0; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; max-width: 1080px; }
+  footer a { color: #cdd6e6; }
+  @media (max-width: 600px) {
+    header .wrap { height: 64px; }
+    header img { height: 42px; }
+    h1 { font-size: 27px; }
+    h2 { font-size: 19px; }
+    .page { padding: 40px 0 52px; }
+    td:last-child { white-space: normal; }
+    th, td { padding: 10px 12px; font-size: 14px; }
+  }
+  form { margin-top: 8px; }
+  label { display: block; font-weight: 600; font-size: 15px; margin: 18px 0 6px; color: var(--navy); }
+  .hint { font-weight: 400; color: var(--muted); font-size: 14px; }
+  input, textarea { width: 100%; font: inherit; font-size: 16px; padding: 12px 14px; border: 1px solid #c9d1dd; border-radius: 8px; background: #fff; color: var(--ink); }
+  textarea { min-height: 120px; resize: vertical; }
+  input:focus, textarea:focus { outline: 2px solid var(--navy); outline-offset: 1px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .trap { position: absolute; left: -9999px; }
+  button { margin-top: 26px; background: var(--navy); color: #fff; border: 0; border-radius: 8px; padding: 14px 26px; font: inherit; font-weight: 700; font-size: 16px; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { margin-top: 18px; padding: 14px 16px; border-radius: 8px; font-size: 15px; display: none; }
+  .msg.ok { display: block; background: #e7f5ec; color: #1c6b3c; }
+  .msg.err { display: block; background: #fdecec; color: #9b1c1c; }
+  @media (max-width: 600px) { .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="index.html" aria-label="Precision Electronics Repair home"><img src="logo.png" alt="Precision Electronics Repair"></a>
+    <nav><a href="index.html">&larr; Back to site</a></nav>
+  </div>
+</header>
+<div class="warranty-strip" style="background:#eef2f8;border-bottom:1px solid #d9e0ec;color:#1B2A4A;font-size:15px">
+  <div style="max-width:1080px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" style="flex:0 0 auto"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3zm-1.2 14.2-3.5-3.5 1.4-1.4 2.1 2.1 4.9-4.9 1.4 1.4-6.3 6.3z"/></svg><span><strong>12-month warranty on every repair</strong> &mdash; workmanship and parts.</span>
+  </div>
+</div>
+
+<main class="page">
+  <div class="wrap">
+    <h1>Make a warranty claim</h1>
+    <p class="updated">For repairs we've carried out that have developed a problem.</p>
+
+    <div class="box">
+      You'll need your <strong>receipt number</strong>. It's on the receipt we emailed you when you paid, and starts with <strong>REC-</strong>.
+      Use the same email address you used for the original repair. See what the warranty covers in our <a href="terms.html">terms</a> (section 6).
+    </div>
+
+    <form id="wForm" novalidate>
+      <div class="two">
+        <div>
+          <label for="receipt">Receipt number</label>
+          <input id="receipt" name="receipt" placeholder="REC-2437" autocomplete="off" required>
+        </div>
+        <div>
+          <label for="email">Email address <span class="hint">used for the repair</span></label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div>
+          <label for="name">Your name</label>
+          <input id="name" name="name" autocomplete="name" required>
+        </div>
+        <div>
+          <label for="phone">Phone <span class="hint">optional</span></label>
+          <input id="phone" name="phone" type="tel" autocomplete="tel">
+        </div>
+      </div>
+
+      <label for="fault">What's wrong?</label>
+      <textarea id="fault" name="fault" placeholder="What is it doing, or not doing?" required></textarea>
+
+      <div class="two">
+        <div>
+          <label for="started">When did it start? <span class="hint">optional</span></label>
+          <input id="started" name="started" placeholder="e.g. last week">
+        </div>
+        <div>
+          <label for="sticker">Warranty sticker number <span class="hint">optional</span></label>
+          <input id="sticker" name="sticker" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="trap" aria-hidden="true"><label for="website">Website</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+
+      <button type="submit" id="wBtn">Send warranty claim</button>
+      <div class="msg" id="wMsg" role="status" aria-live="polite"></div>
+    </form>
+    <div class="msg" id="wDone" role="status" aria-live="polite"></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var URL = "https://eazzljgezdownmcddeyr.supabase.co/functions/v1/warranty-claim";
+  var KEY = "sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6";
+  var form = document.getElementById("wForm"), msg = document.getElementById("wMsg"), btn = document.getElementById("wBtn");
+  function show(el, kind, text) { el.className = "msg " + kind; el.textContent = text; }
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var f = form;
+    var v = function (n) { return f[n].value.trim(); };
+    if (!v("receipt")) { show(msg, "err", "Please enter your receipt number."); f.receipt.focus(); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v("email"))) { show(msg, "err", "Please enter a valid email address."); f.email.focus(); return; }
+    if (!v("name")) { show(msg, "err", "Please enter your name."); f.name.focus(); return; }
+    if (!v("fault")) { show(msg, "err", "Please tell us what's wrong."); f.fault.focus(); return; }
+    btn.disabled = true; btn.textContent = "Sending…"; msg.className = "msg";
+    try {
+      var res = await fetch(URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: KEY, Authorization: "Bearer " + KEY },
+        body: JSON.stringify({ receipt: v("receipt"), email: v("email"), name: v("name"), phone: v("phone"),
+                               fault: v("fault"), started: v("started"), sticker: v("sticker"), website: f.website.value })
+      });
+      var out = await res.json().catch(function () { return {}; });
+      if (!res.ok || !out.ok) throw new Error(out.error || "Something went wrong. Please try again.");
+      form.style.display = "none";
+      show(document.getElementById("wDone"), "ok", out.emailed === false
+        ? "Thanks, your claim is in (claim " + out.job_number + "). We couldn't email you just now, so we'll be in touch."
+        : "Thanks, your claim is in (claim " + out.job_number + "). We've emailed " + v("email") + " with the next step. If it's not there in a few minutes, check your junk folder.");
+    } catch (err) {
+      show(msg, "err", err.message);
+      btn.disabled = false; btn.textContent = "Send warranty claim";
+    }
+  });
+})();
+</script>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Precision Electronics Repair</span>
+    <span>Watford, Hertfordshire · 07522 124273 · <a href="our-mission.html">Our mission</a> · <a href="privacy.html">Privacy notice</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
