@@ -85,7 +85,7 @@
           </div>
           <div class="total" id="amount"></div>
           <div class="small" id="postPlus" style="margin-top:2px">+ return postage, charged at cost</div>
-          <p class="small" id="postNote" style="margin:12px 0 0;color:var(--ink)">Your final bill is the repair price plus return postage if we post it back, at exactly what Royal Mail charges us. Collect it in person and there's no postage to pay.</p>
+          <p class="small" id="postNote" style="margin:12px 0 0;color:var(--ink)">Your final bill is the repair price plus return postage if we post it back, at exactly what the carrier charges us. Collect it in person and there's no postage to pay.</p>
         </div>
 
         <div id="photoWrap" style="display:none;margin-bottom:20px">
@@ -344,7 +344,7 @@ function drawPrice() {
       : (KIND === 'estimate' ? 'No return postage included, as you\'re collecting it.' : 'That\'s the full price. There\'s no return postage, as you\'re collecting it.');
   } else {
     $('postPlus').style.display = '';
-    $('postNote').textContent = 'Your final bill is the repair price plus return postage if we post it back, at exactly what Royal Mail charges us. Collect it in person and there\'s no postage to pay.';
+    $('postNote').textContent = 'Your final bill is the repair price plus return postage if we post it back, at exactly what the carrier charges us. Collect it in person and there\'s no postage to pay.';
   }
 }
 document.querySelectorAll('input[name="ret"]').forEach(r => r.addEventListener('change', () => {
