@@ -244,17 +244,18 @@
             <select id="qKind">
               <option value="estimate">An estimate — not seen it yet</option>
               <option value="quote">A quote — inspected it</option>
+              <option value="warranty">Warranty repair — no charge</option>
             </select>
           </div>
-          <div style="flex:0 0 130px">
+          <div style="flex:0 0 130px" class="qPriceBit">
             <label for="qAmount">Labour £</label>
             <input type="number" id="qAmount" min="0" step="0.01" placeholder="90">
           </div>
-          <div style="flex:0 0 130px">
+          <div style="flex:0 0 130px" class="qPriceBit">
             <label for="qParts">Parts £</label>
             <input type="number" id="qParts" min="0" step="0.01" placeholder="0">
           </div>
-          <div style="flex:0 0 150px">
+          <div style="flex:0 0 150px" class="qPriceBit">
             <label for="qPost">Return postage £</label>
             <input type="number" id="qPost" min="0" step="0.01" placeholder="at cost">
           </div>
@@ -262,10 +263,10 @@
 
         <label for="qPartsNote">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
         <input type="text" id="qPartsNote" placeholder="e.g. Charging IC, SMD capacitor">
-        <p class="sub" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
+        <p class="sub qPriceBit" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
         <p class="sub" id="qTotalNote" style="display:none;margin:0 0 14px;font-weight:600;color:var(--navy)"></p>
         <p class="sub" id="qTradeNote" style="display:none;margin:-6px 0 14px;color:var(--green)"></p>
-        <label for="qWork">What the repair involves</label>
+        <label for="qWork" id="qWorkLabel">What the repair involves</label>
         <textarea id="qWork" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
 
         <label for="qPhotos">Photos <span style="font-weight:400;color:var(--muted)">— show them what you've found</span></label>
@@ -496,7 +497,8 @@ function drawMoney() {
   const paid = INVOICES.filter(v => v.status === 'paid').reduce((a, v) => a + Number(v.amount || 0), 0);
   const due = billed - paid;
   const rows = [];
-  if (q) rows.push(`<span>${(q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote'} <span class="tag ${q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait'}" style="margin-left:4px">${q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Sent'}</span></span><strong>${gbp(q.amount)}</strong>`);
+  if (q && q.kind === 'warranty') rows.push('<span>Warranty repair <span class="tag in" style="margin-left:4px">No charge</span></span><strong>£0.00</strong>');
+  else if (q) rows.push(`<span>${(q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote'} <span class="tag ${q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait'}" style="margin-left:4px">${q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Sent'}</span></span><strong>${gbp(q.amount)}</strong>`);
   else rows.push('<span class="muted">No quote yet</span><span></span>');
   if (INVOICES.length) {
     rows.push(`<span>Invoiced (${INVOICES.length})</span><strong>${gbp(billed)}</strong>`);
@@ -691,7 +693,8 @@ const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'dropoff_re
 
 const KIND_NOTE = {
   estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price, an address label and a packing slip, and sending the item in is their answer. The firm price comes after you have inspected it.',
-  quote: 'A quote is a price given after you have inspected the item. The customer approves or declines it, and nothing is done until they have.'
+  quote: 'A quote is a price given after you have inspected the item. The customer approves or declines it, and nothing is done until they have.',
+  warranty: 'A warranty repair costs the customer nothing. They get an email with what you found and fixed, and £0.00 to pay. There\'s nothing for them to answer and no invoice is needed.'
 };
 
 function setQuoteKind(status) {
@@ -700,7 +703,11 @@ function setQuoteKind(status) {
   }
   const kind = $('qKind').value;
   $('qKindNote').textContent = KIND_NOTE[kind];
-  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & address label' : 'Send quote to customer';
+  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & address label' : kind === 'warranty' ? 'Send warranty report' : 'Send quote to customer';
+  const w = kind === 'warranty';
+  document.querySelectorAll('.qPriceBit').forEach(el => { el.style.display = w ? 'none' : ''; });
+  if (w) { $('qTotalNote').style.display = 'none'; $('qTradeNote').style.display = 'none'; }
+  $('qWorkLabel').textContent = w ? 'What you found and fixed' : 'What the repair involves';
 }
 
 // A job can carry several items — trade customers often send a batch.
@@ -723,12 +730,13 @@ async function loadItems(jobId) {
   ITEMS = rows;
   const it = rows[0];
   const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'The item';
-  const approved = QUOTES.find(q => q.status === 'approved');
+  const approved = QUOTES.find(q => q.status === 'approved' && q.kind !== 'warranty');
 
   $('itemsTitle').textContent = 'The item';
   $('itemsList').innerHTML = `<div class="quotebox">
     <div style="font-weight:700;color:var(--navy)">${esc(head)}
       ${approved ? `<span class="tag in" style="margin-left:8px">Approved £${Number(approved.amount).toFixed(2)}</span>`
+        : QUOTES.some(q => q.kind === 'warranty') ? '<span class="tag in" style="margin-left:8px">Warranty — no charge</span>'
         : QUOTES.length ? '<span class="tag wait" style="margin-left:8px">Priced, awaiting answer</span>'
         : '<span class="tag off" style="margin-left:8px">Not priced yet</span>'}</div>
     ${it.serial_imei ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Serial / IMEI: ${esc(it.serial_imei)}</div>` : ''}
@@ -984,13 +992,14 @@ async function loadQuotes(jobId) {
 
   $('quoteList').innerHTML = QUOTES.map(q => {
     const isEst = (q.kind || 'quote') === 'estimate';
+    const isW = q.kind === 'warranty';
     // Estimates don't get an answer — sending the item in is the answer.
-    const cls = isEst ? 'off' : q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
-    const label = isEst ? 'Estimate sent' : q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
-    const kind = isEst ? 'Estimate' : 'Quote';
+    const cls = isW ? 'in' : isEst ? 'off' : q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
+    const label = isW ? 'Sent — no charge' : isEst ? 'Estimate sent' : q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
+    const kind = isW ? 'Warranty repair' : isEst ? 'Estimate' : 'Quote';
     return `<div class="quotebox">
       <div class="amt">${kind} · £${Number(q.amount).toFixed(2)} <span class="tag ${cls}" style="margin-left:8px">${label}</span></div>
-      ${q.labour != null ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Labour £${Number(q.labour).toFixed(2)}${Number(q.parts) > 0 ? ' · Parts £' + Number(q.parts).toFixed(2) : ''} · ${q.postage == null ? 'Postage at cost' : Number(q.postage) > 0 ? 'Postage £' + Number(q.postage).toFixed(2) : 'No postage'}${TRADE ? ' · before trade discount' : ''}</div>` : ''}
+      ${q.labour != null && !isW ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Labour £${Number(q.labour).toFixed(2)}${Number(q.parts) > 0 ? ' · Parts £' + Number(q.parts).toFixed(2) : ''} · ${q.postage == null ? 'Postage at cost' : Number(q.postage) > 0 ? 'Postage £' + Number(q.postage).toFixed(2) : 'No postage'}${TRADE ? ' · before trade discount' : ''}</div>` : ''}
       <div style="font-size:14px;margin-top:6px;white-space:pre-wrap">${esc(q.work_summary)}</div>
       ${q.parts_note ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">Parts: ${esc(q.parts_note)}</div>` : ''}
       ${(byQuote[q.id] || []).length ? `<div class="photos" style="margin-top:10px">${
@@ -998,7 +1007,7 @@ async function loadQuotes(jobId) {
       }</div>` : ''}
       <div class="when" style="color:var(--muted);font-size:12px;margin-top:8px">Sent ${when(q.sent_at)}${q.responded_at ? ' · answered ' + when(q.responded_at) : ''}</div>
       ${q.response_note ? `<div style="font-size:13px;margin-top:6px">Customer said: ${esc(q.response_note)}</div>` : ''}
-      <div class="sendrow">${isEst ? `<button class="send" type="button" data-convert="${q.id}">Convert to quote</button>` : ''}${delBtn('quotes', q.id, isEst ? 'estimate' : 'quote')}</div>
+      <div class="sendrow">${isEst ? `<button class="send" type="button" data-convert="${q.id}">Convert to quote</button>` : ''}${delBtn('quotes', q.id, isW ? 'warranty report' : isEst ? 'estimate' : 'quote')}</div>
     </div>`;
   }).join('');
   wireDeletes($('quoteList'), () => loadQuotes(jobId));
@@ -1047,7 +1056,7 @@ function fillInvoiceDescription() {
     return;
   }
 
-  const approved = QUOTES.find(q => q.status === 'approved');
+  const approved = QUOTES.find(q => q.status === 'approved' && q.kind !== 'warranty');
   const item = JOBROW.make_model || JOBROW.device_type || '';
 
   if (approved) {
@@ -1399,6 +1408,45 @@ $('iJobGo').addEventListener('click', async () => {
   show($('invMsg'), num + ' added — ' + (LINES.length - before) + ' line' + (LINES.length - before === 1 ? '' : 's') +
     (q ? ' from its approved quote.' : '. It has no approved quote, so fill in the price.'), 'ok');
 });
+
+// ---------- warranty repair: report, no charge ----------
+async function sendWarranty() {
+  const work = $('qWork').value.trim();
+  if (!work) return show($('quoteMsg'), 'Describe what you found and fixed.', 'err');
+  if (!JOBROW.customer_email) return show($('quoteMsg'), 'This job has no customer email address.', 'err');
+  $('quoteBtn').disabled = true; $('quoteBtn').textContent = 'Sending…';
+  const done = () => { $('quoteBtn').disabled = false; setQuoteKind(null); };
+  const { data, error } = await sb.rpc('create_warranty_report', {
+    p_job_number: JOB, p_work_summary: work, p_parts_note: $('qPartsNote').value.trim() || null
+  });
+  if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
+  const row = Array.isArray(data) ? data[0] : data;
+  const shots = await uploadQuotePhotos(row.quote_id);
+  const { data: sess } = await sb.auth.getSession();
+  const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote', {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quote_id: row.quote_id })
+  });
+  const out = await res.json().catch(() => ({}));
+  done();
+  const link = 'https://precisionelectronicsrepair.co.uk/quote.html?q=' + row.quote_id + '&k=' + row.quote_token;
+  const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
+  const msg = hi + 'your ' + (JOBROW.make_model || 'item') + ' (' + JOB + ') has been repaired under warranty — there\'s nothing to pay. ' + work + ' Full report here: ' + link;
+  $('qLink').textContent = link;
+  const num = ukNumber(JOBROW.phone);
+  $('qWa').href = waLink(num, msg); $('qWa').target = WA_TARGET;
+  if (num) { $('qSms').href = 'sms:+' + num + '?&body=' + encodeURIComponent(msg); $('qSms').style.display = ''; }
+  else { $('qSms').style.display = 'none'; }
+  $('qLabel').style.display = 'none';
+  $('qSend').style.display = 'block';
+  $('qWork').value = ''; $('qPartsNote').value = '';
+  show($('quoteMsg'), out.ok ? 'Warranty report emailed to ' + out.to + '.' + (shots.attempted ? ' ' + shots.uploaded + ' photo(s) attached.' : '')
+                             : 'Saved, but the email didn\'t send: ' + (out.error || 'unknown error') + '. Use the WhatsApp or text buttons.', out.ok ? 'ok' : 'err');
+  loadQuotes(JOBROW.id);
+  loadNotes(JOBROW.id);
+  loadComms(JOBROW.id);
+}
 
 let LASTPDF = null;
 let LASTLABEL = null;
@@ -1852,6 +1900,7 @@ async function uploadQuotePhotos(quoteId) {
 
 $('quoteBtn').addEventListener('click', async () => {
   hide($('quoteMsg'));
+  if ($('qKind').value === 'warranty') return sendWarranty();
   const F = quoteFigures();
   const amount = F.total;
   const work = $('qWork').value.trim();

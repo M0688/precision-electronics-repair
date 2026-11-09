@@ -215,10 +215,18 @@ async function start() {
     const q = await rpc('quote_details', { p_id: QID, p_token: TOKEN });
     if (!q || !q.valid) return fail('We could not find that quote. Please check the link we emailed you, or call 07522 124273.');
     JOBNO = q.job_number;
-    KIND = q.kind === 'estimate' ? 'estimate' : 'quote';
+    KIND = q.kind === 'estimate' ? 'estimate' : q.kind === 'warranty' ? 'warranty' : 'quote';
     if (q.needs_answer && q.status !== 'sent') {
       $('loading').classList.remove('show');
       return finish(q.status, q.job_number);
+    }
+    if (KIND === 'warranty') {
+      // Warranty repair: a report of what was fixed. Nothing to pay, nothing to answer.
+      document.title = 'Your warranty repair | Precision Electronics Repair';
+      $('headline').textContent = 'Your warranty repair';
+      $('workLabel').textContent = 'What we found and fixed';
+      $('feeLine').textContent = 'There\'s nothing you need to do. We\'ll be in touch about getting it back to you.';
+      $('answerWrap').style.display = 'none';
     }
     if (KIND === 'estimate') {
       // An estimate needs no answer — sending the item in is the answer.
@@ -265,7 +273,7 @@ async function start() {
     $('work').textContent = q.work_summary;
     Q = q;
     // Quotes ask how they want it back, since that decides the postage.
-    if (KIND !== 'estimate') {
+    if (KIND === 'quote') {
       $('returnWrap').style.display = 'block';
       const p = q.postage == null ? null : Number(q.postage);
       $('retPostNote').textContent = p > 0 ? 'Return postage £' + p.toFixed(2) + ' is included in your quote' : 'Return postage is added at cost';
@@ -279,6 +287,12 @@ async function start() {
       $('step2').style.display = 'block';
     }
     drawPrice();
+    if (KIND === 'warranty') {
+      $('amount').innerHTML = '<div style="display:flex;justify-content:space-between"><span>To pay</span><span>£0.00</span></div>' +
+        '<div class="small" style="font-weight:400;margin-top:2px">Covered by warranty</div>';
+      $('postPlus').style.display = 'none';
+      $('postNote').style.display = 'none';
+    }
     if (q.parts_note) { $('parts').textContent = q.parts_note; $('partsWrap').style.display = 'block'; }
     $('loading').classList.remove('show');
     $('quoteArea').style.display = 'block';
