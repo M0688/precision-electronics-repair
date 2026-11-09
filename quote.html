@@ -76,7 +76,7 @@
           to approve it again — we will never carry out work you have not agreed to.
         </div>
 
-        <div class="block">
+        <div class="block" id="workBlock">
           <div class="klabel" id="workLabel">Proposed work</div>
           <div id="work" style="white-space:pre-wrap"></div>
           <div id="partsWrap" style="display:none;margin-top:14px">
@@ -270,7 +270,8 @@ async function start() {
         ' you sent in. Each one is priced on its own, and they all go on a single invoice at the end.';
       $('item').closest('.jobline').insertAdjacentElement('afterend', note);
     }
-    $('work').textContent = q.work_summary;
+    $('work').textContent = q.work_summary || '';
+    if (!q.work_summary) { $('workLabel').style.display = 'none'; $('work').style.display = 'none'; }
     Q = q;
     // Quotes ask how they want it back, since that decides the postage.
     if (KIND === 'quote') {
@@ -325,7 +326,8 @@ function drawPrice() {
   const line = (a, b, colour) => '<div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:400' +
     (colour ? ';color:' + colour : '') + '"><span>' + a + '</span><span style="white-space:nowrap">' + b + '</span></div>';
   $('amount').innerHTML =
-    (KIND === 'estimate' ? '' : line('Labour', '£' + labour.toFixed(2))) +
+    // One price now. Older quotes with a parts figure still show the split.
+    (KIND === 'estimate' ? '' : partsAmt > 0 ? line('Labour', '£' + labour.toFixed(2)) : postage > 0 ? line('Repair', '£' + labour.toFixed(2)) : '') +
     (partsAmt > 0 && KIND !== 'estimate' ? line('Parts', '£' + partsAmt.toFixed(2)) : '') +
     (q.trade ? line('Trade discount (25% off labour)', '−£' + off.toFixed(2), 'var(--green)') : '') +
     (postage > 0 ? line('Return postage', '£' + postage.toFixed(2)) : '') +

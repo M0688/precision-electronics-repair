@@ -252,7 +252,7 @@
             <label for="qAmount" id="qAmountLabel">Labour £</label>
             <input type="number" id="qAmount" min="0" step="0.01" placeholder="90">
           </div>
-          <div style="flex:0 0 130px" class="qPriceBit qPostBit">
+          <div style="flex:0 0 130px;display:none" id="qPartsWrap">
             <label for="qParts">Parts £</label>
             <input type="number" id="qParts" min="0" step="0.01" placeholder="0">
           </div>
@@ -262,13 +262,13 @@
           </div>
         </div>
 
-        <label for="qPartsNote">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
-        <input type="text" id="qPartsNote" placeholder="e.g. Charging IC, SMD capacitor">
+        <label for="qPartsNote" class="qNotEst">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
+        <input type="text" id="qPartsNote" class="qNotEst" placeholder="e.g. Charging IC, SMD capacitor">
         <p class="sub qPriceBit qPostBit" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
         <p class="sub" id="qTotalNote" style="display:none;margin:0 0 14px;font-weight:600;color:var(--navy)"></p>
         <p class="sub" id="qTradeNote" style="display:none;margin:-6px 0 14px;color:var(--green)"></p>
-        <label for="qWork" id="qWorkLabel">What the repair involves</label>
-        <textarea id="qWork" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
+        <label for="qWork" id="qWorkLabel" class="qNotEst">What the repair involves</label>
+        <textarea id="qWork" class="qNotEst" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
 
         <label for="qPhotos">Photos <span style="font-weight:400;color:var(--muted)">— show them what you've found</span></label>
         <input type="file" id="qPhotos" accept="image/*" multiple style="margin-bottom:8px">
@@ -733,11 +733,13 @@ function setQuoteKind(status) {
   const w = kind === 'warranty';
   document.querySelectorAll('.qPriceBit').forEach(el => { el.style.display = w ? 'none' : ''; });
   // Estimates: the item hasn't been seen, so one figure, no parts split and no postage — always "plus return postage".
-  $('qAmountLabel').textContent = kind === 'estimate' ? 'Estimate £' : 'Labour £';
+  $('qAmountLabel').textContent = kind === 'estimate' ? 'Estimate £' : 'Quote £';
   if (kind === 'estimate') document.querySelectorAll('.qPostBit').forEach(el => { el.style.display = 'none'; });
   showTradeQuote();
   if (w) { $('qTotalNote').style.display = 'none'; $('qTradeNote').style.display = 'none'; }
   $('qWorkLabel').textContent = w ? 'What you found and fixed' : 'What the repair involves';
+  // Estimates are just a price: no work description, no parts used.
+  document.querySelectorAll('.qNotEst').forEach(el => { el.style.display = kind === 'estimate' ? 'none' : ''; });
 }
 
 // A job can carry several items — trade customers often send a batch.
@@ -1052,8 +1054,8 @@ function convertToQuote(id) {
   if (!q) return;
   $('qKind').value = 'quote';
   setQuoteKind(null);
-  $('qAmount').value = Number(q.labour != null ? q.labour : q.amount).toFixed(2);
-  $('qParts').value = Number(q.parts) > 0 ? Number(q.parts).toFixed(2) : '';
+  $('qAmount').value = (Number(q.labour != null ? q.labour : q.amount) + Number(q.parts || 0)).toFixed(2);
+  $('qParts').value = '';
   $('qPost').value = q.postage == null ? '' : Number(q.postage).toFixed(2);
   $('qPartsNote').value = q.parts_note || '';
   $('qWork').value = q.work_summary || '';
@@ -1306,7 +1308,7 @@ async function loadTrade(contactId) {
 function quoteFigures() {
   const est = $('qKind').value === 'estimate';
   const labour = parseFloat($('qAmount').value) || 0;
-  const parts = est ? 0 : (parseFloat($('qParts').value) || 0);
+  const parts = 0; // one price box for estimates and quotes (9 Nov 2026)
   const postRaw = $('qKind').value === 'estimate' ? '' : $('qPost').value.trim();
   const post = postRaw === '' ? null : (parseFloat(postRaw) || 0);
   const off = TRADE ? Math.round(labour * 25) / 100 : 0;
@@ -1940,9 +1942,10 @@ $('quoteBtn').addEventListener('click', async () => {
   if ($('qKind').value === 'warranty') return sendWarranty();
   const F = quoteFigures();
   const amount = F.total;
-  const work = $('qWork').value.trim();
-  if (F.labour + F.parts <= 0) return show($('quoteMsg'), 'Enter the labour or parts price.', 'err');
-  if (!work) return show($('quoteMsg'), 'Describe the work.', 'err');
+  const isEst = $('qKind').value === 'estimate';
+  const work = isEst ? '' : $('qWork').value.trim();
+  if (F.labour + F.parts <= 0) return show($('quoteMsg'), 'Enter the price.', 'err');
+  if (!work && !isEst) return show($('quoteMsg'), 'Describe the work.', 'err');
   if (!JOBROW.customer_email) return show($('quoteMsg'), 'This job has no customer email address.', 'err');
 
   const wanted = $('qKind').value;
@@ -1952,7 +1955,7 @@ $('quoteBtn').addEventListener('click', async () => {
 
   const { data, error } = await sb.rpc('create_quote', {
     p_job_number: JOB, p_amount: F.labour, p_work_summary: work,
-    p_parts_note: $('qPartsNote').value.trim() || null,
+    p_parts_note: isEst ? null : ($('qPartsNote').value.trim() || null),
     p_kind: wanted, p_parts: F.parts, p_postage: F.post
   });
   if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
