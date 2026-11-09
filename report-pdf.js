@@ -206,8 +206,8 @@ export function buildReportPdf(d) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...INK);
   doc.setFontSize(9.5);
-  doc.text('Our workmanship on this repair is guaranteed for as long as you own the device.', L + 4, y + 14);
-  doc.text(`Replacement parts are covered for 6 months. Full terms: ${BUSINESS.site}/terms.html`, L + 4, y + 19);
+  doc.text('Our workmanship on this repair is guaranteed for 12 months.', L + 4, y + 14);
+  doc.text(`Replacement parts are covered for 12 months. Full terms: ${BUSINESS.site}/terms.html`, L + 4, y + 19);
   }
 
   footer();
