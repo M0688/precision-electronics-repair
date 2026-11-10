@@ -214,3 +214,14 @@ table tr:hover td { background: #fafbfd; }
   main .wrap { padding: 0 14px; }
   .subtabs, .jobtabs { top: 64px !important; }
 }
+
+/* ---- phones: keep the jobs list inside the screen (10 Nov 2026) ---- */
+td .it { display: none; }
+@media (max-width: 700px) {
+  th, td { padding: 10px 8px; }
+  td .em { display: none; }
+  td .it { display: inline !important; color: var(--muted); font-size: 13px; }
+  td .tag { white-space: normal; text-align: center; }
+  td { overflow-wrap: anywhere; }
+  td.jobno { white-space: nowrap; overflow-wrap: normal; }
+}

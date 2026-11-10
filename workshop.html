@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PER Workshop">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="crm.css?v=8">
+<link rel="stylesheet" href="crm.css?v=9">
 <style>
   /* Only what's special to the jobs list — everything else comes from crm.css. */
   main { padding: 28px 0 64px; }
@@ -302,7 +302,7 @@ async function loadJobs() {
   const rows = shown.map(j => `
     <tr>
       <td class="jobno"><a href="job.html?job=${j.job_number}" style="text-decoration:none">${j.job_number}</a></td>
-      <td>${j.customer_name || '<span style="color:#5a6474">—</span>'}${j.customer_email ? `<br><span style="color:#5a6474;font-size:13px">${j.customer_email}</span>` : ''}</td>
+      <td>${j.customer_name || '<span style="color:#5a6474">—</span>'}${j.customer_email ? `<span class="em" style="color:#5a6474;font-size:13px"><br>${j.customer_email}</span>` : ''}${(j.make_model || j.device_type) ? `<span class="it"><br>${(j.make_model || j.device_type).replace(/</g, '&lt;')}</span>` : ''}</td>
       <td class="hide">${j.make_model || j.device_type || ''}${j.fault_description ? `<br><span style="color:#5a6474;font-size:13px">${j.fault_description.slice(0, 60)}${j.fault_description.length > 60 ? '…' : ''}</span>` : ''}</td>
       <td>${statusCell(j)}</td>
       <td class="hide">${fmt(j.submitted_at || j.created_at)}</td>
