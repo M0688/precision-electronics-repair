@@ -339,6 +339,13 @@
         <label for="iDesc">Note on the invoice <span style="font-weight:400;color:var(--muted)">— optional</span></label>
         <textarea id="iDesc" style="min-height:60px" placeholder="Anything the customer should read alongside the lines."></textarea>
 
+        <label style="margin-top:14px">Attach to the invoice email <span style="font-weight:400;color:var(--muted)">— optional, e.g. a repair report</span></label>
+        <div id="iAtt" style="margin:0 0 8px"></div>
+        <label class="send" style="display:inline-block;cursor:pointer;margin:0 0 6px;font-weight:600">Add a file
+          <input type="file" id="iAttAdd" multiple style="display:none"></label>
+        <div id="iAttMsg" class="msg"></div>
+        <p class="sub" style="margin:4px 0 14px">Ticked files go with the invoice email, whether you raise it now or email it later from the list above. They're saved in the job's Files tab.</p>
+
         <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
         <button class="send" id="invSave" type="button" style="margin-left:6px">Save invoice, send later</button>
         <div id="iSend" style="display:none">
@@ -936,6 +943,7 @@ async function loadFiles(jobId) {
   const { data, error } = await sb.from('job_files').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
   if (error) { $('fileList').innerHTML = ''; return show($('fileMsg'), /job_files/.test(error.message) ? 'Files need the stage 36 database update first.' : error.message, 'err'); }
   const rows = data || [];
+  drawInvAtt();
   $('fileList').innerHTML = rows.length ? `<table><thead><tr><th>File</th><th class="hide">Size</th><th class="hide">Added</th><th></th></tr></thead><tbody>${
     rows.map(r => `<tr data-f="${r.id}">
       <td><strong>${esc(r.file_name)}</strong>${r.note ? `<div class="muted">${esc(r.note)}</div>` : ''}</td>
@@ -959,26 +967,64 @@ async function loadFiles(jobId) {
     loadFiles(jobId);
   }));
 }
-$('fileAdd').addEventListener('change', async e => {
-  const files = Array.from(e.target.files || []); e.target.value = '';
-  if (!files.length || !JOBROW) return;
-  const note = $('fileNote').value.trim() || null;
+// Save files to the job. Returns the new job_files ids.
+async function uploadJobFiles(files, note, msgEl) {
   const { data: sess } = await sb.auth.getSession();
-  let ok = 0;
+  const ids = [];
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
-    if (f.size > 52428800) { show($('fileMsg'), f.name + ' is over 50 MB, so it wasn\'t added.', 'err'); continue; }
-    show($('fileMsg'), 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + f.name + '…', 'ok');
+    if (f.size > 52428800) { show(msgEl, f.name + ' is over 50 MB, so it wasn\'t added.', 'err'); continue; }
+    show(msgEl, 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + f.name + '…', 'ok');
     const safe = f.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-100) || 'file';
     const path = `${JOBROW.id}/${crypto.randomUUID()}-${safe}`;
     const { error } = await sb.storage.from('job-files').upload(path, f, { contentType: f.type || 'application/octet-stream' });
-    if (error) { show($('fileMsg'), 'Upload failed: ' + error.message, 'err'); continue; }
-    const { error: rowErr } = await sb.from('job_files').insert({ job_id: JOBROW.id, storage_path: path, file_name: f.name, size_bytes: f.size, note, created_by: sess?.session?.user?.email });
-    if (rowErr) { await sb.storage.from('job-files').remove([path]); show($('fileMsg'), rowErr.message, 'err'); continue; }
-    ok++;
+    if (error) { show(msgEl, 'Upload failed: ' + error.message, 'err'); continue; }
+    const { data: row, error: rowErr } = await sb.from('job_files').insert({ job_id: JOBROW.id, storage_path: path, file_name: f.name, size_bytes: f.size, note, created_by: sess?.session?.user?.email }).select('id').single();
+    if (rowErr) { await sb.storage.from('job-files').remove([path]); show(msgEl, rowErr.message, 'err'); continue; }
+    ids.push(row.id);
   }
-  if (ok === files.length) { show($('fileMsg'), ok === 1 ? 'File saved.' : ok + ' files saved.', 'ok'); $('fileNote').value = ''; }
+  if (ids.length === files.length) show(msgEl, ids.length === 1 ? 'File saved.' : ids.length + ' files saved.', 'ok');
+  return ids;
+}
+$('fileAdd').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []); e.target.value = '';
+  if (!files.length || !JOBROW) return;
+  const ids = await uploadJobFiles(files, $('fileNote').value.trim() || null, $('fileMsg'));
+  if (ids.length === files.length) $('fileNote').value = '';
   loadFiles(JOBROW.id);
+});
+
+// ---------- attachments for the invoice email ----------
+const ATT = new Set();          // ticked job_files ids
+let ATTFILES = [];
+const ATT_LIMIT = 25 * 1048576; // keeps the email well under the mail service's size limit
+async function drawInvAtt() {
+  if (!JOBROW) return;
+  const { data } = await sb.from('job_files').select('id,file_name,size_bytes,created_at').eq('job_id', JOBROW.id).order('created_at', { ascending: false });
+  ATTFILES = data || [];
+  [...ATT].forEach(id => { if (!ATTFILES.some(f => f.id === id)) ATT.delete(id); });
+  $('iAtt').innerHTML = ATTFILES.length
+    ? ATTFILES.map(f => `<label style="display:flex;gap:10px;align-items:center;font-weight:400;margin:4px 0;cursor:pointer">
+        <input type="checkbox" data-att="${f.id}" ${ATT.has(f.id) ? 'checked' : ''} style="width:auto;margin:0">
+        <span>${esc(f.file_name)} <span style="color:var(--muted);font-size:13px">${fmtSize(f.size_bytes)}</span></span></label>`).join('')
+    : '<p class="sub" style="margin:0">No files on this job yet.</p>';
+  $('iAtt').querySelectorAll('[data-att]').forEach(c => c.addEventListener('change', () => {
+    c.checked ? ATT.add(c.dataset.att) : ATT.delete(c.dataset.att);
+  }));
+}
+// The ticked files, or an error if they're too big to email.
+function invAttachments() {
+  const picked = ATTFILES.filter(f => ATT.has(f.id));
+  const total = picked.reduce((n, f) => n + Number(f.size_bytes || 0), 0);
+  if (total > ATT_LIMIT) return { error: 'The ticked files come to ' + fmtSize(total) + ' — the most that can go by email is 25 MB. Untick some.' };
+  return { ids: picked.map(f => f.id), names: picked.map(f => f.file_name) };
+}
+$('iAttAdd').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []); e.target.value = '';
+  if (!files.length || !JOBROW) return;
+  const ids = await uploadJobFiles(files, 'Sent with an invoice', $('iAttMsg'));
+  ids.forEach(id => ATT.add(id));
+  drawInvAtt(); loadFiles(JOBROW.id);
 });
 
 $('wpCam').addEventListener('change', e => addWorkPhotos(e.target));
@@ -1597,7 +1643,7 @@ async function loadInvoices(jobId) {
     btn.disabled = true; btn.textContent = 'Sending…';
     const out = await emailInvoice(v.id, await invoicePdf(v));
     btn.disabled = false; btn.textContent = 'Email invoice to customer';
-    show($('invMsg'), out.ok ? v.invoice_number + ' emailed to ' + out.to + ' with the PDF attached.'
+    show($('invMsg'), out.ok ? v.invoice_number + ' emailed to ' + out.to + ' with the PDF' + (out.attached && out.attached.length ? ' and ' + out.attached.join(', ') : '') + ' attached.'
       : v.invoice_number + ' did not send (' + (out.error || 'unknown error') + ').', out.ok ? 'ok' : 'err');
     loadNotes(JOBROW.id); loadComms(JOBROW.id);
   }));
@@ -1625,6 +1671,7 @@ $('invSave').addEventListener('click', () => raiseInvoice(false));
 
 async function raiseInvoice(sendNow) {
   hide($('invMsg'));
+  if (sendNow) { const att = invAttachments(); if (att.error) return show($('invMsg'), att.error, 'err'); }
 
   const lines = LINES
     .map(({ usage, qty, unit, ...l }) => {
@@ -1708,7 +1755,7 @@ async function raiseInvoice(sendNow) {
   $('iSend').style.display = 'block';
 
   if (out.saved) show($('invMsg'), row.invoice_no + ' saved, not sent. Email it from the list below when you\'re ready, or use the buttons here.', 'ok');
-  else if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF attached.', 'ok');
+  else if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF' + (out.attached && out.attached.length ? ' and ' + out.attached.join(', ') : '') + ' attached.', 'ok');
   else show($('invMsg'), row.invoice_no + ' created, but the email failed (' + (out.error || 'unknown error') + '). Send the link below instead.', 'err');
 
   $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
@@ -1722,14 +1769,18 @@ async function raiseInvoice(sendNow) {
 }
 
 async function emailInvoice(invoiceId, doc) {
+  const att = invAttachments();
+  if (att.error) return { ok: false, error: att.error };
   const base64 = doc.output('datauristring').split(',')[1];
   const { data: sess } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/send-invoice', {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invoice_id: invoiceId, pdf_base64: base64 })
+    body: JSON.stringify({ invoice_id: invoiceId, pdf_base64: base64, file_ids: att.ids })
   });
-  return res.json().catch(() => ({}));
+  const out = await res.json().catch(() => ({}));
+  if (out.ok) { out.attached = att.names; ATT.clear(); drawInvAtt(); }
+  return out;
 }
 
 // Rebuild an invoice's PDF from what was saved.
