@@ -22,6 +22,13 @@
     color: var(--navy); font-weight: 600; background: var(--white); }
   .hits a:hover { border-color: var(--navy); }
   .hits a small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .res { margin-top: 16px; }
+  .res .r { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; background: var(--white); }
+  .res .r a { font-weight: 700; color: var(--navy); text-decoration: none; font-size: 16px; }
+  .res .r a:hover { text-decoration: underline; }
+  .res .r .site { font-size: 13px; color: var(--green, #1c6b3c); margin-top: 2px; word-break: break-all; }
+  .res .r .about { font-size: 14px; color: var(--ink); margin-top: 4px; }
+  .gsugg { margin-top: 12px; overflow-x: auto; }
   .hgroup { margin-top: 16px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
   .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
   .links a { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-decoration: none;
@@ -38,10 +45,10 @@
 
     <div class="card" data-tab="none">
       <h1 style="margin:0 0 6px">Resource centre</h1>
-      <p class="sub" style="margin:0 0 14px">Type a part number, SMD marking, board number or model, and search every site below at once.</p>
+      <p class="sub" style="margin:0 0 14px">Type a part number, SMD marking, board number or model. Results from the ticked sites show here.</p>
       <form class="sbar" id="sForm">
         <input type="search" id="q" placeholder="e.g. PS21869-A, NE555, K03CE-C-A, 2N7002" autocomplete="off">
-        <button class="primary" type="submit">Search all ticked sites</button>
+        <button class="primary" type="submit" id="sBtn">Search</button>
       </form>
       <div class="groups" id="groups"></div>
       <div id="sMsg" class="msg" style="margin-top:12px"></div>
@@ -54,7 +61,7 @@
 </main>
 
 <script type="module">
-import { $, show, hide, esc, chrome, requireSession } from './crm.js';
+import { sb, $, show, hide, esc, chrome, requireSession, SUPABASE_URL, SUPABASE_KEY } from './crm.js';
 
 chrome('resources.html');
 await requireSession();
@@ -127,31 +134,41 @@ $('groups').innerHTML = GROUPS.map(g => `<label><input type="checkbox" value="${
 $('groups').querySelectorAll('input').forEach(c => c.addEventListener('change', () => {
   ticked = [...$('groups').querySelectorAll('input:checked')].map(x => x.value);
   try { localStorage.setItem('res.groups', JSON.stringify(ticked)); } catch (_) {}
-  if ($('q').value.trim()) drawHits($('q').value.trim());
 }));
 
-function drawHits(q) {
-  const groups = GROUPS.filter(g => ticked.includes(g.key));
-  $('hits').innerHTML = groups.map(g => `<div class="hgroup">${esc(g.title)}</div><div class="hits">${
-    g.sites.map(s => `<a href="${esc(s.search(q))}" target="_blank" rel="noopener">${esc(s.name)}<small>Search for “${esc(q)}”</small></a>`).join('')
-  }</div>`).join('');
-  return groups.flatMap(g => g.sites.map(s => s.search(q)));
-}
+const domainsTicked = () => GROUPS.filter(g => ticked.includes(g.key)).flatMap(g => g.sites.map(x => new URL(x.url).hostname.replace(/^www\./, '')));
+let busy = false;
 
-$('sForm').addEventListener('submit', e => {
+$('sForm').addEventListener('submit', async e => {
   e.preventDefault();
   hide($('sMsg'));
   const q = $('q').value.trim();
   if (!q) return show($('sMsg'), 'Type something to search for.', 'err');
-  if (!ticked.length) return show($('sMsg'), 'Tick at least one group of sites.', 'err');
-  const urls = drawHits(q);
-  // Open every site in its own tab. Browsers only allow this once you've let this page open pop-ups.
-  let opened = 0;
-  for (const u of urls) { const w = window.open(u, '_blank'); if (w) { w.opener = null; opened++; } }
-  show($('sMsg'), opened >= urls.length
-    ? `Opened ${urls.length} searches in new tabs.`
-    : `Your browser blocked ${urls.length - opened} of the ${urls.length} tabs. Allow pop-ups for this site (the icon at the right of the address bar), then search again. Or click each site below.`,
-    opened >= urls.length ? 'ok' : 'err');
+  if (busy) return;
+  busy = true; $('sBtn').disabled = true; $('sBtn').textContent = 'Searching…';
+  $('hits').innerHTML = '<p class="sub" style="margin-top:16px">Searching the web for “' + esc(q) + '”. This takes about 10–20 seconds.</p>';
+  try {
+    const { data: s } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/part-search', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + s.session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q, domains: domainsTicked() })
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!out.ok) throw new Error(out.error || 'The search failed.');
+    const row = r => `<div class="r"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title || r.site)}</a>
+      <div class="site">${esc(r.site)}</div>${r.about ? `<div class="about">${esc(r.about)}</div>` : ''}</div>`;
+    const all = [...(out.results || []), ...(out.more || [])];
+    $('hits').innerHTML = all.length
+      ? `<div class="res">${(out.results || []).map(row).join('')}${(out.more || []).length ? `<div class="hgroup">Other pages the search found</div>${out.more.map(row).join('')}` : ''}</div>`
+        + (out.search_html ? `<div class="gsugg">${out.search_html}</div>` : '')
+      : '<p class="sub" style="margin-top:16px">Nothing found for “' + esc(q) + '”. Try a shorter part number, or the marking code exactly as printed.</p>';
+  } catch (err) {
+    $('hits').innerHTML = '';
+    show($('sMsg'), err.message, 'err');
+  } finally {
+    busy = false; $('sBtn').disabled = false; $('sBtn').textContent = 'Search';
+  }
 });
 
 // The full link lists
