@@ -2,9 +2,189 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0;url=workshop.html">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parts | Precision Electronics Repair</title>
 <meta name="robots" content="noindex, nofollow">
-<title>Precision Electronics Repair</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#152642">
+<link rel="stylesheet" href="crm.css?v=9">
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 14px; }
+  .grid label { margin-top: 8px; }
+  .sell { font-weight: 700; color: var(--navy); margin: 12px 0 0; }
+  tr.pick { cursor: pointer; }
+  tr.pick:hover td { background: #f6f8fb; }
+  tr.on td { background: #eef2f8; }
+  .zero { color: #9b1c1c; font-weight: 700; }
+  .hist h3 { margin: 18px 0 6px; font-size: 15px; color: var(--navy); }
+</style>
 </head>
-<body><a href="workshop.html">Go to the workshop</a></body>
+<body>
+
+<main>
+  <div class="wrap">
+
+    <div class="card" data-tab="none">
+      <h1 style="margin:0 0 6px">Parts</h1>
+      <p class="sub" style="margin:0">Parts in, stock levels and history. Parts come off stock when you add them to an invoice with <strong>Add from stock</strong>, and go back on if that invoice is deleted.</p>
+    </div>
+
+    <div class="card" data-tab="none">
+      <h2 style="margin-top:0">Parts in</h2>
+      <form id="inForm" autocomplete="off">
+        <div class="grid">
+          <div><label for="pn">Part number</label><input type="text" id="pn" list="pnList" required><datalist id="pnList"></datalist></div>
+          <div><label for="mf">Manufacturer</label><input type="text" id="mf"></div>
+          <div style="grid-column: 1 / -1"><label for="desc">Description</label><input type="text" id="desc" placeholder="e.g. IPM module 600 V 50 A"></div>
+          <div><label for="sup">Supplier</label><input type="text" id="sup"></div>
+          <div><label for="cost">Unit cost £</label><input id="cost" type="number" min="0" step="0.0001" required></div>
+          <div><label for="qty">Quantity</label><input id="qty" type="number" min="1" step="1" value="1" required></div>
+          <div><label for="mk">Markup %</label><input id="mk" type="number" min="0" step="0.1" value="0" required></div>
+        </div>
+        <p class="sell" id="sell"></p>
+        <button class="primary" type="submit" id="inBtn">Add to stock</button>
+        <div id="inMsg" class="msg"></div>
+      </form>
+    </div>
+
+    <div class="card" data-tab="none">
+      <h2 style="margin-top:0">Stock</h2>
+      <input type="search" id="find" placeholder="Search part number, description, manufacturer or supplier" style="margin-bottom:12px">
+      <label style="display:inline-flex;gap:8px;align-items:center;font-weight:400;margin:0 0 10px"><input type="checkbox" id="showZero" style="width:auto;margin:0"> Show parts with none in stock</label>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Part number</th><th>Description</th><th class="hide">Manufacturer</th><th>In stock</th><th>Sell each</th><th class="hide">Last in</th></tr></thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+      <div id="listMsg" class="msg"></div>
+    </div>
+
+    <div class="card hist" data-tab="none" id="histCard" style="display:none">
+      <h2 style="margin-top:0" id="histTitle"></h2>
+      <p class="sub" id="histSub" style="margin:0"></p>
+      <h3>Bought</h3>
+      <div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Supplier</th><th>Qty</th><th>Unit cost</th><th>Markup</th><th>Left</th></tr></thead><tbody id="buys"></tbody></table></div>
+      <h3>Used</h3>
+      <div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Invoice</th><th>Job</th><th>Qty</th><th>Cost each</th><th>Charged each</th></tr></thead><tbody id="uses"></tbody></table></div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="send" type="button" id="restock">Add more of this part</button>
+        <button class="send" type="button" id="hidePart" style="color:#9b1c1c">Remove part</button>
+      </div>
+      <div id="histMsg" class="msg"></div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { sb, $, show, hide, esc, chrome, requireSession, money } from './crm.js';
+
+chrome('parts.html');
+await requireSession();
+
+let PARTS = [];
+let CUR = null;
+const d = x => x ? new Date(x).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+async function load() {
+  const { data, error } = await sb.from('parts_on_hand').select('*').eq('archived', false).order('part_number');
+  if (error) return show($('listMsg'), error.message, 'err');
+  PARTS = data || [];
+  $('pnList').innerHTML = PARTS.filter(p => p.part_number).map(p => `<option value="${esc(p.part_number)}">${esc(p.description || '')}${p.manufacturer ? ' — ' + esc(p.manufacturer) : ''}</option>`).join('');
+  draw();
+}
+
+function draw() {
+  const f = $('find').value.trim().toLowerCase();
+  const rows = PARTS.filter(p => ($('showZero').checked || p.qty > 0) &&
+    (!f || [p.part_number, p.description, p.manufacturer, p.supplier].some(v => String(v || '').toLowerCase().includes(f))));
+  $('list').innerHTML = rows.length ? rows.map(p => `<tr class="pick${CUR && CUR.id === p.id ? ' on' : ''}" data-id="${p.id}">
+      <td><strong>${esc(p.part_number || '—')}</strong></td><td>${esc(p.description || '')}</td><td class="hide">${esc(p.manufacturer || '')}</td>
+      <td class="${p.qty > 0 ? '' : 'zero'}">${p.qty}</td><td>${p.sell_price != null ? money(p.sell_price) : '—'}</td><td class="hide">${d(p.last_in)}</td></tr>`).join('')
+    : `<tr><td colspan="6" class="sub">${PARTS.length ? 'Nothing matches. Tick "Show parts with none in stock" to see used-up parts.' : 'No parts yet. Add your first above.'}</td></tr>`;
+  $('list').querySelectorAll('tr.pick').forEach(tr => tr.addEventListener('click', () => openPart(tr.dataset.id)));
+}
+$('find').addEventListener('input', draw);
+$('showZero').addEventListener('change', draw);
+
+// Selling price preview, and filling in a part you already have.
+function sellPreview() {
+  const c = parseFloat($('cost').value), m = parseFloat($('mk').value) || 0, q = parseInt($('qty').value, 10) || 0;
+  $('sell').textContent = c >= 0 && !isNaN(c) ? `Sells for ${money(Math.round(c * (1 + m / 100) * 100) / 100)} each · total paid ${money(c * q)}` : '';
+}
+['cost', 'mk', 'qty'].forEach(id => $(id).addEventListener('input', sellPreview));
+$('pn').addEventListener('change', () => {
+  const p = PARTS.find(x => (x.part_number || '').toLowerCase() === $('pn').value.trim().toLowerCase());
+  if (!p) return;
+  if (!$('mf').value) $('mf').value = p.manufacturer || '';
+  if (!$('desc').value) $('desc').value = p.description || '';
+  if (!$('sup').value) $('sup').value = p.supplier || '';
+  $('mk').value = p.markup_pct ?? 0;
+  sellPreview();
+});
+
+$('inForm').addEventListener('submit', async e => {
+  e.preventDefault(); hide($('inMsg'));
+  const qty = parseInt($('qty').value, 10);
+  if (!(qty > 0)) return show($('inMsg'), 'Enter a whole-number quantity.', 'err');
+  $('inBtn').disabled = true;
+  const { data: id, error } = await sb.rpc('stock_in', {
+    p_part_number: $('pn').value.trim(), p_manufacturer: $('mf').value.trim() || null, p_description: $('desc').value.trim() || null,
+    p_supplier: $('sup').value.trim() || null, p_unit_cost: parseFloat($('cost').value), p_qty: qty, p_markup: parseFloat($('mk').value) || 0
+  });
+  $('inBtn').disabled = false;
+  if (error) return show($('inMsg'), error.message, 'err');
+  show($('inMsg'), `${qty} × ${$('pn').value.trim()} added to stock.`, 'ok');
+  ['pn', 'mf', 'desc', 'sup', 'cost'].forEach(x => $(x).value = ''); $('qty').value = 1; $('mk').value = 0; sellPreview();
+  await load();
+  openPart(id);
+});
+
+async function openPart(id) {
+  CUR = PARTS.find(p => p.id === id) || null;
+  if (!CUR) return;
+  draw();
+  hide($('histMsg'));
+  $('histTitle').textContent = (CUR.part_number || '—') + (CUR.description ? ' · ' + CUR.description : '');
+  $('histSub').textContent = [CUR.manufacturer, CUR.supplier ? 'usually from ' + CUR.supplier : '', CUR.qty + ' in stock',
+    CUR.sell_price != null ? 'sells for ' + money(CUR.sell_price) + ' each' : ''].filter(Boolean).join(' · ');
+  const [{ data: buys }, { data: uses }] = await Promise.all([
+    sb.from('part_purchases').select('purchased_at,supplier,qty,unit_cost,markup_pct,qty_left,created_at').eq('part_id', id).order('purchased_at', { ascending: false }).order('created_at', { ascending: false }),
+    sb.from('part_usage').select('used_at,qty,unit_cost,unit_price,invoice_id,invoices(invoice_number),jobs(job_number)').eq('part_id', id).order('used_at', { ascending: false })
+  ]);
+  $('buys').innerHTML = (buys || []).length ? buys.map(b => `<tr><td>${d(b.purchased_at)}</td><td>${esc(b.supplier || '')}</td><td>${b.qty}</td>
+      <td>${money(b.unit_cost)}</td><td>${b.markup_pct != null ? Number(b.markup_pct) + '%' : '—'}</td><td>${b.qty_left}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="sub">None recorded.</td></tr>';
+  $('uses').innerHTML = (uses || []).length ? uses.map(u => `<tr><td>${d(u.used_at)}</td><td>${esc(u.invoices?.invoice_number || '—')}</td>
+      <td>${u.jobs?.job_number ? `<a href="job.html?job=${encodeURIComponent(u.jobs.job_number)}">${esc(u.jobs.job_number)}</a>` : '—'}</td>
+      <td>${u.qty}</td><td>${money(u.unit_cost)}</td><td>${u.unit_price != null ? money(u.unit_price) : '—'}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="sub">Not used on any invoice yet.</td></tr>';
+  $('histCard').style.display = 'block';
+  $('histCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+$('restock').addEventListener('click', () => {
+  if (!CUR) return;
+  $('pn').value = CUR.part_number || ''; $('mf').value = CUR.manufacturer || ''; $('desc').value = CUR.description || '';
+  $('sup').value = CUR.supplier || ''; $('mk').value = CUR.markup_pct ?? 0; $('cost').value = CUR.next_cost ?? '';
+  sellPreview();
+  $('inForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('cost').focus();
+});
+
+// Removing hides the part from the list; its history stays on past invoices.
+$('hidePart').addEventListener('click', async () => {
+  if (!CUR) return;
+  if (!confirm(`Remove ${CUR.part_number || 'this part'} from the parts list?` + (CUR.qty > 0 ? ` Its ${CUR.qty} in stock will no longer show.` : '') + ' Its history on past invoices is kept.')) return;
+  const { error } = await sb.from('parts').update({ archived: true }).eq('id', CUR.id);
+  if (error) return show($('histMsg'), error.message, 'err');
+  CUR = null; $('histCard').style.display = 'none';
+  load();
+});
+
+load();
+</script>
+</body>
 </html>

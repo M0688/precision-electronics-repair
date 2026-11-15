@@ -316,6 +316,7 @@
         <div class="sendrow" style="margin:0 0 16px">
           <button class="send" id="iAddLine" type="button">Add a line</button>
           <button class="send" id="iAddJob" type="button">Add another job</button>
+          <button class="send" id="iAddStock" type="button">Add from stock</button>
           <span id="iTotal" style="align-self:center;font-weight:700;color:var(--navy)"></span>
         </div>
         <div id="iJobBox" class="quotebox" style="display:none;margin:-6px 0 16px">
@@ -430,6 +431,22 @@
     </div>
   </div>
 </main>
+
+<div id="stockModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;align-items:flex-start;justify-content:center;padding:6vh 16px">
+  <div class="card" style="width:100%;max-width:720px;max-height:84vh;overflow:auto;margin:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <h2 style="margin:0">Add from stock</h2>
+      <button class="send" type="button" id="smClose" style="margin:0">Close</button>
+    </div>
+    <input type="search" id="smFind" placeholder="Search part number or description" style="margin:12px 0">
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th></th><th>Part</th><th>In stock</th><th>Each</th><th style="width:90px">Qty</th></tr></thead>
+      <tbody id="smList"></tbody>
+    </table></div>
+    <div id="smMsg" class="msg"></div>
+    <button class="primary" type="button" id="smAdd" style="margin-top:12px">Add to invoice</button>
+  </div>
+</div>
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
@@ -1531,6 +1548,65 @@ async function sendWarranty() {
   loadComms(JOBROW.id);
 }
 
+// ---------- add parts from stock to the invoice ----------
+let STOCK = [];
+const SMPICK = new Map(); // part id -> qty
+function smDraw() {
+  const f = $('smFind').value.trim().toLowerCase();
+  const rows = STOCK.filter(p => !f || [p.part_number, p.description, p.manufacturer].some(v => String(v || '').toLowerCase().includes(f)));
+  $('smList').innerHTML = rows.length ? rows.map(p => {
+    const onInv = LINES.filter(l => l.stock_part_id === p.id).reduce((n, l) => n + Number(l.qty || 0), 0);
+    const left = p.qty - onInv;
+    return `<tr><td><input type="checkbox" data-smc="${p.id}" ${SMPICK.has(p.id) ? 'checked' : ''} ${left > 0 ? '' : 'disabled'} style="width:auto;margin:0"></td>
+      <td><strong>${esc(p.part_number || '—')}</strong><br><span style="font-size:13px;color:var(--muted)">${esc([p.description, p.manufacturer].filter(Boolean).join(' · '))}</span></td>
+      <td>${left}${onInv ? `<br><span style="font-size:12px;color:var(--muted)">${onInv} already on this invoice</span>` : ''}</td>
+      <td>£${Number(p.sell_price || 0).toFixed(2)}</td>
+      <td><input type="number" data-smq="${p.id}" min="1" max="${Math.max(left, 1)}" step="1" value="${SMPICK.get(p.id) || 1}" ${left > 0 ? '' : 'disabled'} style="margin:0"></td></tr>`;
+  }).join('') : `<tr><td colspan="5" class="sub">${STOCK.length ? 'Nothing matches.' : 'Nothing in stock. Add parts on the Parts page.'}</td></tr>`;
+  $('smList').querySelectorAll('[data-smc]').forEach(c => c.addEventListener('change', () => {
+    const q = parseInt($('smList').querySelector(`[data-smq="${c.dataset.smc}"]`).value, 10) || 1;
+    c.checked ? SMPICK.set(c.dataset.smc, q) : SMPICK.delete(c.dataset.smc);
+  }));
+  $('smList').querySelectorAll('[data-smq]').forEach(i => i.addEventListener('input', () => {
+    const c = $('smList').querySelector(`[data-smc="${i.dataset.smq}"]`);
+    if (!c.checked && i.value) { c.checked = true; }
+    SMPICK.set(i.dataset.smq, parseInt(i.value, 10) || 0);
+  }));
+}
+$('iAddStock').addEventListener('click', async () => {
+  hide($('smMsg')); SMPICK.clear(); $('smFind').value = '';
+  $('smList').innerHTML = '<tr><td colspan="5" class="sub">Loading…</td></tr>';
+  $('stockModal').style.display = 'flex';
+  const { data, error } = await sb.from('parts_on_hand').select('*').eq('archived', false).gt('qty', 0).order('part_number');
+  if (error) return show($('smMsg'), error.message, 'err');
+  STOCK = data || [];
+  smDraw();
+});
+$('smFind').addEventListener('input', smDraw);
+$('smClose').addEventListener('click', () => { $('stockModal').style.display = 'none'; });
+$('stockModal').addEventListener('click', e => { if (e.target.id === 'stockModal') $('stockModal').style.display = 'none'; });
+$('smAdd').addEventListener('click', () => {
+  hide($('smMsg'));
+  if (!SMPICK.size) return show($('smMsg'), 'Tick at least one part.', 'err');
+  for (const [id, q] of SMPICK) {
+    const p = STOCK.find(x => x.id === id);
+    const onInv = LINES.filter(l => l.stock_part_id === id).reduce((n, l) => n + Number(l.qty || 0), 0);
+    if (!Number.isInteger(q) || q < 1) return show($('smMsg'), `Enter a whole-number quantity for ${p.part_number}.`, 'err');
+    if (q + onInv > p.qty) return show($('smMsg'), `Only ${p.qty - onInv} of ${p.part_number} left in stock.`, 'err');
+  }
+  // An empty starting line gets replaced rather than left blank.
+  if (LINES.length === 1 && !String(LINES[0].description || '').trim() && !Number(LINES[0].amount)) LINES.length = 0;
+  for (const [id, q] of SMPICK) {
+    const p = STOCK.find(x => x.id === id);
+    const unit = Number(p.sell_price || 0);
+    LINES.push({ description: [p.part_number, p.description].filter(Boolean).join(' — '), kind: 'parts', qty: q, unit,
+                 amount: Math.round(q * unit * 100) / 100, quote_id: null, job_ref: JOBROW.id, stock_part_id: id });
+  }
+  drawLines();
+  $('stockModal').style.display = 'none';
+  show($('invMsg'), SMPICK.size + ' part' + (SMPICK.size === 1 ? '' : 's') + ' added from stock. Stock comes off when you raise the invoice.', 'ok');
+});
+
 let LASTPDF = null;
 let LASTLABEL = null;
 let INVOICES = [];
@@ -1680,13 +1756,15 @@ async function raiseInvoice(sendNow) {
       // the quantity goes into the wording, e.g. "Additional hour (2 × £50.00)"
       if (q !== 1 && d && !/\(\d+(\.\d+)? × £/.test(d)) d += ` (${q} × £${(Number(unit) || 0).toFixed(2)})`;
       let amt = Number(l.amount) || 0;
-      return { ...l, description: d, amount: amt };
+      return { ...l, description: d, amount: amt, ...(l.stock_part_id ? { stock_qty: q } : {}) };
     })
     .filter(l => l.description || l.amount);
 
   if (!lines.length) return show($('invMsg'), 'Add at least one line.', 'err');
   const blank = lines.findIndex(l => !l.description);
   if (blank !== -1) return show($('invMsg'), 'Line ' + (blank + 1) + ' has no description.', 'err');
+  const badStock = lines.findIndex(l => l.stock_part_id && !(Number.isInteger(l.stock_qty) && l.stock_qty > 0));
+  if (badStock !== -1) return show($('invMsg'), 'Line ' + (badStock + 1) + ' is a part from stock, so its quantity must be a whole number.', 'err');
   const free = lines.findIndex(l => l.amount <= 0);
   if (free !== -1) return show($('invMsg'), 'Line ' + (free + 1) + ' has no price.', 'err');
 

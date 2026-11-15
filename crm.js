@@ -49,6 +49,7 @@ const ICONS = {
   invoices: '<path d="M7 3h10v18l-3-2-2 2-2-2-3 2z"/><path d="M10 8h4M10 12h4"/>',
   contacts: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>',
   tests: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',
+  parts: '<rect x="4" y="7" width="16" height="10" rx="1.5"/><path d="M7 7V4M12 7V4M17 7V4M7 17v3M12 17v3M17 17v3"/>',
   resources: '<path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',
   reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
@@ -61,6 +62,7 @@ export function chrome(active) {
   const tabs = [
     ['workshop.html', 'Jobs', 'jobs'],
     ['invoices.html', 'Invoices', 'invoices'],
+    ['parts.html', 'Parts', 'parts'],
     ['contacts.html', 'Contacts', 'contacts'],
     ['tests.html', 'Tests', 'tests'],
     ['resources.html', 'Resources', 'resources'],
