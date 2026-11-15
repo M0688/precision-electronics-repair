@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resources | Precision Electronics Repair</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#152642">
+<link rel="stylesheet" href="crm.css?v=9">
+<style>
+  .sbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sbar input { flex: 1 1 260px; margin: 0; font-size: 17px; }
+  .sbar button { margin: 0; }
+  .groups { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 0; }
+  .groups label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: 14px; margin: 0;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; background: var(--white); }
+  .groups input { width: auto; margin: 0; }
+  .hits { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 14px; }
+  .hits a { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-decoration: none;
+    color: var(--navy); font-weight: 600; background: var(--white); }
+  .hits a:hover { border-color: var(--navy); }
+  .hits a small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .hgroup { margin-top: 16px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+  .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+  .links a { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-decoration: none;
+    color: var(--ink); background: var(--white); }
+  .links a:hover { border-color: var(--navy); }
+  .links a strong { display: block; color: var(--navy); }
+  .links a span { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="wrap">
+
+    <div class="card" data-tab="none">
+      <h1 style="margin:0 0 6px">Resource centre</h1>
+      <p class="sub" style="margin:0 0 14px">Type a part number, SMD marking, board number or model, and search every site below at once.</p>
+      <form class="sbar" id="sForm">
+        <input type="search" id="q" placeholder="e.g. PS21869-A, NE555, K03CE-C-A, 2N7002" autocomplete="off">
+        <button class="primary" type="submit">Search all ticked sites</button>
+      </form>
+      <div class="groups" id="groups"></div>
+      <div id="sMsg" class="msg" style="margin-top:12px"></div>
+      <div id="hits"></div>
+    </div>
+
+    <div id="lists"></div>
+
+  </div>
+</main>
+
+<script type="module">
+import { $, show, hide, esc, chrome, requireSession } from './crm.js';
+
+chrome('resources.html');
+await requireSession();
+
+// Sites with a search we've checked open their own results page. The rest search
+// through Google, limited to that one site, which works the same for every site.
+const own = url => q => url.replace('%s', encodeURIComponent(q));
+const viaGoogle = domain => q => 'https://www.google.com/search?q=' + encodeURIComponent('site:' + domain + ' ' + q);
+
+const GROUPS = [
+  { key: 'parts', title: 'Datasheets & components', on: true, sites: [
+    { name: 'Octopart', url: 'https://octopart.com', note: 'Datasheets, prices, stock', search: own('https://octopart.com/search?q=%s') },
+    { name: 'AllDatasheet', url: 'https://www.alldatasheet.com', note: 'Datasheets', search: viaGoogle('alldatasheet.com') },
+    { name: 'Datasheet Archive', url: 'https://www.datasheetarchive.com', note: 'Datasheets, older parts', search: viaGoogle('datasheetarchive.com') },
+    { name: 'WhatSMD', url: 'https://whatsmd.com', note: 'SMD marking codes', search: viaGoogle('whatsmd.com') }
+  ]},
+  { key: 'suppliers', title: 'Suppliers', on: true, sites: [
+    { name: 'DigiKey', url: 'https://www.digikey.co.uk', note: 'UK site', search: own('https://www.digikey.co.uk/en/products/result?keywords=%s') },
+    { name: 'Mouser', url: 'https://www.mouser.co.uk', note: 'UK site', search: viaGoogle('mouser.co.uk') },
+    { name: 'Farnell', url: 'https://uk.farnell.com', note: 'UK site', search: viaGoogle('uk.farnell.com') },
+    { name: 'RS Components', url: 'https://uk.rs-online.com', note: 'UK site', search: viaGoogle('uk.rs-online.com') },
+    { name: 'LCSC', url: 'https://www.lcsc.com', note: 'Low-cost parts', search: viaGoogle('lcsc.com') }
+  ]},
+  { key: 'manuals', title: 'Schematics, boardviews & manuals', on: false, sites: [
+    { name: 'RM Schematics', url: 'https://reniemarquet.com', note: 'Schematics', search: viaGoogle('reniemarquet.com') },
+    { name: 'Enginerys', url: 'https://enginerys.com', note: 'Schematics, boardviews', search: viaGoogle('enginerys.com') },
+    { name: 'eServiceInfo', url: 'https://www.eserviceinfo.com', note: 'Service manuals', search: viaGoogle('eserviceinfo.com') },
+    { name: 'Repair Wiki', url: 'https://repair.wiki', note: 'Repair guides', search: viaGoogle('repair.wiki') },
+    { name: 'ManualsLib', url: 'https://www.manualslib.com', note: 'Manuals', search: viaGoogle('manualslib.com') },
+    { name: 'HiFiGarden', url: 'https://hifigarden.org', note: 'Audio service manuals', search: viaGoogle('hifigarden.org') }
+  ]},
+  { key: 'makers', title: 'Manufacturers', on: false, sites: [
+    { name: 'Texas Instruments', url: 'https://www.ti.com', search: viaGoogle('ti.com') },
+    { name: 'Analog Devices', url: 'https://www.analog.com', search: viaGoogle('analog.com') },
+    { name: 'Infineon', url: 'https://www.infineon.com', search: viaGoogle('infineon.com') },
+    { name: 'STMicroelectronics', url: 'https://www.st.com', search: viaGoogle('st.com') },
+    { name: 'onsemi', url: 'https://www.onsemi.com', search: viaGoogle('onsemi.com') },
+    { name: 'Microchip', url: 'https://www.microchip.com', search: viaGoogle('microchip.com') },
+    { name: 'NXP', url: 'https://www.nxp.com', search: viaGoogle('nxp.com') },
+    { name: 'Renesas', url: 'https://www.renesas.com', search: viaGoogle('renesas.com') },
+    { name: 'ROHM', url: 'https://www.rohm.com', search: viaGoogle('rohm.com') },
+    { name: 'Vishay', url: 'https://www.vishay.com', search: viaGoogle('vishay.com') },
+    { name: 'Toshiba Semiconductor', url: 'https://toshiba.semicon-storage.com', search: viaGoogle('toshiba.semicon-storage.com') },
+    { name: 'Power Integrations', url: 'https://www.power.com', search: viaGoogle('power.com') }
+  ]},
+  { key: 'learn', title: 'Reference & learning', on: false, sites: [
+    { name: 'The Art of Electronics', url: 'https://artofelectronics.net', note: 'Horowitz & Hill, 3rd edition', search: viaGoogle('artofelectronics.net') },
+    { name: 'Electronics Tutorials', url: 'https://www.electronics-tutorials.ws', search: viaGoogle('electronics-tutorials.ws') },
+    { name: 'All About Circuits', url: 'https://www.allaboutcircuits.com', search: viaGoogle('allaboutcircuits.com') }
+  ]}
+];
+
+// Software: links only (a web page can't start programs on your computer).
+const SOFTWARE = [
+  { name: 'LTspice', url: 'https://www.analog.com/ltspice', note: 'Circuit simulation' },
+  { name: 'KiCad', url: 'https://www.kicad.org', note: 'Schematics and PCB design' },
+  { name: 'OpenBoardView', url: 'https://openboardview.org', note: 'Boardview viewer' },
+  { name: 'TRACE', url: 'https://trace-boardviewer.github.io', note: 'Boardviews and schematics' },
+  { name: 'Falstad', url: 'https://www.falstad.com/circuit', note: 'Interactive simulation in the browser' },
+  { name: 'PulseView (sigrok)', url: 'https://sigrok.org', note: 'Logic and protocol analysis' },
+  { name: 'GNU Octave', url: 'https://octave.org', note: 'Calculations' }
+];
+
+// Which groups are ticked is remembered on this device.
+let ticked;
+try { ticked = JSON.parse(localStorage.getItem('res.groups') || 'null'); } catch (_) { ticked = null; }
+if (!Array.isArray(ticked)) ticked = GROUPS.filter(g => g.on).map(g => g.key);
+
+$('groups').innerHTML = GROUPS.map(g => `<label><input type="checkbox" value="${g.key}" ${ticked.includes(g.key) ? 'checked' : ''}>${esc(g.title)}</label>`).join('');
+$('groups').querySelectorAll('input').forEach(c => c.addEventListener('change', () => {
+  ticked = [...$('groups').querySelectorAll('input:checked')].map(x => x.value);
+  try { localStorage.setItem('res.groups', JSON.stringify(ticked)); } catch (_) {}
+  if ($('q').value.trim()) drawHits($('q').value.trim());
+}));
+
+function drawHits(q) {
+  const groups = GROUPS.filter(g => ticked.includes(g.key));
+  $('hits').innerHTML = groups.map(g => `<div class="hgroup">${esc(g.title)}</div><div class="hits">${
+    g.sites.map(s => `<a href="${esc(s.search(q))}" target="_blank" rel="noopener">${esc(s.name)}<small>Search for “${esc(q)}”</small></a>`).join('')
+  }</div>`).join('');
+  return groups.flatMap(g => g.sites.map(s => s.search(q)));
+}
+
+$('sForm').addEventListener('submit', e => {
+  e.preventDefault();
+  hide($('sMsg'));
+  const q = $('q').value.trim();
+  if (!q) return show($('sMsg'), 'Type something to search for.', 'err');
+  if (!ticked.length) return show($('sMsg'), 'Tick at least one group of sites.', 'err');
+  const urls = drawHits(q);
+  // Open every site in its own tab. Browsers only allow this once you've let this page open pop-ups.
+  let opened = 0;
+  for (const u of urls) { const w = window.open(u, '_blank'); if (w) { w.opener = null; opened++; } }
+  show($('sMsg'), opened >= urls.length
+    ? `Opened ${urls.length} searches in new tabs.`
+    : `Your browser blocked ${urls.length - opened} of the ${urls.length} tabs. Allow pop-ups for this site (the icon at the right of the address bar), then search again. Or click each site below.`,
+    opened >= urls.length ? 'ok' : 'err');
+});
+
+// The full link lists
+const card = (title, items) => `<div class="card" data-tab="none"><h2 style="margin-top:0">${esc(title)}</h2><div class="links">${
+  items.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener"><strong>${esc(s.name)}</strong><span>${esc(s.note || s.url.replace(/^https?:\/\//, ''))}</span></a>`).join('')
+}</div></div>`;
+$('lists').innerHTML = GROUPS.map(g => card(g.title, g.sites)).join('') + card('Engineering software', SOFTWARE);
+</script>
+</body>
+</html>
