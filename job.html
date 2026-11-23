@@ -317,7 +317,7 @@
       </details>
 
 
-      <details class="card sec">
+      <details class="card sec" id="invSec">
         <summary><h2>Invoice</h2><span class="count" data-of="#invList .quotebox"></span></summary>
         <div class="secbody">
         <div id="invMsg" class="msg"></div>
@@ -1146,6 +1146,7 @@ function convertToQuote(id) {
 // not retyping it. Approved work wins; otherwise the item and reported fault.
 function fillInvoiceDescription() {
   if (!JOBROW || LINES.length) return;
+  if (restoreInvDraft()) return;
 
   // Every approved price in the booking becomes a line — the whole batch on
   // one invoice, not one invoice per item.
@@ -1209,6 +1210,48 @@ function splitQuote(out, desc, partsNote, f, quoteId, jobRef, prefix) {
 
 // ---------- invoice lines ----------
 let LINES = [];
+
+// ---------- unsent invoice draft ----------
+// Kept on this device until the invoice is raised, so leaving the page doesn't lose it.
+const DRAFT_KEY = () => 'invDraft:' + JOB;
+let draftTimer = null;
+function saveInvDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    try {
+      if (!LINES.length) return;
+      localStorage.setItem(DRAFT_KEY(), JSON.stringify({
+        t: Date.now(), lines: LINES, desc: $('iDesc').value, disc: $('iDisc').value,
+        discType: $('iDiscType').value, discWhy: $('iDiscWhy').value
+      }));
+    } catch (e) {}
+  }, 300);
+}
+function clearInvDraft() { clearTimeout(draftTimer); try { localStorage.removeItem(DRAFT_KEY()); } catch (e) {} }
+function restoreInvDraft() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY()) || 'null'); } catch (e) {}
+  if (!d || !Array.isArray(d.lines) || !d.lines.length) return false;
+  if (Date.now() - (d.t || 0) > 30 * 86400000) { clearInvDraft(); return false; }
+  LINES = d.lines;
+  $('iDesc').value = d.desc || ''; $('iDisc').value = d.disc || '';
+  if (d.discType) $('iDiscType').value = d.discType;
+  $('iDiscWhy').value = d.discWhy || '';
+  $('iDescNote').innerHTML = 'Your unsent invoice from ' + new Date(d.t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) +
+    ', as you left it. <a href="#" id="draftReset">Start again from the job details</a>';
+  $('draftReset').addEventListener('click', e => {
+    e.preventDefault();
+    clearInvDraft(); LINES = [];
+    $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
+    fillInvoiceDescription();
+  });
+  drawLines();
+  return true;
+}
+// Anything typed in the invoice section saves the draft.
+document.getElementById('invSec').addEventListener('input', saveInvDraft);
+document.getElementById('invSec').addEventListener('change', saveInvDraft);
+document.getElementById('invSec').addEventListener('click', e => { if (e.target.closest('button')) saveInvDraft(); });
 
 // Each line is labour, parts or postage. Only labour gets the trade discount.
 function guessKind(desc) {
@@ -1332,7 +1375,7 @@ $('retSel').addEventListener('change', async () => {
   showReturn();
   $('retMsg').textContent = 'Saved.';
   // Rebuild the invoice lines if nothing has been typed yet.
-  if (LINES.every(l => l.quote_id)) { LINES = []; fillInvoiceDescription(); }
+  if (LINES.every(l => l.quote_id)) { LINES = []; clearInvDraft(); fillInvoiceDescription(); }
 });
 
 // ---------- collection, at a glance ----------
@@ -1514,6 +1557,7 @@ $('iJobGo').addEventListener('click', async () => {
                  amount: 0, quote_id: null, job_ref: j.id });
   }
   drawLines();
+  saveInvDraft();
   $('iJobNum').value = '';
   $('iJobBox').style.display = 'none';
   show($('invMsg'), num + ' added — ' + (LINES.length - before) + ' line' + (LINES.length - before === 1 ? '' : 's') +
@@ -1639,6 +1683,7 @@ $('smAdd').addEventListener('click', async () => {
                  amount: Math.round(q * unit * 100) / 100, quote_id: null, job_ref: JOBROW.id, stock_part_id: id });
   }
   drawLines();
+  saveInvDraft();
   $('stockModal').style.display = 'none';
   show($('invMsg'), SMPICK.size + ' part' + (SMPICK.size === 1 ? '' : 's') + ' added from stock. Stock comes off when you raise the invoice.', 'ok');
 });
@@ -1900,6 +1945,7 @@ async function raiseInvoice(sendNow) {
 
   $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
   LINES = [];
+  clearInvDraft();
   $('status').value = 'invoiced';
   JOBROW.status = 'invoiced'; drawHead();
   showWs();
