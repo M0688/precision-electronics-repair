@@ -157,7 +157,7 @@
 
           <fieldset>
             <legend>Please confirm</legend>
-            <div class="check" id="diagRow"><input type="checkbox" id="agree_diagnostic"><label for="agree_diagnostic">I understand the <strong>£30 diagnostic fee</strong>. It's deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can't be repaired.</label></div>
+            <div class="check" id="diagRow"><input type="checkbox" id="agree_diagnostic"><label for="agree_diagnostic">I understand the <strong>diagnostic fee</strong>. It's deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can't be repaired.</label></div>
             <p class="hint" id="noDiagNote" style="display:none;margin:0 0 14px;padding:10px 14px;background:#e7f2ec;border:1px solid #bcdcca;border-radius:8px;color:#1c6b3c"><strong>No diagnostic fee on this job.</strong> The fault is already clear, so there's nothing to diagnose. You'll get a price for the repair and nothing happens until you approve it.</p>
             <div class="check"><input type="checkbox" id="agree_terms"><label for="agree_terms">I have read and accept the <a href="terms.html" target="_blank">terms of service</a>, including the warranty terms, and that <strong>return postage is charged at cost on every item we post back</strong>, whatever the outcome.</label></div>
             <div class="check"><input type="checkbox" id="agree_uncollected"><label for="agree_uncollected">I understand that items left uncollected for 90 days after repeated contact may be sold at auction to recover costs, with any surplus returned to me.</label></div>
@@ -203,6 +203,7 @@ const KEY = (params.get('k') || '').trim();
 const $ = id => document.getElementById(id);
 const loading = $('loading'), errorBox = $('error'), formArea = $('formArea');
 let NO_DIAG_FEE = false;
+let FEE = '£60';
 
 function fail(text) {
   loading.classList.remove('show');
@@ -322,8 +323,8 @@ function setDiagWording() {
     $('diagRow').style.display = '';
     $('noDiagNote').style.display = 'none';
     $('agree_diagnostic').closest('.check').querySelector('label').innerHTML = many
-      ? 'I understand the <strong>£30 diagnostic fee</strong>, charged per item where the fault has to be found. It\'s deducted from that item\'s repair price if I go ahead, applies if I decline a quoted repair, and is waived if an item can\'t be repaired. You will tell me which items carry a fee before charging anything.'
-      : 'I understand the <strong>£30 diagnostic fee</strong>. It\'s deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can\'t be repaired.';
+      ? 'I understand the <strong>' + FEE + ' diagnostic fee</strong>, charged per item where the fault has to be found. It\'s deducted from that item\'s repair price if I go ahead, applies if I decline a quoted repair, and is waived if an item can\'t be repaired. You will tell me which items carry a fee before charging anything.'
+      : 'I understand the <strong>' + FEE + ' diagnostic fee</strong>. It\'s deducted from the repair price if I go ahead, applies if I decline a quoted repair, and is waived if the item can\'t be repaired.';
     return;
   }
 
@@ -336,7 +337,7 @@ function setDiagWording() {
       'You\'ve listed more than one item, and we can\'t promise that in advance for every one of them. ' +
       'If any item turns out to need diagnosing, we\'ll tell you which, and you can say no before anything is charged.';
     $('agree_diagnostic').closest('.check').querySelector('label').innerHTML =
-      'I understand that if any item needs diagnosing, a <strong>£30 diagnostic fee</strong> applies to that item — and that you will tell me which before charging anything.';
+      'I understand that if any item needs diagnosing, a <strong>' + FEE + ' diagnostic fee</strong> applies to that item — and that you will tell me which before charging anything.';
   } else {
     $('diagRow').style.display = 'none';
     $('noDiagNote').style.display = 'block';
@@ -386,6 +387,7 @@ async function start() {
     // Obvious faults need no diagnosis. renderItems settles the wording,
     // because it depends on how many items they're sending.
     NO_DIAG_FEE = result.diag_fee_applies === false;
+    FEE = '£' + Number(result.diag_fee || 60).toFixed(0);
 
     renderItems();
     loading.classList.remove('show');

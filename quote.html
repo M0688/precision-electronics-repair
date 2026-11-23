@@ -94,7 +94,7 @@
           <p class="small" style="margin-top:8px">Tap a photo to see it full size.</p>
         </div>
 
-        <p class="small" id="feeLine">No further work happens until you decide. If you decline, our £30 diagnostic fee applies (plus return postage if we post it back).</p>
+        <p class="small" id="feeLine">No further work happens until you decide. If you decline, our diagnostic fee applies (plus return postage if we post it back).</p>
 
         <div id="returnWrap" class="stepbox" style="display:none">
           <div class="stepno">Step 1</div>
@@ -200,7 +200,7 @@ function finish(state, jobNo) {
     $('doneTitle').textContent = est ? 'Estimate declined' : 'Quote declined';
     $('doneText').textContent = (est || NO_FEE)
       ? (est ? 'No problem — nothing is owed. We\'ll be in touch about your item for ' + jobNo + '.' : 'No problem — we\'ll be in touch about getting your item for ' + jobNo + ' back to you. The only charge is return postage if we post it.')
-      : 'No problem — we\'ll be in touch about getting your item for ' + jobNo + ' back to you and the £30 diagnostic fee (plus return postage if we post it).';
+      : 'No problem — we\'ll be in touch about getting your item for ' + jobNo + ' back to you and the ' + FEE + ' diagnostic fee (plus return postage if we post it).';
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -208,6 +208,7 @@ function finish(state, jobNo) {
 let JOBNO = '';
 let KIND = 'quote';
 let NO_FEE = false;
+let FEE = '£60';
 
 async function start() {
   if (!QID || !TOKEN) return fail('This quote link is incomplete. Please use the exact link we emailed you.');
@@ -243,6 +244,8 @@ async function start() {
     }
     // No diagnosis was needed, so declining costs nothing.
     NO_FEE = q.diag_fee_applies === false;
+    FEE = '£' + Number(q.diag_fee || 60).toFixed(0);
+    if (!NO_FEE && KIND !== 'estimate') $('feeLine').textContent = 'No further work happens until you decide. If you decline, our ' + FEE + ' diagnostic fee applies (plus return postage if we post it back).';
     if (NO_FEE && KIND !== 'estimate') {
       $('feeLine').textContent = 'No further work happens until you decide. There is no diagnostic fee on this job — the fault was clear from the start — so if you decline, the only charge is return postage if we post it back.';
     }
@@ -383,7 +386,7 @@ $('approveBtn').addEventListener('click', () => respond('approved'));
 $('declineBtn').addEventListener('click', () => {
   const ask = (KIND === 'estimate' || NO_FEE)
     ? 'Decline this ' + (KIND === 'estimate' ? 'estimate' : 'quote') + '? Nothing is charged.'
-    : 'Decline this quote? The £30 diagnostic fee will apply and we will return your item.';
+    : 'Decline this quote? The ' + FEE + ' diagnostic fee will apply and we will return your item.';
   if (confirm(ask)) respond('declined');
 });
 
