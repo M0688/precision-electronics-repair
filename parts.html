@@ -40,7 +40,8 @@
           <div><label for="sup">Supplier</label><input type="text" id="sup"></div>
           <div><label for="cost">Unit cost £</label><input id="cost" type="number" min="0" step="0.0001" required></div>
           <div><label for="qty">Quantity</label><input id="qty" type="number" min="1" step="1" value="1" required></div>
-          <div><label for="mk">Markup %</label><input id="mk" type="number" min="0" step="0.1" value="0" required></div>
+          <div><label for="mk">Markup %</label><input id="mk" type="number" min="0" step="any" value="0" required></div>
+          <div><label for="sellFor">Sell for £ (each)</label><input id="sellFor" type="number" min="0" step="0.01" placeholder="optional"></div>
         </div>
         <p class="sell" id="sell"></p>
         <button class="primary" type="submit" id="inBtn">Add to stock</button>
@@ -115,6 +116,18 @@ function sellPreview() {
   $('sell').textContent = c >= 0 && !isNaN(c) ? `Sells for ${money(Math.round(c * (1 + m / 100) * 100) / 100)} each · total paid ${money(c * q)}` : '';
 }
 ['cost', 'mk', 'qty'].forEach(id => $(id).addEventListener('input', sellPreview));
+// Sell for: type the price you want and the markup is worked out from the unit cost.
+function markupFromSell() {
+  const c = parseFloat($('cost').value), sell = parseFloat($('sellFor').value);
+  if (!(c > 0) || isNaN(sell)) return;
+  if (sell < c) { $('sell').textContent = 'That is less than the unit cost — markup can\'t go below 0%.'; return; }
+  $('mk').value = String(Math.round((sell / c - 1) * 100 * 10000) / 10000);
+  sellPreview();
+}
+$('sellFor').addEventListener('input', markupFromSell);
+// Changing the cost keeps the chosen sell price; changing the markup clears it.
+$('cost').addEventListener('input', () => { if ($('sellFor').value) markupFromSell(); });
+$('mk').addEventListener('input', () => { $('sellFor').value = ''; });
 $('pn').addEventListener('change', () => {
   const p = PARTS.find(x => (x.part_number || '').toLowerCase() === $('pn').value.trim().toLowerCase());
   if (!p) return;
@@ -137,7 +150,7 @@ $('inForm').addEventListener('submit', async e => {
   $('inBtn').disabled = false;
   if (error) return show($('inMsg'), error.message, 'err');
   show($('inMsg'), `${qty} × ${$('pn').value.trim()} added to stock.`, 'ok');
-  ['pn', 'mf', 'desc', 'sup', 'cost'].forEach(x => $(x).value = ''); $('qty').value = 1; $('mk').value = 0; sellPreview();
+  ['pn', 'mf', 'desc', 'sup', 'cost', 'sellFor'].forEach(x => $(x).value = ''); $('qty').value = 1; $('mk').value = 0; sellPreview();
   await load();
   openPart(id);
 });
