@@ -361,6 +361,7 @@
         <div id="iAttMsg" class="msg"></div>
         <p class="sub" style="margin:4px 0 14px">Ticked files go with the invoice email, whether you raise it now or email it later from the list above. They're saved in the job's Files tab.</p>
 
+        <div id="editBanner" style="display:none;border-radius:10px;padding:10px 14px;margin:0 0 12px;background:#fff8e6;border:1px solid #f0d58c"></div>
         <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
         <button class="send" id="invSave" type="button" style="margin-left:6px">Save invoice, send later</button>
         <div id="iSend" style="display:none">
@@ -1210,6 +1211,7 @@ function splitQuote(out, desc, partsNote, f, quoteId, jobRef, prefix) {
 
 // ---------- invoice lines ----------
 let LINES = [];
+let EDIT_INV = null; // unpaid invoice being edited: { id, number, issued_at, job_id, stock: { partId: qty } }
 
 // ---------- unsent invoice draft ----------
 // Kept on this device until the invoice is raised, so leaving the page doesn't lose it.
@@ -1217,6 +1219,7 @@ const DRAFT_KEY = () => 'invDraft:' + JOB;
 let draftTimer = null;
 function saveInvDraft() {
   clearTimeout(draftTimer);
+  if (EDIT_INV) return;
   draftTimer = setTimeout(() => {
     try {
       if (!LINES.length) return;
@@ -1612,12 +1615,14 @@ let STOCK = [];
 const SMPICK = new Map(); // part id -> qty
 let SM_MODE = 'invoice';  // 'invoice' = lines on the invoice, 'job' = used on the job, not invoiced
 const onInvoice = id => SM_MODE === 'invoice' ? LINES.filter(l => l.stock_part_id === id).reduce((n, l) => n + Number(l.qty || 0), 0) : 0;
+// When editing an invoice, its own parts go back on the shelf when it's saved, so they count as available.
+const avail = p => p.qty + (SM_MODE === 'invoice' && EDIT_INV ? (EDIT_INV.stock[p.id] || 0) : 0);
 function smDraw() {
   const f = $('smFind').value.trim().toLowerCase();
   const rows = STOCK.filter(p => !f || [p.part_number, p.description, p.manufacturer].some(v => String(v || '').toLowerCase().includes(f)));
   $('smList').innerHTML = rows.length ? rows.map(p => {
     const onInv = onInvoice(p.id);
-    const left = p.qty - onInv;
+    const left = avail(p) - onInv;
     return `<tr><td><input type="checkbox" data-smc="${p.id}" ${SMPICK.has(p.id) ? 'checked' : ''} ${left > 0 ? '' : 'disabled'} style="width:auto;margin:0"></td>
       <td><strong>${esc(p.part_number || '—')}</strong><br><span style="font-size:13px;color:var(--muted)">${esc([p.description, p.manufacturer].filter(Boolean).join(' · '))}</span></td>
       <td>${left}${onInv ? `<br><span style="font-size:12px;color:var(--muted)">${onInv} already on this invoice</span>` : ''}</td>
@@ -1658,7 +1663,7 @@ $('smAdd').addEventListener('click', async () => {
     const p = STOCK.find(x => x.id === id);
     const onInv = onInvoice(id);
     if (!Number.isInteger(q) || q < 1) return show($('smMsg'), `Enter a whole-number quantity for ${p.part_number}.`, 'err');
-    if (q + onInv > p.qty) return show($('smMsg'), `Only ${p.qty - onInv} of ${p.part_number} left in stock.`, 'err');
+    if (q + onInv > avail(p)) return show($('smMsg'), `Only ${avail(p) - onInv} of ${p.part_number} left in stock.`, 'err');
   }
   if (SM_MODE === 'job') {
     $('smAdd').disabled = true;
@@ -1783,6 +1788,7 @@ async function loadInvoices(jobId) {
         : `<div class="sendrow">
              <button class="send" data-email="${v.id}" style="border-color:var(--navy)">Email invoice to customer</button>
              <button class="send" data-pdf="${v.id}">Download PDF</button>
+             <button class="send" data-edit="${v.id}">Edit</button>
              ${delBtn('invoices', v.id, 'invoice')}
            </div>
            <div class="sendrow">
@@ -1796,6 +1802,7 @@ async function loadInvoices(jobId) {
   drawMoney();
   wireDeletes($('invList'), () => { loadInvoices(JOBROW.id); loadNotes(JOBROW.id); });
 
+  $('invList').querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => startEditing(btn.dataset.edit)));
   $('invList').querySelectorAll('[data-paid]').forEach(btn => {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
@@ -1849,6 +1856,53 @@ async function loadInvoices(jobId) {
   });
 }
 
+// ---------- editing an unpaid invoice ----------
+function setInvButtons() {
+  $('invBtn').textContent = EDIT_INV ? 'Save changes & email PDF' : 'Raise invoice & email PDF';
+  $('invSave').textContent = EDIT_INV ? 'Save changes, send later' : 'Save invoice, send later';
+  $('editBanner').style.display = EDIT_INV ? 'block' : 'none';
+  if (EDIT_INV) {
+    $('editBanner').innerHTML = `<strong>Editing ${esc(EDIT_INV.number)}.</strong> Same invoice number and link. <a href="#" id="editCancel">Cancel editing</a>`;
+    $('editCancel').addEventListener('click', e => { e.preventDefault(); stopEditing(); });
+  }
+}
+function stopEditing() {
+  EDIT_INV = null; LINES = [];
+  $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
+  setInvButtons();
+  fillInvoiceDescription();
+}
+async function startEditing(id) {
+  hide($('invMsg'));
+  const v = INVOICES.find(x => x.id === id);
+  if (!v || v.status === 'paid') return show($('invMsg'), 'Only unpaid invoices can be edited.', 'err');
+  const { data: lines, error } = await sb.from('invoice_lines').select('*').eq('invoice_id', id).order('position');
+  if (error) return show($('invMsg'), error.message, 'err');
+  const stock = {};
+  (lines || []).forEach(l => { if (l.stock_part_id) stock[l.stock_part_id] = (stock[l.stock_part_id] || 0) + (l.stock_qty || 0); });
+  EDIT_INV = { id: v.id, number: v.invoice_number, issued_at: v.issued_at, job_id: v.job_id, stock };
+  $('iDisc').value = ''; $('iDiscWhy').value = ''; $('iDiscType').value = 'gbp';
+  LINES = [];
+  let disc = 0, discWhy = '';
+  for (const l of lines || []) {
+    const amt = Number(l.amount) || 0;
+    if (amt < 0) { disc += -amt; discWhy = discWhy || l.description; continue; }
+    let desc = l.description || '', qty = 1, unit = amt;
+    // "Something (2 × £15.00)" goes back to a quantity and a unit price
+    const m = desc.match(/^(.*) \((\d+(?:\.\d+)?) × £(\d+(?:\.\d+)?)\)$/);
+    if (m) { desc = m[1]; qty = Number(m[2]); unit = Number(m[3]); }
+    if (l.stock_part_id && l.stock_qty) { qty = l.stock_qty; unit = Math.round(amt / qty * 100) / 100; }
+    LINES.push({ description: desc, kind: l.kind || 'labour', qty, unit, amount: amt, quote_id: l.quote_id, job_ref: l.job_ref,
+                 item_id: l.item_id || undefined, ...(l.stock_part_id ? { stock_part_id: l.stock_part_id } : {}) });
+  }
+  if (disc > 0) { $('iDisc').value = disc.toFixed(2); $('iDiscWhy').value = discWhy.replace(/ \(\d+(\.\d+)?%\)$/, ''); }
+  $('iDesc').value = v.description === 'Repair work — see the itemised list.' ? '' : (v.description || '');
+  $('iDescNote').textContent = 'Change anything, then save. Parts from stock go back on the shelf and come off again for the new lines.';
+  drawLines();
+  setInvButtons();
+  $('invSec').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 $('invBtn').addEventListener('click', () => raiseInvoice(true));
 $('invSave').addEventListener('click', () => raiseInvoice(false));
 
@@ -1883,9 +1937,11 @@ async function raiseInvoice(sendNow) {
 
   $('invBtn').disabled = true; $('invSave').disabled = true; $('invBtn').textContent = 'Working…';
 
-  let { data, error } = await sb.rpc('create_invoice', {
-    p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: lines
-  });
+  const saveCall = ls => EDIT_INV
+    ? sb.rpc('update_invoice', { p_invoice: EDIT_INV.id, p_description: desc || null, p_lines: ls })
+    : sb.rpc('create_invoice', { p_job_number: JOB, p_amount: ls.reduce((s, l) => s + l.amount, 0), p_description: desc || null, p_lines: ls });
+  const editing = EDIT_INV;
+  let { data, error } = await saveCall(lines);
   // If the database won't take a minus line, take the discount off each line in proportion instead.
   if (error && disc > 0) {
     const rest = lines.filter(l => l.amount > 0);
@@ -1898,10 +1954,10 @@ async function raiseInvoice(sendNow) {
       l.amount = Math.round((l.amount - off) * 100) / 100;
     });
     amount = rest.reduce((s, l) => s + l.amount, 0);
-    ({ data, error } = await sb.rpc('create_invoice', { p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: rest }));
+    ({ data, error } = await saveCall(rest));
   }
   if (error) {
-    $('invBtn').disabled = false; $('invSave').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
+    $('invBtn').disabled = false; $('invSave').disabled = false; setInvButtons();
     return show($('invMsg'), error.message, 'err');
   }
   const row = Array.isArray(data) ? data[0] : data;
@@ -1917,7 +1973,7 @@ async function raiseInvoice(sendNow) {
     amount: finalAmount,
     description: desc,
     lines: billedLines && billedLines.length ? billedLines : lines,
-    issued_at: new Date().toISOString(),
+    issued_at: editing ? editing.issued_at : new Date().toISOString(),
     status: 'unpaid',
     customer_name: JOBROW.customer_name, company: JOBROW.company,
     customer_address: JOBROW.address,
@@ -1939,19 +1995,25 @@ async function raiseInvoice(sendNow) {
   else { $('iSms').style.display = 'none'; }
   $('iSend').style.display = 'block';
 
-  if (out.saved) show($('invMsg'), row.invoice_no + ' saved, not sent. Email it from the list below when you\'re ready, or use the buttons here.', 'ok');
+  if (editing) show($('invMsg'), row.invoice_no + ' updated' + (out.saved ? '. Not sent — email it from the list below when you\'re ready.' : out.ok ? ' and emailed to ' + out.to + '.' : ', but the email failed (' + (out.error || 'unknown error') + ').'), out.saved || out.ok ? 'ok' : 'err');
+  else if (out.saved) show($('invMsg'), row.invoice_no + ' saved, not sent. Email it from the list below when you\'re ready, or use the buttons here.', 'ok');
   else if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF' + (out.attached && out.attached.length ? ' and ' + out.attached.join(', ') : '') + ' attached.', 'ok');
   else show($('invMsg'), row.invoice_no + ' created, but the email failed (' + (out.error || 'unknown error') + '). Send the link below instead.', 'err');
 
   $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
   LINES = [];
-  clearInvDraft();
-  $('status').value = 'invoiced';
-  JOBROW.status = 'invoiced'; drawHead();
-  showWs();
-  askStickers([JOBROW.id, ...lines.map(l => l.job_ref)]);
+  if (editing) {
+    EDIT_INV = null;
+  } else {
+    clearInvDraft();
+    $('status').value = 'invoiced';
+    JOBROW.status = 'invoiced'; drawHead();
+    showWs();
+    askStickers([JOBROW.id, ...lines.map(l => l.job_ref)]);
+  }
   loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id); loadQuotes(JOBROW.id);
-  $('invBtn').disabled = false; $('invSave').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
+  if (typeof loadJobParts === 'function') loadJobParts();
+  $('invBtn').disabled = false; $('invSave').disabled = false; setInvButtons();
 }
 
 async function emailInvoice(invoiceId, doc) {
