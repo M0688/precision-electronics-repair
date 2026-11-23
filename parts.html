@@ -170,7 +170,7 @@ async function openPart(id) {
   $('buys').innerHTML = (buys || []).length ? buys.map(b => `<tr><td>${d(b.purchased_at)}</td><td>${esc(b.supplier || '')}</td><td>${b.qty}</td>
       <td>${money(b.unit_cost)}</td><td>${b.markup_pct != null ? Number(b.markup_pct) + '%' : '—'}</td><td>${b.qty_left}</td></tr>`).join('')
     : '<tr><td colspan="6" class="sub">None recorded.</td></tr>';
-  $('uses').innerHTML = (uses || []).length ? uses.map(u => `<tr><td>${d(u.used_at)}</td><td>${esc(u.invoices?.invoice_number || '—')}</td>
+  $('uses').innerHTML = (uses || []).length ? uses.map(u => `<tr><td>${d(u.used_at)}</td><td>${esc(u.invoices?.invoice_number || 'Not on invoice')}</td>
       <td>${u.jobs?.job_number ? `<a href="job.html?job=${encodeURIComponent(u.jobs.job_number)}">${esc(u.jobs.job_number)}</a>` : '—'}</td>
       <td>${u.qty}</td><td>${money(u.unit_cost)}</td><td>${u.unit_price != null ? money(u.unit_price) : '—'}</td></tr>`).join('')
     : '<tr><td colspan="6" class="sub">Not used on any invoice yet.</td></tr>';
