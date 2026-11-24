@@ -13,6 +13,18 @@ const BUSINESS = {
 const NAVY = [27, 42, 74];
 const MUTED = [90, 100, 116];
 
+// Split a line into description, qty and unit price.
+// "Repair (4 × £75.00)" -> 4 at £75.00; minus lines are discounts.
+export function splitLine(r) {
+  let desc = String(r.description || '');
+  const amt = Number(r.amount) || 0;
+  if (amt < 0) return { desc: /discount/i.test(desc) ? desc : 'Discount' + (desc ? ': ' + desc : ''), qty: null, unit: null, amount: amt };
+  const m = desc.match(/^(.*?)\s*\((\d+(?:\.\d+)?) × £(\d+(?:\.\d+)?)\)$/);
+  if (m) return { desc: m[1], qty: Number(m[2]), unit: Number(m[3]), amount: amt };
+  return { desc, qty: 1, unit: amt, amount: amt };
+}
+const qtyText = q => q == null ? '' : String(Math.round(q * 100) / 100);
+
 function money(n) {
   const v = Number(n) || 0;
   return (v < 0 ? '-£' : '£') + Math.abs(v).toFixed(2);
@@ -113,6 +125,8 @@ export function buildInvoicePdf(d) {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text('DESCRIPTION', L + 4, y + 6);
+  doc.text('QTY', R - 78, y + 6, { align: 'right' });
+  doc.text('UNIT PRICE', R - 40, y + 6, { align: 'right' });
   doc.text('AMOUNT', R - 4, y + 6, { align: 'right' });
   y += 9;
 
@@ -127,7 +141,8 @@ export function buildInvoicePdf(d) {
     : [{ description: d.description || '', amount: d.amount }];
 
   rows.forEach((r, n) => {
-    const text = doc.splitTextToSize(String(r.description || ''), 120);
+    const sp = splitLine(r);
+    const text = doc.splitTextToSize(sp.desc, 88);
     const last = n === rows.length - 1;
     const showItem = last && d.item && rows.length === 1;
     const rowH = Math.max(14, text.length * 5 + 8 + (showItem ? 4 : 0));
@@ -139,6 +154,10 @@ export function buildInvoicePdf(d) {
       doc.text('Item: ' + d.item, L + 4, y + rowH - 4);
       doc.setTextColor(30, 39, 51);
       doc.setFontSize(10);
+    }
+    if (sp.qty != null) {
+      doc.text(qtyText(sp.qty), R - 78, y + 7, { align: 'right' });
+      doc.text(money(sp.unit), R - 40, y + 7, { align: 'right' });
     }
     doc.text(money(r.amount), R - 4, y + 7, { align: 'right' });
     y += rowH;

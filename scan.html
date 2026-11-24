@@ -60,7 +60,7 @@
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
 import { sb, $, show, money, chrome, SUPABASE_URL, SUPABASE_KEY } from './crm.js';
-import { buildReceiptPdf } from './invoice-pdf.js?v=3';
+import { buildReceiptPdf } from './invoice-pdf.js?v=4';
 
 const params = new URLSearchParams(location.search);
 const JOB = (params.get('job') || '').trim().toUpperCase();

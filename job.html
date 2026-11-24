@@ -462,7 +462,7 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
-import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js?v=3';
+import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js?v=4';
 import { buildLabelPdf } from './label-pdf.js';
 import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
 
@@ -1468,7 +1468,8 @@ function discountList() {
     a = Math.round(Math.min(a, left) * 100) / 100;
     if (a <= 0) return;
     left = Math.round((left - a) * 100) / 100;
-    out.push({ label: (String(d.why || '').trim() || 'Discount') + (d.type === 'pct' ? ' (' + v + '%)' : ''), amount: a });
+    const why = String(d.why || '').trim();
+    out.push({ label: (!why ? 'Discount' : /discount/i.test(why) ? why : 'Discount: ' + why) + (d.type === 'pct' ? ' (' + v + '%)' : ''), amount: a });
   });
   return out;
 }

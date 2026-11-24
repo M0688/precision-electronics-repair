@@ -113,7 +113,7 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
-import { buildInvoicePdf } from './invoice-pdf.js?v=3';
+import { buildInvoicePdf, splitLine } from './invoice-pdf.js?v=4';
 
 const SUPABASE_URL = 'https://eazzljgezdownmcddeyr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Tk5nuWw8LkpIb73ttPIlBw_zdT567D6';
@@ -147,11 +147,19 @@ async function start() {
     // Several items on one invoice get a line each.
     const rows = d.lines || [];
     if (rows.length) {
-      $('lines').innerHTML = rows.map(l => `
-        <div style="display:flex;gap:14px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
-          <div style="white-space:pre-wrap">${String(l.description || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
-          <div style="white-space:nowrap;font-weight:600">${Number(l.amount) < 0 ? '−£' : '£'}${Math.abs(Number(l.amount)).toFixed(2)}</div>
-        </div>`).join('');
+      const e = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      const m = n => (n < 0 ? '−£' : '£') + Math.abs(n).toFixed(2);
+      const cell = 'padding:10px 0 10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap';
+      $('lines').innerHTML = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>' +
+        '<th style="text-align:left;padding:6px 0;font-size:12px;color:var(--muted)">Description</th>' +
+        '<th style="text-align:right;padding:6px 0 6px 12px;font-size:12px;color:var(--muted)">Qty</th>' +
+        '<th style="text-align:right;padding:6px 0 6px 12px;font-size:12px;color:var(--muted)">Unit price</th>' +
+        '<th style="text-align:right;padding:6px 0 6px 12px;font-size:12px;color:var(--muted)">Amount</th></tr></thead><tbody>' +
+        rows.map(l => { const x = splitLine(l); return `<tr>
+          <td style="padding:10px 0;border-bottom:1px solid var(--line);white-space:pre-wrap">${e(x.desc)}</td>
+          <td style="${cell}">${x.qty == null ? '' : Math.round(x.qty * 100) / 100}</td>
+          <td style="${cell}">${x.unit == null ? '' : m(x.unit)}</td>
+          <td style="${cell};font-weight:600">${m(x.amount)}</td></tr>`; }).join('') + '</tbody></table></div>';
       $('desc').style.marginTop = '12px';
     }
     $('desc').textContent = rows.length
