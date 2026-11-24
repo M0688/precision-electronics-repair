@@ -1464,12 +1464,13 @@ function discountList() {
   DISCOUNTS.forEach(d => {
     const v = parseFloat(d.v) || 0;
     if (v <= 0) return;
-    let a = d.type === 'pct' ? t * Math.min(v, 100) / 100 : v;
-    a = Math.round(Math.min(a, left) * 100) / 100;
+    const q = d.type === 'pct' ? 1 : Math.max(0, parseFloat(d.q) || 1);
+    const full = Math.round((d.type === 'pct' ? t * Math.min(v, 100) / 100 : v * q) * 100) / 100;
+    let a = Math.round(Math.min(full, left) * 100) / 100;
     if (a <= 0) return;
     left = Math.round((left - a) * 100) / 100;
     const why = String(d.why || '').trim();
-    out.push({ label: (!why ? 'Discount' : /discount/i.test(why) ? why : 'Discount: ' + why) + (d.type === 'pct' ? ' (' + v + '%)' : ''), amount: a });
+    out.push({ label: (!why ? 'Discount' : /discount/i.test(why) ? why : 'Discount: ' + why) + (d.type === 'pct' ? ' (' + v + '%)' : a === full ? ' (' + (Math.round(q * 100) / 100) + ' × £' + v.toFixed(2) + ')' : ''), amount: a });
   });
   return out;
 }
@@ -1479,7 +1480,8 @@ function repeatDiscount() {
 function drawDiscounts() {
   $('discList').innerHTML = DISCOUNTS.map((d, i) => `
     <div class="row" style="align-items:flex-end">
-      <div style="flex:0 0 130px"><label for="dV${i}">Discount${DISCOUNTS.length > 1 ? ' ' + (i + 1) : ''}</label><input type="number" id="dV${i}" data-d="${i}" data-f="v" min="0" step="0.01" placeholder="0" value="${esc(d.v || '')}"></div>
+      <div style="flex:0 0 80px"><label for="dQ${i}">Qty</label><input type="number" id="dQ${i}" data-d="${i}" data-f="q" min="0" step="any" value="${esc(d.type === 'pct' ? '' : (d.q || 1))}"${d.type === 'pct' ? ' disabled' : ''}></div>
+      <div style="flex:0 0 130px"><label for="dV${i}">Discount${DISCOUNTS.length > 1 ? ' ' + (i + 1) : ''}${d.type === 'pct' ? '' : ' each'}</label><input type="number" id="dV${i}" data-d="${i}" data-f="v" min="0" step="0.01" placeholder="0" value="${esc(d.v || '')}"></div>
       <div style="flex:0 0 150px"><label for="dT${i}">&nbsp;</label><select id="dT${i}" data-d="${i}" data-f="type"><option value="gbp"${d.type !== 'pct' ? ' selected' : ''}>£ off</option><option value="pct"${d.type === 'pct' ? ' selected' : ''}>% off the total</option></select></div>
       <div style="flex:1 1 220px"><label for="dW${i}">Shown on the invoice as <span style="font-weight:400;color:var(--muted)">— optional</span></label><input type="text" id="dW${i}" data-d="${i}" data-f="why" placeholder="e.g. Repeat customer discount" value="${esc(d.why || '')}"></div>
       <div style="flex:0 0 auto"><button type="button" class="btn ghost" data-drm="${i}" title="Remove this discount">✕</button></div>
@@ -1488,7 +1490,7 @@ function drawDiscounts() {
 }
 function setDiscounts(list) { DISCOUNTS = list && list.length ? list : [{ v: '', type: 'gbp', why: '' }]; drawDiscounts(); }
 $('discList').addEventListener('input', e => { const el = e.target.closest('[data-d]'); if (!el) return; DISCOUNTS[+el.dataset.d][el.dataset.f] = el.value; showTotal(); });
-$('discList').addEventListener('change', e => { const el = e.target.closest('[data-d]'); if (!el) return; DISCOUNTS[+el.dataset.d][el.dataset.f] = el.value; showTotal(); });
+$('discList').addEventListener('change', e => { const el = e.target.closest('[data-d]'); if (!el) return; DISCOUNTS[+el.dataset.d][el.dataset.f] = el.value; if (el.dataset.f === 'type') drawDiscounts(); else showTotal(); });
 $('discList').addEventListener('click', e => { const b = e.target.closest('[data-drm]'); if (!b) return; DISCOUNTS.splice(+b.dataset.drm, 1); setDiscounts(DISCOUNTS); saveInvDraft(); });
 $('discAdd').addEventListener('click', () => { DISCOUNTS.push({ v: '', type: 'gbp', why: '' }); drawDiscounts(); $('dV' + (DISCOUNTS.length - 1)).focus(); });
 setDiscounts([]);
@@ -1907,7 +1909,14 @@ async function startEditing(id) {
   const discs = [];
   for (const l of lines || []) {
     const amt = Number(l.amount) || 0;
-    if (amt < 0) { discs.push({ v: (-amt).toFixed(2), type: 'gbp', why: String(l.description || '').replace(/ \(\d+(\.\d+)?%\)$/, '') }); continue; }
+    if (amt < 0) {
+      let why = String(l.description || '').replace(/ \(\d+(\.\d+)?%\)$/, '');
+      let q = 1, v = -amt;
+      const dm = why.match(/^(.*?)\s*\((\d+(?:\.\d+)?) × £(\d+(?:\.\d+)?)\)$/);
+      if (dm) { why = dm[1]; q = Number(dm[2]); v = Number(dm[3]); }
+      discs.push({ v: v.toFixed(2), q, type: 'gbp', why: why.replace(/^Discount:\s*/i, '') });
+      continue;
+    }
     let desc = l.description || '', qty = 1, unit = amt;
     // "Something (2 × £15.00)" goes back to a quantity and a unit price
     const m = desc.match(/^(.*) \((\d+(?:\.\d+)?) × £(\d+(?:\.\d+)?)\)$/);
@@ -1952,7 +1961,7 @@ async function raiseInvoice(sendNow) {
 
   const discs = discountList();
   const disc = repeatDiscount();
-  const discLabel = discs.length === 1 ? discs[0].label.replace(/ \(\d+(\.\d+)?%\)$/, '') : 'Discount';
+  const discLabel = discs.length === 1 ? discs[0].label.replace(/ \((\d+(\.\d+)?%|\d+(\.\d+)? × £[\d.]+)\)$/, '') : 'Discount';
   discs.forEach(x => lines.push({ description: x.label, amount: -x.amount, kind: 'parts', quote_id: null, job_ref: JOBROW.id }));
   let amount = lines.reduce((s, l) => s + l.amount, 0);
   const desc = $('iDesc').value.trim();

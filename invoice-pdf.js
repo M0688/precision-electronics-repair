@@ -18,9 +18,9 @@ const MUTED = [90, 100, 116];
 export function splitLine(r) {
   let desc = String(r.description || '');
   const amt = Number(r.amount) || 0;
-  if (amt < 0) return { desc: /discount/i.test(desc) ? desc : 'Discount' + (desc ? ': ' + desc : ''), qty: null, unit: null, amount: amt };
+  if (amt < 0 && !/discount/i.test(desc)) desc = 'Discount' + (desc ? ': ' + desc : '');
   const m = desc.match(/^(.*?)\s*\((\d+(?:\.\d+)?) × £(\d+(?:\.\d+)?)\)$/);
-  if (m) return { desc: m[1], qty: Number(m[2]), unit: Number(m[3]), amount: amt };
+  if (m) return { desc: m[1], qty: Number(m[2]), unit: amt < 0 ? -Number(m[3]) : Number(m[3]), amount: amt };
   return { desc, qty: 1, unit: amt, amount: amt };
 }
 const qtyText = q => q == null ? '' : String(Math.round(q * 100) / 100);
