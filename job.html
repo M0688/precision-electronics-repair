@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#152642">
-<link rel="stylesheet" href="crm.css?v=9">
+<link rel="stylesheet" href="crm.css?v=8">
 <style>
   /* Layout: header card, tabs, then work on the left and a summary down the right */
   .wrap { max-width: 1320px !important; }
@@ -136,7 +136,6 @@
         <div class="jtitle"><h1 id="jobNo"></h1><span id="jobTag" class="tag off"></span><span id="jobMoneyTag"></span></div>
         <p class="sub" id="jobSub"></p>
         <div class="jfacts" id="jobFacts"></div>
-        <div id="claimBox" style="display:none;border-radius:10px;padding:12px 16px;margin:14px 0 0;background:#eef2f8;border-left:4px solid var(--navy)"></div>
         <div id="dropBox" style="display:none;border-radius:10px;padding:12px 16px;margin:14px 0 0;align-items:center;gap:12px;flex-wrap:wrap"></div>
         <div id="colBox" style="display:none;border-radius:10px;padding:12px 16px;margin:14px 0 0;align-items:center;gap:12px;flex-wrap:wrap"></div>
       </div>
@@ -245,30 +244,29 @@
             <select id="qKind">
               <option value="estimate">An estimate — not seen it yet</option>
               <option value="quote">A quote — inspected it</option>
-              <option value="warranty">Warranty repair — no charge</option>
             </select>
           </div>
-          <div style="flex:0 0 130px" class="qPriceBit">
-            <label for="qAmount" id="qAmountLabel">Labour £</label>
+          <div style="flex:0 0 130px">
+            <label for="qAmount">Labour £</label>
             <input type="number" id="qAmount" min="0" step="0.01" placeholder="90">
           </div>
-          <div style="flex:0 0 130px;display:none" id="qPartsWrap">
+          <div style="flex:0 0 130px">
             <label for="qParts">Parts £</label>
             <input type="number" id="qParts" min="0" step="0.01" placeholder="0">
           </div>
-          <div style="flex:0 0 150px" class="qPriceBit qPostBit">
+          <div style="flex:0 0 150px">
             <label for="qPost">Return postage £</label>
             <input type="number" id="qPost" min="0" step="0.01" placeholder="at cost">
           </div>
         </div>
 
-        <label for="qPartsNote" class="qNotEst">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
-        <input type="text" id="qPartsNote" class="qNotEst" placeholder="e.g. Charging IC, SMD capacitor">
-        <p class="sub qPriceBit qPostBit" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
+        <label for="qPartsNote">Parts used <span style="font-weight:400;color:var(--muted)">— optional, shown to the customer</span></label>
+        <input type="text" id="qPartsNote" placeholder="e.g. Charging IC, SMD capacitor">
+        <p class="sub" style="margin:-6px 0 8px">Return postage: leave blank for "at cost", or 0 if they're collecting.</p>
         <p class="sub" id="qTotalNote" style="display:none;margin:0 0 14px;font-weight:600;color:var(--navy)"></p>
         <p class="sub" id="qTradeNote" style="display:none;margin:-6px 0 14px;color:var(--green)"></p>
-        <label for="qWork" id="qWorkLabel" class="qNotEst">What the repair involves</label>
-        <textarea id="qWork" class="qNotEst" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
+        <label for="qWork">What the repair involves</label>
+        <textarea id="qWork" placeholder="Found a failed charging IC on the main board. Replace IC, rebuild damaged pads, retest charging under load."></textarea>
 
         <label for="qPhotos">Photos <span style="font-weight:400;color:var(--muted)">— show them what you've found</span></label>
         <input type="file" id="qPhotos" accept="image/*" multiple style="margin-bottom:8px">
@@ -289,20 +287,6 @@
 
 
 
-      <details class="card sec" id="partsSec">
-        <summary><h2>Parts used</h2><span class="count" data-of="#jpList tr[data-u]"></span></summary>
-        <div class="secbody">
-          <p class="sub" style="margin:0 0 12px">Parts fitted to this job. They come off stock straight away and don't show on the invoice, so you can still give a single price.</p>
-          <button class="send" type="button" id="jpAdd" style="margin:0 0 12px">Use parts from stock</button>
-          <div id="jpMsg" class="msg"></div>
-          <div style="overflow-x:auto"><table>
-            <thead><tr><th>Date</th><th>Part</th><th>Qty</th><th>Cost</th><th></th></tr></thead>
-            <tbody id="jpList"></tbody>
-          </table></div>
-          <p class="sub" id="jpTotal" style="margin:8px 0 0"></p>
-        </div>
-      </details>
-
       <details class="card sec" id="testSec">
         <summary><h2>Tests</h2><span class="count" data-of="#testList tr[data-run]"></span></summary>
         <div class="secbody">
@@ -317,7 +301,7 @@
       </details>
 
 
-      <details class="card sec" id="invSec">
+      <details class="card sec">
         <summary><h2>Invoice</h2><span class="count" data-of="#invList .quotebox"></span></summary>
         <div class="secbody">
         <div id="invMsg" class="msg"></div>
@@ -329,19 +313,7 @@
         <div id="iLines"></div>
         <div class="sendrow" style="margin:0 0 16px">
           <button class="send" id="iAddLine" type="button">Add a line</button>
-          <button class="send" id="iAddJob" type="button">Add another job</button>
-          <button class="send" id="iAddStock" type="button">Add from stock</button>
           <span id="iTotal" style="align-self:center;font-weight:700;color:var(--navy)"></span>
-        </div>
-        <div id="iJobBox" class="quotebox" style="display:none;margin:-6px 0 16px">
-          <label for="iJobPick" style="margin-top:0">Add another job to this invoice</label>
-          <p class="sub" id="iJobNote" style="margin:0 0 8px"></p>
-          <div class="row" style="align-items:flex-end;margin-bottom:0">
-            <div style="flex:1 1 260px"><select id="iJobPick"></select></div>
-            <div style="flex:0 0 150px"><input type="text" id="iJobNum" placeholder="or job no. PER-…"></div>
-            <div style="flex:0 0 auto"><button class="primary" id="iJobGo" type="button" style="margin:0">Add</button></div>
-          </div>
-          <div id="iJobMsg" class="msg" style="margin-top:8px"></div>
         </div>
 
 
@@ -354,14 +326,6 @@
         <label for="iDesc">Note on the invoice <span style="font-weight:400;color:var(--muted)">— optional</span></label>
         <textarea id="iDesc" style="min-height:60px" placeholder="Anything the customer should read alongside the lines."></textarea>
 
-        <label style="margin-top:14px">Attach to the invoice email <span style="font-weight:400;color:var(--muted)">— optional, e.g. a repair report</span></label>
-        <div id="iAtt" style="margin:0 0 8px"></div>
-        <label class="send" style="display:inline-block;cursor:pointer;margin:0 0 6px;font-weight:600">Add a file
-          <input type="file" id="iAttAdd" multiple style="display:none"></label>
-        <div id="iAttMsg" class="msg"></div>
-        <p class="sub" style="margin:4px 0 14px">Ticked files go with the invoice email, whether you raise it now or email it later from the list above. They're saved in the job's Files tab.</p>
-
-        <div id="editBanner" style="display:none;border-radius:10px;padding:10px 14px;margin:0 0 12px;background:#fff8e6;border:1px solid #f0d58c"></div>
         <button class="primary" id="invBtn">Raise invoice &amp; email PDF</button>
         <button class="send" id="invSave" type="button" style="margin-left:6px">Save invoice, send later</button>
         <div id="iSend" style="display:none">
@@ -447,25 +411,9 @@
   </div>
 </main>
 
-<div id="stockModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;align-items:flex-start;justify-content:center;padding:6vh 16px">
-  <div class="card" style="width:100%;max-width:720px;max-height:84vh;overflow:auto;margin:0">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <h2 style="margin:0" id="smTitle">Add from stock</h2>
-      <button class="send" type="button" id="smClose" style="margin:0">Close</button>
-    </div>
-    <input type="search" id="smFind" placeholder="Search part number or description" style="margin:12px 0">
-    <div style="overflow-x:auto"><table>
-      <thead><tr><th></th><th>Part</th><th>In stock</th><th>Each</th><th style="width:90px">Qty</th></tr></thead>
-      <tbody id="smList"></tbody>
-    </table></div>
-    <div id="smMsg" class="msg"></div>
-    <button class="primary" type="button" id="smAdd" style="margin-top:12px">Add to invoice</button>
-  </div>
-</div>
-
 <script src="vendor/jspdf.umd.min.js"></script>
 <script type="module">
-import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js?v=3';
+import { buildInvoicePdf, buildReceiptPdf } from './invoice-pdf.js';
 import { buildLabelPdf } from './label-pdf.js';
 import { sb, SUPABASE_URL, SUPABASE_KEY, chrome, startMail } from './crm.js';
 
@@ -537,8 +485,7 @@ function drawMoney() {
   const paid = INVOICES.filter(v => v.status === 'paid').reduce((a, v) => a + Number(v.amount || 0), 0);
   const due = billed - paid;
   const rows = [];
-  if (q && q.kind === 'warranty') rows.push('<span>Warranty repair <span class="tag in" style="margin-left:4px">No charge</span></span><strong>£0.00</strong>');
-  else if (q) rows.push(`<span>${(q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote'} <span class="tag ${q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait'}" style="margin-left:4px">${q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Sent'}</span></span><strong>${gbp(q.amount)}</strong>`);
+  if (q) rows.push(`<span>${(q.kind || 'quote') === 'estimate' ? 'Estimate' : 'Quote'} <span class="tag ${q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait'}" style="margin-left:4px">${q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Sent'}</span></span><strong>${gbp(q.amount)}</strong>`);
   else rows.push('<span class="muted">No quote yet</span><span></span>');
   if (INVOICES.length) {
     rows.push(`<span>Invoiced (${INVOICES.length})</span><strong>${gbp(billed)}</strong>`);
@@ -716,8 +663,6 @@ async function load() {
 
   setQuoteKind(data.status);
   $('qKind').addEventListener('change', () => setQuoteKind(null));
-  loadClaim(data.id);
-  loadJobParts();
 
   loadPhotos(data.id);
   loadWorkPhotos(data.id);
@@ -730,37 +675,12 @@ async function load() {
   loadComms(data.id);
 }
 
-// ---------- warranty claim made through the website ----------
-let CLAIM = null;
-async function loadClaim(jobId) {
-  const { data: c } = await sb.from('warranty_claims').select('*').eq('job_id', jobId).maybeSingle();
-  CLAIM = c || null;
-  if (!c) return;
-  const [{ data: o }, { data: inv }] = await Promise.all([
-    c.original_job_id ? sb.from('jobs').select('job_number,warranty_sticker').eq('id', c.original_job_id).maybeSingle() : { data: null },
-    c.invoice_id ? sb.from('invoices').select('invoice_number,paid_at,amount').eq('id', c.invoice_id).maybeSingle() : { data: null }
-  ]);
-  const paid = inv && inv.paid_at ? new Date(inv.paid_at) : null;
-  const d = x => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  const oldTerms = paid && paid < new Date('2026-11-09T00:00:00Z');
-  const cover = !paid ? '' : oldTerms
-    ? 'Paid ' + d(paid) + ' — earlier terms: workmanship for as long as they own it, parts 6 months.'
-    : 'Paid ' + d(paid) + ' — 12 months from when they got it back (roughly to ' + d(new Date(paid.getTime() + 365 * 86400000)) + ').';
-  const stick = o && o.warranty_sticker ? 'Sticker fitted: <strong>' + esc(o.warranty_sticker) + '</strong>' + (c.sticker ? ' · they gave: <strong>' + esc(c.sticker) + '</strong>' : ' · they didn\'t give one') : (c.sticker ? 'They gave sticker: <strong>' + esc(c.sticker) + '</strong>' : '');
-  $('claimBox').innerHTML = `<div style="font-weight:700;color:var(--navy)">Warranty claim — ${o ? `<a href="job.html?job=${encodeURIComponent(o.job_number)}">${esc(o.job_number)}</a>` : 'original job'} · ${esc(c.receipt_number)}${inv ? ' · ' + esc(inv.invoice_number) + ' £' + Number(inv.amount).toFixed(2) : ''}</div>
-    <div style="margin-top:4px">${esc(c.fault).replace(/\n/g, '<br>')}</div>
-    <div class="sub" style="margin-top:4px">${[c.started ? 'Started: ' + esc(c.started) : '', esc(cover), stick].filter(Boolean).join(' · ')}</div>`;
-  $('claimBox').style.display = 'block';
-  if (!QUOTES.some(q => q.kind && q.kind !== 'warranty')) { $('qKind').value = 'warranty'; setQuoteKind(null); }
-}
-
 // Before the item is here, anything you price is an estimate.
 const BEFORE_ARRIVAL = ['new', 'awaiting_intake', 'intake_received', 'dropoff_requested', 'dropoff_booked', 'in_post'];
 
 const KIND_NOTE = {
   estimate: 'An estimate is a price given before you have seen the item. It needs no answer — the customer gets the price, an address label and a packing slip, and sending the item in is their answer. The firm price comes after you have inspected it.',
-  quote: 'A quote is a price given after you have inspected the item. The customer approves or declines it, and nothing is done until they have.',
-  warranty: 'A warranty repair costs the customer nothing. They get an email with what you found and fixed, and £0.00 to pay. There\'s nothing for them to answer and no invoice is needed. Sending it sets the job to Ready.'
+  quote: 'A quote is a price given after you have inspected the item. The customer approves or declines it, and nothing is done until they have.'
 };
 
 function setQuoteKind(status) {
@@ -769,17 +689,7 @@ function setQuoteKind(status) {
   }
   const kind = $('qKind').value;
   $('qKindNote').textContent = KIND_NOTE[kind];
-  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & address label' : kind === 'warranty' ? 'Send warranty report' : 'Send quote to customer';
-  const w = kind === 'warranty';
-  document.querySelectorAll('.qPriceBit').forEach(el => { el.style.display = w ? 'none' : ''; });
-  // Estimates: the item hasn't been seen, so one figure, no parts split and no postage — always "plus return postage".
-  $('qAmountLabel').textContent = kind === 'estimate' ? 'Estimate £' : 'Quote £';
-  if (kind === 'estimate') document.querySelectorAll('.qPostBit').forEach(el => { el.style.display = 'none'; });
-  showTradeQuote();
-  if (w) { $('qTotalNote').style.display = 'none'; $('qTradeNote').style.display = 'none'; }
-  $('qWorkLabel').textContent = w ? 'What you found and fixed' : 'What the repair involves';
-  // Estimates are just a price: no work description, no parts used.
-  document.querySelectorAll('.qNotEst').forEach(el => { el.style.display = kind === 'estimate' ? 'none' : ''; });
+  $('quoteBtn').textContent = kind === 'estimate' ? 'Send estimate & address label' : 'Send quote to customer';
 }
 
 // A job can carry several items — trade customers often send a batch.
@@ -802,13 +712,12 @@ async function loadItems(jobId) {
   ITEMS = rows;
   const it = rows[0];
   const head = [it.make_model, it.device_type].filter(Boolean).join(' · ') || 'The item';
-  const approved = QUOTES.find(q => q.status === 'approved' && q.kind !== 'warranty');
+  const approved = QUOTES.find(q => q.status === 'approved');
 
   $('itemsTitle').textContent = 'The item';
   $('itemsList').innerHTML = `<div class="quotebox">
     <div style="font-weight:700;color:var(--navy)">${esc(head)}
       ${approved ? `<span class="tag in" style="margin-left:8px">Approved £${Number(approved.amount).toFixed(2)}</span>`
-        : QUOTES.some(q => q.kind === 'warranty') ? '<span class="tag in" style="margin-left:8px">Warranty — no charge</span>'
         : QUOTES.length ? '<span class="tag wait" style="margin-left:8px">Priced, awaiting answer</span>'
         : '<span class="tag off" style="margin-left:8px">Not priced yet</span>'}</div>
     ${it.serial_imei ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Serial / IMEI: ${esc(it.serial_imei)}</div>` : ''}
@@ -976,7 +885,6 @@ async function loadFiles(jobId) {
   const { data, error } = await sb.from('job_files').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
   if (error) { $('fileList').innerHTML = ''; return show($('fileMsg'), /job_files/.test(error.message) ? 'Files need the stage 36 database update first.' : error.message, 'err'); }
   const rows = data || [];
-  drawInvAtt();
   $('fileList').innerHTML = rows.length ? `<table><thead><tr><th>File</th><th class="hide">Size</th><th class="hide">Added</th><th></th></tr></thead><tbody>${
     rows.map(r => `<tr data-f="${r.id}">
       <td><strong>${esc(r.file_name)}</strong>${r.note ? `<div class="muted">${esc(r.note)}</div>` : ''}</td>
@@ -1000,64 +908,26 @@ async function loadFiles(jobId) {
     loadFiles(jobId);
   }));
 }
-// Save files to the job. Returns the new job_files ids.
-async function uploadJobFiles(files, note, msgEl) {
-  const { data: sess } = await sb.auth.getSession();
-  const ids = [];
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    if (f.size > 52428800) { show(msgEl, f.name + ' is over 50 MB, so it wasn\'t added.', 'err'); continue; }
-    show(msgEl, 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + f.name + '…', 'ok');
-    const safe = f.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-100) || 'file';
-    const path = `${JOBROW.id}/${crypto.randomUUID()}-${safe}`;
-    const { error } = await sb.storage.from('job-files').upload(path, f, { contentType: f.type || 'application/octet-stream' });
-    if (error) { show(msgEl, 'Upload failed: ' + error.message, 'err'); continue; }
-    const { data: row, error: rowErr } = await sb.from('job_files').insert({ job_id: JOBROW.id, storage_path: path, file_name: f.name, size_bytes: f.size, note, created_by: sess?.session?.user?.email }).select('id').single();
-    if (rowErr) { await sb.storage.from('job-files').remove([path]); show(msgEl, rowErr.message, 'err'); continue; }
-    ids.push(row.id);
-  }
-  if (ids.length === files.length) show(msgEl, ids.length === 1 ? 'File saved.' : ids.length + ' files saved.', 'ok');
-  return ids;
-}
 $('fileAdd').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []); e.target.value = '';
   if (!files.length || !JOBROW) return;
-  const ids = await uploadJobFiles(files, $('fileNote').value.trim() || null, $('fileMsg'));
-  if (ids.length === files.length) $('fileNote').value = '';
+  const note = $('fileNote').value.trim() || null;
+  const { data: sess } = await sb.auth.getSession();
+  let ok = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    if (f.size > 52428800) { show($('fileMsg'), f.name + ' is over 50 MB, so it wasn\'t added.', 'err'); continue; }
+    show($('fileMsg'), 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + f.name + '…', 'ok');
+    const safe = f.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-100) || 'file';
+    const path = `${JOBROW.id}/${crypto.randomUUID()}-${safe}`;
+    const { error } = await sb.storage.from('job-files').upload(path, f, { contentType: f.type || 'application/octet-stream' });
+    if (error) { show($('fileMsg'), 'Upload failed: ' + error.message, 'err'); continue; }
+    const { error: rowErr } = await sb.from('job_files').insert({ job_id: JOBROW.id, storage_path: path, file_name: f.name, size_bytes: f.size, note, created_by: sess?.session?.user?.email });
+    if (rowErr) { await sb.storage.from('job-files').remove([path]); show($('fileMsg'), rowErr.message, 'err'); continue; }
+    ok++;
+  }
+  if (ok === files.length) { show($('fileMsg'), ok === 1 ? 'File saved.' : ok + ' files saved.', 'ok'); $('fileNote').value = ''; }
   loadFiles(JOBROW.id);
-});
-
-// ---------- attachments for the invoice email ----------
-const ATT = new Set();          // ticked job_files ids
-let ATTFILES = [];
-const ATT_LIMIT = 25 * 1048576; // keeps the email well under the mail service's size limit
-async function drawInvAtt() {
-  if (!JOBROW) return;
-  const { data } = await sb.from('job_files').select('id,file_name,size_bytes,created_at').eq('job_id', JOBROW.id).order('created_at', { ascending: false });
-  ATTFILES = data || [];
-  [...ATT].forEach(id => { if (!ATTFILES.some(f => f.id === id)) ATT.delete(id); });
-  $('iAtt').innerHTML = ATTFILES.length
-    ? ATTFILES.map(f => `<label style="display:flex;gap:10px;align-items:center;font-weight:400;margin:4px 0;cursor:pointer">
-        <input type="checkbox" data-att="${f.id}" ${ATT.has(f.id) ? 'checked' : ''} style="width:auto;margin:0">
-        <span>${esc(f.file_name)} <span style="color:var(--muted);font-size:13px">${fmtSize(f.size_bytes)}</span></span></label>`).join('')
-    : '<p class="sub" style="margin:0">No files on this job yet.</p>';
-  $('iAtt').querySelectorAll('[data-att]').forEach(c => c.addEventListener('change', () => {
-    c.checked ? ATT.add(c.dataset.att) : ATT.delete(c.dataset.att);
-  }));
-}
-// The ticked files, or an error if they're too big to email.
-function invAttachments() {
-  const picked = ATTFILES.filter(f => ATT.has(f.id));
-  const total = picked.reduce((n, f) => n + Number(f.size_bytes || 0), 0);
-  if (total > ATT_LIMIT) return { error: 'The ticked files come to ' + fmtSize(total) + ' — the most that can go by email is 25 MB. Untick some.' };
-  return { ids: picked.map(f => f.id), names: picked.map(f => f.file_name) };
-}
-$('iAttAdd').addEventListener('change', async e => {
-  const files = Array.from(e.target.files || []); e.target.value = '';
-  if (!files.length || !JOBROW) return;
-  const ids = await uploadJobFiles(files, 'Sent with an invoice', $('iAttMsg'));
-  ids.forEach(id => ATT.add(id));
-  drawInvAtt(); loadFiles(JOBROW.id);
 });
 
 $('wpCam').addEventListener('change', e => addWorkPhotos(e.target));
@@ -1103,14 +973,13 @@ async function loadQuotes(jobId) {
 
   $('quoteList').innerHTML = QUOTES.map(q => {
     const isEst = (q.kind || 'quote') === 'estimate';
-    const isW = q.kind === 'warranty';
     // Estimates don't get an answer — sending the item in is the answer.
-    const cls = isW ? 'in' : isEst ? 'off' : q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
-    const label = isW ? 'Sent — no charge' : isEst ? 'Estimate sent' : q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
-    const kind = isW ? 'Warranty repair' : isEst ? 'Estimate' : 'Quote';
+    const cls = isEst ? 'off' : q.status === 'approved' ? 'in' : q.status === 'declined' ? 'off' : 'wait';
+    const label = isEst ? 'Estimate sent' : q.status === 'approved' ? 'Approved' : q.status === 'declined' ? 'Declined' : 'Awaiting answer';
+    const kind = isEst ? 'Estimate' : 'Quote';
     return `<div class="quotebox">
       <div class="amt">${kind} · £${Number(q.amount).toFixed(2)} <span class="tag ${cls}" style="margin-left:8px">${label}</span></div>
-      ${q.labour != null && !isW ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Labour £${Number(q.labour).toFixed(2)}${Number(q.parts) > 0 ? ' · Parts £' + Number(q.parts).toFixed(2) : ''} · ${q.postage == null ? 'Postage at cost' : Number(q.postage) > 0 ? 'Postage £' + Number(q.postage).toFixed(2) : 'No postage'}${TRADE ? ' · before trade discount' : ''}</div>` : ''}
+      ${q.labour != null ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">Labour £${Number(q.labour).toFixed(2)}${Number(q.parts) > 0 ? ' · Parts £' + Number(q.parts).toFixed(2) : ''} · ${q.postage == null ? 'Postage at cost' : Number(q.postage) > 0 ? 'Postage £' + Number(q.postage).toFixed(2) : 'No postage'}${TRADE ? ' · before trade discount' : ''}</div>` : ''}
       <div style="font-size:14px;margin-top:6px;white-space:pre-wrap">${esc(q.work_summary)}</div>
       ${q.parts_note ? `<div style="font-size:13px;color:var(--muted);margin-top:6px">Parts: ${esc(q.parts_note)}</div>` : ''}
       ${(byQuote[q.id] || []).length ? `<div class="photos" style="margin-top:10px">${
@@ -1118,7 +987,7 @@ async function loadQuotes(jobId) {
       }</div>` : ''}
       <div class="when" style="color:var(--muted);font-size:12px;margin-top:8px">Sent ${when(q.sent_at)}${q.responded_at ? ' · answered ' + when(q.responded_at) : ''}</div>
       ${q.response_note ? `<div style="font-size:13px;margin-top:6px">Customer said: ${esc(q.response_note)}</div>` : ''}
-      <div class="sendrow">${isEst ? `<button class="send" type="button" data-convert="${q.id}">Convert to quote</button>` : ''}${delBtn('quotes', q.id, isW ? 'warranty report' : isEst ? 'estimate' : 'quote')}</div>
+      <div class="sendrow">${isEst ? `<button class="send" type="button" data-convert="${q.id}">Convert to quote</button>` : ''}${delBtn('quotes', q.id, isEst ? 'estimate' : 'quote')}</div>
     </div>`;
   }).join('');
   wireDeletes($('quoteList'), () => loadQuotes(jobId));
@@ -1133,8 +1002,8 @@ function convertToQuote(id) {
   if (!q) return;
   $('qKind').value = 'quote';
   setQuoteKind(null);
-  $('qAmount').value = (Number(q.labour != null ? q.labour : q.amount) + Number(q.parts || 0)).toFixed(2);
-  $('qParts').value = '';
+  $('qAmount').value = Number(q.labour != null ? q.labour : q.amount).toFixed(2);
+  $('qParts').value = Number(q.parts) > 0 ? Number(q.parts).toFixed(2) : '';
   $('qPost').value = q.postage == null ? '' : Number(q.postage).toFixed(2);
   $('qPartsNote').value = q.parts_note || '';
   $('qWork').value = q.work_summary || '';
@@ -1147,7 +1016,6 @@ function convertToQuote(id) {
 // not retyping it. Approved work wins; otherwise the item and reported fault.
 function fillInvoiceDescription() {
   if (!JOBROW || LINES.length) return;
-  if (restoreInvDraft()) return;
 
   // Every approved price in the booking becomes a line — the whole batch on
   // one invoice, not one invoice per item.
@@ -1168,7 +1036,7 @@ function fillInvoiceDescription() {
     return;
   }
 
-  const approved = QUOTES.find(q => q.status === 'approved' && q.kind !== 'warranty');
+  const approved = QUOTES.find(q => q.status === 'approved');
   const item = JOBROW.make_model || JOBROW.device_type || '';
 
   if (approved) {
@@ -1211,50 +1079,6 @@ function splitQuote(out, desc, partsNote, f, quoteId, jobRef, prefix) {
 
 // ---------- invoice lines ----------
 let LINES = [];
-let EDIT_INV = null; // unpaid invoice being edited: { id, number, issued_at, job_id, stock: { partId: qty } }
-
-// ---------- unsent invoice draft ----------
-// Kept on this device until the invoice is raised, so leaving the page doesn't lose it.
-const DRAFT_KEY = () => 'invDraft:' + JOB;
-let draftTimer = null;
-function saveInvDraft() {
-  clearTimeout(draftTimer);
-  if (EDIT_INV) return;
-  draftTimer = setTimeout(() => {
-    try {
-      if (!LINES.length) return;
-      localStorage.setItem(DRAFT_KEY(), JSON.stringify({
-        t: Date.now(), lines: LINES, desc: $('iDesc').value, disc: $('iDisc').value,
-        discType: $('iDiscType').value, discWhy: $('iDiscWhy').value
-      }));
-    } catch (e) {}
-  }, 300);
-}
-function clearInvDraft() { clearTimeout(draftTimer); try { localStorage.removeItem(DRAFT_KEY()); } catch (e) {} }
-function restoreInvDraft() {
-  let d = null;
-  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY()) || 'null'); } catch (e) {}
-  if (!d || !Array.isArray(d.lines) || !d.lines.length) return false;
-  if (Date.now() - (d.t || 0) > 30 * 86400000) { clearInvDraft(); return false; }
-  LINES = d.lines;
-  $('iDesc').value = d.desc || ''; $('iDisc').value = d.disc || '';
-  if (d.discType) $('iDiscType').value = d.discType;
-  $('iDiscWhy').value = d.discWhy || '';
-  $('iDescNote').innerHTML = 'Your unsent invoice from ' + new Date(d.t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) +
-    ', as you left it. <a href="#" id="draftReset">Start again from the job details</a>';
-  $('draftReset').addEventListener('click', e => {
-    e.preventDefault();
-    clearInvDraft(); LINES = [];
-    $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
-    fillInvoiceDescription();
-  });
-  drawLines();
-  return true;
-}
-// Anything typed in the invoice section saves the draft.
-document.getElementById('invSec').addEventListener('input', saveInvDraft);
-document.getElementById('invSec').addEventListener('change', saveInvDraft);
-document.getElementById('invSec').addEventListener('click', e => { if (e.target.closest('button')) saveInvDraft(); });
 
 // Each line is labour, parts or postage. Only labour gets the trade discount.
 function guessKind(desc) {
@@ -1378,7 +1202,7 @@ $('retSel').addEventListener('change', async () => {
   showReturn();
   $('retMsg').textContent = 'Saved.';
   // Rebuild the invoice lines if nothing has been typed yet.
-  if (LINES.every(l => l.quote_id)) { LINES = []; clearInvDraft(); fillInvoiceDescription(); }
+  if (LINES.every(l => l.quote_id)) { LINES = []; fillInvoiceDescription(); }
 });
 
 // ---------- collection, at a glance ----------
@@ -1422,18 +1246,16 @@ const REPEAT_PCT = 10;
 async function loadTrade(contactId) {
   if (!contactId) return;
   const { data } = await sb.from('contacts').select('kind').eq('id', contactId).maybeSingle();
-  // No automatic discounts (2 Nov 2026): trade customers are labelled, but nothing is taken off.
-  TRADE = false;
-  if ((data && data.kind) === 'trade') $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="Set on the customer record">Trade account</span>');
+  TRADE = (data && data.kind) === 'trade';
+  if (TRADE) $('jobSub').insertAdjacentHTML('beforeend', ' <span class="tag in" title="Set on the customer record">Trade · 25% off labour</span>');
   showTotal();
   showTradeQuote();
 }
 // On a trade job, show the price the customer will see on the estimate or quote.
 function quoteFigures() {
-  const est = $('qKind').value === 'estimate';
   const labour = parseFloat($('qAmount').value) || 0;
-  const parts = 0; // one price box for estimates and quotes (9 Nov 2026)
-  const postRaw = $('qKind').value === 'estimate' ? '' : $('qPost').value.trim();
+  const parts = parseFloat($('qParts').value) || 0;
+  const postRaw = $('qPost').value.trim();
   const post = postRaw === '' ? null : (parseFloat(postRaw) || 0);
   const off = TRADE ? Math.round(labour * 25) / 100 : 0;
   return { labour, parts, post, off, total: labour + parts + (post || 0) - off };
@@ -1448,7 +1270,7 @@ function showTradeQuote() {
     $('qTradeNote').style.display = 'none';
   }
   $('qTotalNote').textContent = 'Customer sees: total £' + f.total.toFixed(2) +
-    (f.post == null ? ' plus return postage' : f.post > 0 ? ' (includes £' + f.post.toFixed(2) + ' return postage)' : ' (no postage)');
+    (f.post == null ? ' + return postage at cost' : f.post > 0 ? ' (includes £' + f.post.toFixed(2) + ' return postage)' : ' (no postage)');
   $('qTotalNote').style.display = 'block';
 }
 ['qAmount', 'qParts', 'qPost'].forEach(id => $(id).addEventListener('input', showTradeQuote));
@@ -1492,233 +1314,6 @@ $('iAddLine').addEventListener('click', () => {
   drawLines();
 });
 
-// ---------- more than one job on one invoice ----------
-// Every job for the same customer, newest first, with what's already billed.
-async function otherJobs() {
-  const ors = ['id.eq.' + JOBROW.id];
-  if (JOBROW.contact_id) ors.push('contact_id.eq.' + JOBROW.contact_id);
-  if (JOBROW.customer_email) ors.push('customer_email.eq."' + String(JOBROW.customer_email).replace(/"/g, '') + '"');
-  const { data } = await sb.from('job_detail').select('id,job_number,status,make_model,device_type,created_at')
-    .or(ors.join(',')).order('created_at', { ascending: false }).limit(200);
-  const jobs = data || [];
-  if (!jobs.length) return [];
-  const ids = jobs.map(j => j.id);
-  const [{ data: lineRefs }, { data: own }] = await Promise.all([
-    sb.from('invoice_lines').select('job_ref, invoices(invoice_number)').in('job_ref', ids),
-    sb.from('invoices').select('job_id,invoice_number').in('job_id', ids)
-  ]);
-  const billed = {};
-  (lineRefs || []).forEach(r => { if (r.invoices) (billed[r.job_ref] = billed[r.job_ref] || new Set()).add(r.invoices.invoice_number); });
-  (own || []).forEach(r => (billed[r.job_id] = billed[r.job_id] || new Set()).add(r.invoice_number));
-  const onIt = new Set(LINES.map(l => l.job_ref));
-  return jobs.map(j => ({ ...j,
-    invoices: billed[j.id] ? [...billed[j.id]] : [],
-    here: j.id === JOBROW.id, onIt: onIt.has(j.id) }));
-}
-
-$('iAddJob').addEventListener('click', async () => {
-  const box = $('iJobBox');
-  if (box.style.display === 'block') { box.style.display = 'none'; return; }
-  box.style.display = 'block'; hide($('iJobMsg'));
-  $('iJobPick').innerHTML = '<option value="">Loading…</option>';
-  const jobs = await otherJobs();
-  const free = jobs.filter(j => !j.here && !j.onIt && !j.invoices.length).length;
-  $('iJobPick').innerHTML = '<option value="">' + (free ? 'Pick a job…' : 'All this customer\'s jobs are billed or on this invoice') + '</option>' +
-    jobs.map(j => {
-      const note = j.here ? 'this job' : j.onIt ? 'on this invoice' : j.invoices.length ? 'invoiced ' + j.invoices.join(', ') : String(j.status || '').replace(/_/g, ' ');
-      const off = j.here || j.onIt || j.invoices.length;
-      return `<option value="${esc(j.job_number)}"${off ? ' disabled' : ''}>${esc(j.job_number)} · ${esc(j.make_model || j.device_type || 'Item')} · ${esc(note)}</option>`;
-    }).join('');
-  $('iJobNote').textContent = jobs.length + ' job' + (jobs.length === 1 ? '' : 's') + ' for this customer. Ones already invoiced are shown but can\'t be added again.';
-});
-
-$('iJobGo').addEventListener('click', async () => {
-  hide($('iJobMsg'));
-  const num = ($('iJobNum').value.trim() || $('iJobPick').value).toUpperCase();
-  if (!num) return show($('iJobMsg'), 'Pick a job or type its number.', 'err');
-  if (num === JOB) return show($('iJobMsg'), 'That\'s this job.', 'err');
-  const { data: j } = await sb.from('job_detail').select('*').eq('job_number', num).maybeSingle();
-  if (!j) return show($('iJobMsg'), num + ' not found.', 'err');
-  if (LINES.some(l => l.job_ref === j.id)) return show($('iJobMsg'), num + ' is already on this invoice.', 'err');
-  const { data: billed } = await sb.from('invoice_lines').select('invoice_id').eq('job_ref', j.id).limit(1);
-  if (billed && billed.length) return show($('iJobMsg'), num + ' is already on another invoice.', 'err');
-
-  // Label this job's own lines with its number, so the customer can tell them apart.
-  LINES.forEach(l => {
-    if ((!l.job_ref || l.job_ref === JOBROW.id) && l.description && !l.description.startsWith(JOB + ' · ')) l.description = JOB + ' · ' + l.description;
-  });
-
-  const { data: qs } = await sb.from('quotes').select('*').eq('job_id', j.id).eq('status', 'approved').order('sent_at', { ascending: false }).limit(1);
-  const q = qs && qs[0];
-  const item = j.make_model || j.device_type || '';
-  const before = LINES.length;
-  if (q) {
-    splitQuote(LINES, num + ' · ' + [item, q.work_summary].filter(Boolean).join(' — '), q.parts_note,
-      { labour: q.labour != null ? q.labour : q.amount, parts: q.parts, postage: q.postage }, q.id, j.id, num + ' · ');
-  } else {
-    LINES.push({ description: num + ' · ' + ([item, j.fault_description ? 'Fault reported: ' + j.fault_description : ''].filter(Boolean).join(' — ') || 'Repair work'),
-                 amount: 0, quote_id: null, job_ref: j.id });
-  }
-  drawLines();
-  saveInvDraft();
-  $('iJobNum').value = '';
-  $('iJobBox').style.display = 'none';
-  show($('invMsg'), num + ' added — ' + (LINES.length - before) + ' line' + (LINES.length - before === 1 ? '' : 's') +
-    (q ? ' from its approved quote.' : '. It has no approved quote, so fill in the price.'), 'ok');
-});
-
-// ---------- warranty repair: report, no charge ----------
-async function sendWarranty() {
-  const work = $('qWork').value.trim();
-  if (!work) return show($('quoteMsg'), 'Describe what you found and fixed.', 'err');
-  if (!JOBROW.customer_email) return show($('quoteMsg'), 'This job has no customer email address.', 'err');
-  $('quoteBtn').disabled = true; $('quoteBtn').textContent = 'Sending…';
-  const done = () => { $('quoteBtn').disabled = false; setQuoteKind(null); };
-  const { data, error } = await sb.rpc('create_warranty_report', {
-    p_job_number: JOB, p_work_summary: work, p_parts_note: $('qPartsNote').value.trim() || null
-  });
-  if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
-  const row = Array.isArray(data) ? data[0] : data;
-  // Warranty work is done by the time the report goes, so the job is ready.
-  const { error: stErr } = await sb.rpc('set_job_status', { p_job_number: JOB, p_status: 'ready' });
-  if (!stErr) { JOBROW.status = 'ready'; $('status').value = 'ready'; drawHead(); showWs(); }
-  const shots = await uploadQuotePhotos(row.quote_id);
-  const { data: sess } = await sb.auth.getSession();
-  const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote', {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quote_id: row.quote_id })
-  });
-  const out = await res.json().catch(() => ({}));
-  done();
-  const link = 'https://precisionelectronicsrepair.co.uk/quote.html?q=' + row.quote_id + '&k=' + row.quote_token;
-  const hi = JOBROW.customer_name ? ('Hi ' + JOBROW.customer_name.split(' ')[0] + ', ') : '';
-  const msg = hi + 'your ' + (JOBROW.make_model || 'item') + ' (' + JOB + ') has been repaired under warranty — there\'s nothing to pay. ' + work + ' Full report here: ' + link;
-  $('qLink').textContent = link;
-  const num = ukNumber(JOBROW.phone);
-  $('qWa').href = waLink(num, msg); $('qWa').target = WA_TARGET;
-  if (num) { $('qSms').href = 'sms:+' + num + '?&body=' + encodeURIComponent(msg); $('qSms').style.display = ''; }
-  else { $('qSms').style.display = 'none'; }
-  $('qLabel').style.display = 'none';
-  $('qSend').style.display = 'block';
-  $('qWork').value = ''; $('qPartsNote').value = '';
-  if (stErr) show($('msg'), 'Report sent, but the status didn\'t change: ' + stErr.message, 'err');
-  show($('quoteMsg'), out.ok ? 'Warranty report emailed to ' + out.to + '. Status set to Ready.' + (shots.attempted ? ' ' + shots.uploaded + ' photo(s) attached.' : '')
-                             : 'Saved, but the email didn\'t send: ' + (out.error || 'unknown error') + '. Use the WhatsApp or text buttons.', out.ok ? 'ok' : 'err');
-  loadQuotes(JOBROW.id);
-  loadNotes(JOBROW.id);
-  loadComms(JOBROW.id);
-}
-
-// ---------- add parts from stock to the invoice ----------
-let STOCK = [];
-const SMPICK = new Map(); // part id -> qty
-let SM_MODE = 'invoice';  // 'invoice' = lines on the invoice, 'job' = used on the job, not invoiced
-const onInvoice = id => SM_MODE === 'invoice' ? LINES.filter(l => l.stock_part_id === id).reduce((n, l) => n + Number(l.qty || 0), 0) : 0;
-// When editing an invoice, its own parts go back on the shelf when it's saved, so they count as available.
-const avail = p => p.qty + (SM_MODE === 'invoice' && EDIT_INV ? (EDIT_INV.stock[p.id] || 0) : 0);
-function smDraw() {
-  const f = $('smFind').value.trim().toLowerCase();
-  const rows = STOCK.filter(p => !f || [p.part_number, p.description, p.manufacturer].some(v => String(v || '').toLowerCase().includes(f)));
-  $('smList').innerHTML = rows.length ? rows.map(p => {
-    const onInv = onInvoice(p.id);
-    const left = avail(p) - onInv;
-    return `<tr><td><input type="checkbox" data-smc="${p.id}" ${SMPICK.has(p.id) ? 'checked' : ''} ${left > 0 ? '' : 'disabled'} style="width:auto;margin:0"></td>
-      <td><strong>${esc(p.part_number || '—')}</strong><br><span style="font-size:13px;color:var(--muted)">${esc([p.description, p.manufacturer].filter(Boolean).join(' · '))}</span></td>
-      <td>${left}${onInv ? `<br><span style="font-size:12px;color:var(--muted)">${onInv} already on this invoice</span>` : ''}</td>
-      <td>£${Number(p.sell_price || 0).toFixed(2)}</td>
-      <td><input type="number" data-smq="${p.id}" min="1" max="${Math.max(left, 1)}" step="1" value="${SMPICK.get(p.id) || 1}" ${left > 0 ? '' : 'disabled'} style="margin:0"></td></tr>`;
-  }).join('') : `<tr><td colspan="5" class="sub">${STOCK.length ? 'Nothing matches.' : 'Nothing in stock. Add parts on the Parts page.'}</td></tr>`;
-  $('smList').querySelectorAll('[data-smc]').forEach(c => c.addEventListener('change', () => {
-    const q = parseInt($('smList').querySelector(`[data-smq="${c.dataset.smc}"]`).value, 10) || 1;
-    c.checked ? SMPICK.set(c.dataset.smc, q) : SMPICK.delete(c.dataset.smc);
-  }));
-  $('smList').querySelectorAll('[data-smq]').forEach(i => i.addEventListener('input', () => {
-    const c = $('smList').querySelector(`[data-smc="${i.dataset.smq}"]`);
-    if (!c.checked && i.value) { c.checked = true; }
-    SMPICK.set(i.dataset.smq, parseInt(i.value, 10) || 0);
-  }));
-}
-async function openStock(mode) {
-  SM_MODE = mode;
-  $('smTitle').textContent = mode === 'job' ? 'Use parts from stock' : 'Add from stock';
-  $('smAdd').textContent = mode === 'job' ? 'Use on this job' : 'Add to invoice';
-  hide($('smMsg')); SMPICK.clear(); $('smFind').value = '';
-  $('smList').innerHTML = '<tr><td colspan="5" class="sub">Loading…</td></tr>';
-  $('stockModal').style.display = 'flex';
-  const { data, error } = await sb.from('parts_on_hand').select('*').eq('archived', false).gt('qty', 0).order('part_number');
-  if (error) return show($('smMsg'), error.message, 'err');
-  STOCK = data || [];
-  smDraw();
-}
-$('iAddStock').addEventListener('click', () => openStock('invoice'));
-$('jpAdd').addEventListener('click', () => openStock('job'));
-$('smFind').addEventListener('input', smDraw);
-$('smClose').addEventListener('click', () => { $('stockModal').style.display = 'none'; });
-$('stockModal').addEventListener('click', e => { if (e.target.id === 'stockModal') $('stockModal').style.display = 'none'; });
-$('smAdd').addEventListener('click', async () => {
-  hide($('smMsg'));
-  if (!SMPICK.size) return show($('smMsg'), 'Tick at least one part.', 'err');
-  for (const [id, q] of SMPICK) {
-    const p = STOCK.find(x => x.id === id);
-    const onInv = onInvoice(id);
-    if (!Number.isInteger(q) || q < 1) return show($('smMsg'), `Enter a whole-number quantity for ${p.part_number}.`, 'err');
-    if (q + onInv > avail(p)) return show($('smMsg'), `Only ${avail(p) - onInv} of ${p.part_number} left in stock.`, 'err');
-  }
-  if (SM_MODE === 'job') {
-    $('smAdd').disabled = true;
-    let done = 0;
-    for (const [id, q] of SMPICK) {
-      const { error } = await sb.rpc('job_use_part', { p_job: JOBROW.id, p_part: id, p_qty: q });
-      if (error) { $('smAdd').disabled = false; loadJobParts(); return show($('smMsg'), error.message, 'err'); }
-      done++;
-    }
-    $('smAdd').disabled = false;
-    $('stockModal').style.display = 'none';
-    show($('jpMsg'), done + ' part' + (done === 1 ? '' : 's') + ' taken off stock for this job.', 'ok');
-    loadJobParts(); loadNotes(JOBROW.id);
-    return;
-  }
-  // An empty starting line gets replaced rather than left blank.
-  if (LINES.length === 1 && !String(LINES[0].description || '').trim() && !Number(LINES[0].amount)) LINES.length = 0;
-  for (const [id, q] of SMPICK) {
-    const p = STOCK.find(x => x.id === id);
-    const unit = Number(p.sell_price || 0);
-    LINES.push({ description: [p.part_number, p.description].filter(Boolean).join(' — '), kind: 'parts', qty: q, unit,
-                 amount: Math.round(q * unit * 100) / 100, quote_id: null, job_ref: JOBROW.id, stock_part_id: id });
-  }
-  drawLines();
-  saveInvDraft();
-  $('stockModal').style.display = 'none';
-  show($('invMsg'), SMPICK.size + ' part' + (SMPICK.size === 1 ? '' : 's') + ' added from stock. Stock comes off when you raise the invoice.', 'ok');
-});
-
-async function loadJobParts() {
-  if (!JOBROW) return;
-  const { data, error } = await sb.from('part_usage')
-    .select('id,used_at,qty,unit_cost,invoice_id,invoices(invoice_number),parts(part_number,name)')
-    .eq('job_id', JOBROW.id).order('used_at', { ascending: false });
-  if (error) return show($('jpMsg'), error.message, 'err');
-  const rows = data || [];
-  const dt = x => new Date(x).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  $('jpList').innerHTML = rows.length ? rows.map(u => `<tr data-u="${u.id}"><td>${dt(u.used_at)}</td>
-      <td><strong>${esc(u.parts?.part_number || '—')}</strong>${u.parts?.name ? '<br><span style="font-size:13px;color:var(--muted)">' + esc(u.parts.name) + '</span>' : ''}</td>
-      <td>${u.qty}</td><td>£${(Number(u.unit_cost) * u.qty).toFixed(2)}</td>
-      <td>${u.invoice_id ? '<span class="sub">On ' + esc(u.invoices?.invoice_number || 'an invoice') + '</span>'
-        : `<button class="send" type="button" data-ret="${u.id}" style="margin:0">Return to stock</button>`}</td></tr>`).join('')
-    : '<tr><td colspan="5" class="sub">No parts used on this job yet.</td></tr>';
-  const cost = rows.reduce((n, u) => n + Number(u.unit_cost) * u.qty, 0);
-  $('jpTotal').textContent = rows.length ? 'Parts cost on this job: £' + cost.toFixed(2) : '';
-  $('jpList').querySelectorAll('[data-ret]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('Put this part back in stock?')) return;
-    b.disabled = true;
-    const { error: e } = await sb.rpc('job_return_part', { p_usage: b.dataset.ret });
-    if (e) { b.disabled = false; return show($('jpMsg'), e.message, 'err'); }
-    show($('jpMsg'), 'Returned to stock.', 'ok');
-    loadJobParts(); loadNotes(JOBROW.id);
-  }));
-}
-
 let LASTPDF = null;
 let LASTLABEL = null;
 let INVOICES = [];
@@ -1732,9 +1327,7 @@ async function sendReceipt(invoiceId) {
     const { data: lineRows } = await sb.from('invoice_lines')
       .select('description,amount').eq('invoice_id', invoiceId).order('position');
 
-    const { data: stickers } = await sb.rpc('invoice_stickers', { p_invoice: invoiceId });
     const doc = buildReceiptPdf({
-      stickers: stickers || [],
       invoice_number: rows.invoice_number,
       receipt_number: rows.receipt_number,
       lines: lineRows || [],
@@ -1744,7 +1337,7 @@ async function sendReceipt(invoiceId) {
       paid_method: rows.paid_method,
       description: rows.description,
       amount: rows.amount,
-      customer_name: JOBROW.customer_name, company: JOBROW.company,
+      customer_name: JOBROW.customer_name,
       customer_address: JOBROW.address,
       item: JOBROW.make_model || JOBROW.device_type
     });
@@ -1788,7 +1381,6 @@ async function loadInvoices(jobId) {
         : `<div class="sendrow">
              <button class="send" data-email="${v.id}" style="border-color:var(--navy)">Email invoice to customer</button>
              <button class="send" data-pdf="${v.id}">Download PDF</button>
-             <button class="send" data-edit="${v.id}">Edit</button>
              ${delBtn('invoices', v.id, 'invoice')}
            </div>
            <div class="sendrow">
@@ -1802,7 +1394,6 @@ async function loadInvoices(jobId) {
   drawMoney();
   wireDeletes($('invList'), () => { loadInvoices(JOBROW.id); loadNotes(JOBROW.id); });
 
-  $('invList').querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => startEditing(btn.dataset.edit)));
   $('invList').querySelectorAll('[data-paid]').forEach(btn => {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
@@ -1833,7 +1424,7 @@ async function loadInvoices(jobId) {
     btn.disabled = true; btn.textContent = 'Sending…';
     const out = await emailInvoice(v.id, await invoicePdf(v));
     btn.disabled = false; btn.textContent = 'Email invoice to customer';
-    show($('invMsg'), out.ok ? v.invoice_number + ' emailed to ' + out.to + ' with the PDF' + (out.attached && out.attached.length ? ' and ' + out.attached.join(', ') : '') + ' attached.'
+    show($('invMsg'), out.ok ? v.invoice_number + ' emailed to ' + out.to + ' with the PDF attached.'
       : v.invoice_number + ' did not send (' + (out.error || 'unknown error') + ').', out.ok ? 'ok' : 'err');
     loadNotes(JOBROW.id); loadComms(JOBROW.id);
   }));
@@ -1856,59 +1447,11 @@ async function loadInvoices(jobId) {
   });
 }
 
-// ---------- editing an unpaid invoice ----------
-function setInvButtons() {
-  $('invBtn').textContent = EDIT_INV ? 'Save changes & email PDF' : 'Raise invoice & email PDF';
-  $('invSave').textContent = EDIT_INV ? 'Save changes, send later' : 'Save invoice, send later';
-  $('editBanner').style.display = EDIT_INV ? 'block' : 'none';
-  if (EDIT_INV) {
-    $('editBanner').innerHTML = `<strong>Editing ${esc(EDIT_INV.number)}.</strong> Same invoice number and link. <a href="#" id="editCancel">Cancel editing</a>`;
-    $('editCancel').addEventListener('click', e => { e.preventDefault(); stopEditing(); });
-  }
-}
-function stopEditing() {
-  EDIT_INV = null; LINES = [];
-  $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
-  setInvButtons();
-  fillInvoiceDescription();
-}
-async function startEditing(id) {
-  hide($('invMsg'));
-  const v = INVOICES.find(x => x.id === id);
-  if (!v || v.status === 'paid') return show($('invMsg'), 'Only unpaid invoices can be edited.', 'err');
-  const { data: lines, error } = await sb.from('invoice_lines').select('*').eq('invoice_id', id).order('position');
-  if (error) return show($('invMsg'), error.message, 'err');
-  const stock = {};
-  (lines || []).forEach(l => { if (l.stock_part_id) stock[l.stock_part_id] = (stock[l.stock_part_id] || 0) + (l.stock_qty || 0); });
-  EDIT_INV = { id: v.id, number: v.invoice_number, issued_at: v.issued_at, job_id: v.job_id, stock };
-  $('iDisc').value = ''; $('iDiscWhy').value = ''; $('iDiscType').value = 'gbp';
-  LINES = [];
-  let disc = 0, discWhy = '';
-  for (const l of lines || []) {
-    const amt = Number(l.amount) || 0;
-    if (amt < 0) { disc += -amt; discWhy = discWhy || l.description; continue; }
-    let desc = l.description || '', qty = 1, unit = amt;
-    // "Something (2 × £15.00)" goes back to a quantity and a unit price
-    const m = desc.match(/^(.*) \((\d+(?:\.\d+)?) × £(\d+(?:\.\d+)?)\)$/);
-    if (m) { desc = m[1]; qty = Number(m[2]); unit = Number(m[3]); }
-    if (l.stock_part_id && l.stock_qty) { qty = l.stock_qty; unit = Math.round(amt / qty * 100) / 100; }
-    LINES.push({ description: desc, kind: l.kind || 'labour', qty, unit, amount: amt, quote_id: l.quote_id, job_ref: l.job_ref,
-                 item_id: l.item_id || undefined, ...(l.stock_part_id ? { stock_part_id: l.stock_part_id } : {}) });
-  }
-  if (disc > 0) { $('iDisc').value = disc.toFixed(2); $('iDiscWhy').value = discWhy.replace(/ \(\d+(\.\d+)?%\)$/, ''); }
-  $('iDesc').value = v.description === 'Repair work — see the itemised list.' ? '' : (v.description || '');
-  $('iDescNote').textContent = 'Change anything, then save. Parts from stock go back on the shelf and come off again for the new lines.';
-  drawLines();
-  setInvButtons();
-  $('invSec').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 $('invBtn').addEventListener('click', () => raiseInvoice(true));
 $('invSave').addEventListener('click', () => raiseInvoice(false));
 
 async function raiseInvoice(sendNow) {
   hide($('invMsg'));
-  if (sendNow) { const att = invAttachments(); if (att.error) return show($('invMsg'), att.error, 'err'); }
 
   const lines = LINES
     .map(({ usage, qty, unit, ...l }) => {
@@ -1917,15 +1460,13 @@ async function raiseInvoice(sendNow) {
       // the quantity goes into the wording, e.g. "Additional hour (2 × £50.00)"
       if (q !== 1 && d && !/\(\d+(\.\d+)? × £/.test(d)) d += ` (${q} × £${(Number(unit) || 0).toFixed(2)})`;
       let amt = Number(l.amount) || 0;
-      return { ...l, description: d, amount: amt, ...(l.stock_part_id ? { stock_qty: q } : {}) };
+      return { ...l, description: d, amount: amt };
     })
     .filter(l => l.description || l.amount);
 
   if (!lines.length) return show($('invMsg'), 'Add at least one line.', 'err');
   const blank = lines.findIndex(l => !l.description);
   if (blank !== -1) return show($('invMsg'), 'Line ' + (blank + 1) + ' has no description.', 'err');
-  const badStock = lines.findIndex(l => l.stock_part_id && !(Number.isInteger(l.stock_qty) && l.stock_qty > 0));
-  if (badStock !== -1) return show($('invMsg'), 'Line ' + (badStock + 1) + ' is a part from stock, so its quantity must be a whole number.', 'err');
   const free = lines.findIndex(l => l.amount <= 0);
   if (free !== -1) return show($('invMsg'), 'Line ' + (free + 1) + ' has no price.', 'err');
 
@@ -1937,11 +1478,9 @@ async function raiseInvoice(sendNow) {
 
   $('invBtn').disabled = true; $('invSave').disabled = true; $('invBtn').textContent = 'Working…';
 
-  const saveCall = ls => EDIT_INV
-    ? sb.rpc('update_invoice', { p_invoice: EDIT_INV.id, p_description: desc || null, p_lines: ls })
-    : sb.rpc('create_invoice', { p_job_number: JOB, p_amount: ls.reduce((s, l) => s + l.amount, 0), p_description: desc || null, p_lines: ls });
-  const editing = EDIT_INV;
-  let { data, error } = await saveCall(lines);
+  let { data, error } = await sb.rpc('create_invoice', {
+    p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: lines
+  });
   // If the database won't take a minus line, take the discount off each line in proportion instead.
   if (error && disc > 0) {
     const rest = lines.filter(l => l.amount > 0);
@@ -1954,10 +1493,10 @@ async function raiseInvoice(sendNow) {
       l.amount = Math.round((l.amount - off) * 100) / 100;
     });
     amount = rest.reduce((s, l) => s + l.amount, 0);
-    ({ data, error } = await saveCall(rest));
+    ({ data, error } = await sb.rpc('create_invoice', { p_job_number: JOB, p_amount: amount, p_description: desc || null, p_lines: rest }));
   }
   if (error) {
-    $('invBtn').disabled = false; $('invSave').disabled = false; setInvButtons();
+    $('invBtn').disabled = false; $('invSave').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
     return show($('invMsg'), error.message, 'err');
   }
   const row = Array.isArray(data) ? data[0] : data;
@@ -1973,9 +1512,9 @@ async function raiseInvoice(sendNow) {
     amount: finalAmount,
     description: desc,
     lines: billedLines && billedLines.length ? billedLines : lines,
-    issued_at: editing ? editing.issued_at : new Date().toISOString(),
+    issued_at: new Date().toISOString(),
     status: 'unpaid',
-    customer_name: JOBROW.customer_name, company: JOBROW.company,
+    customer_name: JOBROW.customer_name,
     customer_address: JOBROW.address,
     item: JOBROW.make_model || JOBROW.device_type
   };
@@ -1995,40 +1534,29 @@ async function raiseInvoice(sendNow) {
   else { $('iSms').style.display = 'none'; }
   $('iSend').style.display = 'block';
 
-  if (editing) show($('invMsg'), row.invoice_no + ' updated' + (out.saved ? '. Not sent — email it from the list below when you\'re ready.' : out.ok ? ' and emailed to ' + out.to + '.' : ', but the email failed (' + (out.error || 'unknown error') + ').'), out.saved || out.ok ? 'ok' : 'err');
-  else if (out.saved) show($('invMsg'), row.invoice_no + ' saved, not sent. Email it from the list below when you\'re ready, or use the buttons here.', 'ok');
-  else if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF' + (out.attached && out.attached.length ? ' and ' + out.attached.join(', ') : '') + ' attached.', 'ok');
+  if (out.saved) show($('invMsg'), row.invoice_no + ' saved, not sent. Email it from the list below when you\'re ready, or use the buttons here.', 'ok');
+  else if (out.ok) show($('invMsg'), row.invoice_no + ' emailed to ' + out.to + ' with the PDF attached.', 'ok');
   else show($('invMsg'), row.invoice_no + ' created, but the email failed (' + (out.error || 'unknown error') + '). Send the link below instead.', 'err');
 
   $('iDesc').value = ''; $('iDisc').value = ''; $('iDiscWhy').value = '';
   LINES = [];
-  if (editing) {
-    EDIT_INV = null;
-  } else {
-    clearInvDraft();
-    $('status').value = 'invoiced';
-    JOBROW.status = 'invoiced'; drawHead();
-    showWs();
-    askStickers([JOBROW.id, ...lines.map(l => l.job_ref)]);
-  }
+  $('status').value = 'invoiced';
+  JOBROW.status = 'invoiced'; drawHead();
+  showWs();
+  askStickers([JOBROW.id, ...lines.map(l => l.job_ref)]);
   loadInvoices(JOBROW.id); loadNotes(JOBROW.id); loadComms(JOBROW.id); loadQuotes(JOBROW.id);
-  if (typeof loadJobParts === 'function') loadJobParts();
-  $('invBtn').disabled = false; $('invSave').disabled = false; setInvButtons();
+  $('invBtn').disabled = false; $('invSave').disabled = false; $('invBtn').textContent = 'Raise invoice & email PDF';
 }
 
 async function emailInvoice(invoiceId, doc) {
-  const att = invAttachments();
-  if (att.error) return { ok: false, error: att.error };
   const base64 = doc.output('datauristring').split(',')[1];
   const { data: sess } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/send-invoice', {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + sess.session.access_token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invoice_id: invoiceId, pdf_base64: base64, file_ids: att.ids })
+    body: JSON.stringify({ invoice_id: invoiceId, pdf_base64: base64 })
   });
-  const out = await res.json().catch(() => ({}));
-  if (out.ok) { out.attached = att.names; ATT.clear(); drawInvAtt(); }
-  return out;
+  return res.json().catch(() => ({}));
 }
 
 // Rebuild an invoice's PDF from what was saved.
@@ -2037,7 +1565,7 @@ async function invoicePdf(v) {
   return buildInvoicePdf({
     invoice_number: v.invoice_number, job_number: JOB, amount: Number(v.amount), description: v.description || '',
     lines: ls || [], issued_at: v.issued_at, status: v.status,
-    customer_name: JOBROW.customer_name, company: JOBROW.company, customer_address: JOBROW.address, item: JOBROW.make_model || JOBROW.device_type
+    customer_name: JOBROW.customer_name, customer_address: JOBROW.address, item: JOBROW.make_model || JOBROW.device_type
   });
 }
 
@@ -2238,13 +1766,11 @@ async function uploadQuotePhotos(quoteId) {
 
 $('quoteBtn').addEventListener('click', async () => {
   hide($('quoteMsg'));
-  if ($('qKind').value === 'warranty') return sendWarranty();
   const F = quoteFigures();
   const amount = F.total;
-  const isEst = $('qKind').value === 'estimate';
-  const work = isEst ? '' : $('qWork').value.trim();
-  if (F.labour + F.parts <= 0) return show($('quoteMsg'), 'Enter the price.', 'err');
-  if (!work && !isEst) return show($('quoteMsg'), 'Describe the work.', 'err');
+  const work = $('qWork').value.trim();
+  if (F.labour + F.parts <= 0) return show($('quoteMsg'), 'Enter the labour or parts price.', 'err');
+  if (!work) return show($('quoteMsg'), 'Describe the work.', 'err');
   if (!JOBROW.customer_email) return show($('quoteMsg'), 'This job has no customer email address.', 'err');
 
   const wanted = $('qKind').value;
@@ -2254,7 +1780,7 @@ $('quoteBtn').addEventListener('click', async () => {
 
   const { data, error } = await sb.rpc('create_quote', {
     p_job_number: JOB, p_amount: F.labour, p_work_summary: work,
-    p_parts_note: isEst ? null : ($('qPartsNote').value.trim() || null),
+    p_parts_note: $('qPartsNote').value.trim() || null,
     p_kind: wanted, p_parts: F.parts, p_postage: F.post
   });
   if (error) { done(); return show($('quoteMsg'), error.message, 'err'); }
